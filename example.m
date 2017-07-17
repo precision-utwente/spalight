@@ -1,3 +1,7 @@
+addpath ../sp15ex/
+addpath ../spaplus
+addpath ../spaprivate
+
 % EXAMPLE SCRIPT TO RUN SPACAR_LIGHT
 clear
 clc
@@ -62,7 +66,7 @@ Node_props(1).fix_all           = true;             %Fix node 1
 %node 3
 Node_props(3).force_initial     = [0 -0.3 0];        %Initial moment around z-axis on node 3 
 Node_props(3).force             = [0 0.6 0];         %Initial moment around z-axis on node 3
-Node_props(3).mass              = 10;               %Mass of node 3: 10kg
+Node_props(3).mass              = 1;               %Mass of node 3: 10kg
 Node_props(3).inertia           = [1 0 0 1 0 1];    %Inertia of node 3: Ixx = 1kgm^2, Iyy = 1kgm^2, Izz = 1kgm^2
 %node 4
 Node_props(4).fix_all           = true;             %Fix node 4
@@ -73,19 +77,18 @@ Node_props(4).fix_all           = true;             %Fix node 4
 %Structure with index i corresponding to the element number and the optional arguments:
 %
 %ELEM_PROPS(i).El_Nrs*              vector (list) containing the element numbers to which the properties of ELEM_PROPS(i) apply
-%ELEM_PROPS(i).E**                  E-modulus in Pa
-%ELEM_PROPS(i).G**                  G-modulus in Pa
-%ELEM_PROPS(i).rho**                density in kg/m^3
-%ELEM_PROPS(i).type**               a string providing the type of element. Supported options are 'leafspring','wire' or 'rigid'
-%ELEM_PROPS(i).dim**                dimensions of the cross-section matching the element type in meters. For leafspring or rigid body a vector with length 2, [width thickness], for wire a single value [Diameter]
-%ELEM_PROPS(i).orien                vector with length 3 containing the orientation of the  "width direction" of the  leafspring. Can be ommited for type 'wire' or 'rigid', [Ox, Oy, Oz]
-%ELEM_PROPS(i).n_beams              number of beam-elements used in the simulation. If ommited, the defaults value 1 is used. 
-%ELEM_PROPS(i).flex                 vector containng the deformation modes to be considered flexible. 1: elongation, 2: torsion, 3 & 4: out-of-plane bending, 5 & 6, inplane bending, [2 3 4]
+%ELEM_PROPS(i).E*                  E-modulus in Pa
+%ELEM_PROPS(i).G*                  G-modulus in Pa
+%ELEM_PROPS(i).rho*                density in kg/m^3
+%ELEM_PROPS(i).type*               a string providing the type of element. Supported options are 'leafspring','wire' or 'rigid'
+%ELEM_PROPS(i).dim*                dimensions of the cross-section matching the element type in meters. For leafspring or rigid body a vector with length 2, [width thickness], for wire a single value [Diameter]
+%ELEM_PROPS(i).orien                vector with length 3 containing the orientation of the  "width direction" of the  leafspring. Can be omited for type 'wire' or 'rigid', [Ox, Oy, Oz]
+%ELEM_PROPS(i).n_beams              number of beam-elements used in the simulation. If omited, the defaults value 1 is used. 
+%ELEM_PROPS(i).flex                 vector containing the deformation modes to be considered flexible. 1: elongation, 2: torsion, 3 & 4: out-of-plane bending, 5 & 6, inplane bending, [2 3 4]
 %ELEM_PROPS(i).color                vector with length 3 containing the rgb values for the color of theelement, [1 0 0]
 %ELEM_PROPS(i).hide                 value true (1) to hide this element in the visualization (it is included in the simulation)
 %
-%   *required input
-%   **required input if the element is flexible (some deformation modes are flexibel)
+%   *required input if the element is flexible (some deformation modes are flexible)
 %
 %
 %example:

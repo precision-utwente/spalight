@@ -1,4 +1,4 @@
-function [Results] = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse, Optional)
+function [Results] = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse, varargin)
 % SPACAR_LIGHT(Nodes, Elements, Node_props, Elem_props, Rlse, Optional)
 % runs spacar simulation with reduced set of input arguments. See
 % www.spacar.nl for more information.
@@ -20,9 +20,12 @@ function [Results] = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse,
 % multiplying torsional stiffness with the constraint warping value
 
 
+%% DO NOT ALLOW RUNNING THIS FUNCTION AS A SCRIPT
+if nargin == 0; error('Call spacarlight function from a script instead'); end
+
 %% INITIALIZE VARIABLES
 %#ok<*AGROW>
-warning('off','all');               %suppress spacar warnings
+% warning('off','all');               %suppress spacar warnings
 Results     = [];
 id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
 id_inputf   = false;                %identifier to check for external load
@@ -31,26 +34,30 @@ e_count     = 1;                    %counter for element numbering
 X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
 
-
 %% CHECK INPUT
 %TO BE DONE
 %Check input voor transfer functies, en input momenten. Kan worden
 %afgemaakt als de omschrijving voor momenten geimplementeerd is.
 
+%CHECK FOR OPTIONAL INPUT
+if nargin > 6 || nargin < 5; error('Expecting either 5 or 6 input arguments'); end
+if nargin == 6; Optional = varargin{1}; end
+if nargin == 5; Optional = struct(); end
+
 %CHECK FOR SIMPLE SIMULATION MODE
 if (isfield(Optional,'simple_mode') && Optional.simple_mode==1); simple_mode = 1; else simple_mode = 0; end
 
 %CHECK FILENAME
-if      (isfield(Optional,'filename') && length(Optional.filename)>19);     fprinf('filename to long, maximum of 20 characters. Filename spacar_file is used instead.');
+if      (isfield(Optional,'filename') && length(Optional.filename)>19);     fprinf('filename too long, maximum of 20 characters. Filename spacar_file is used instead.');
 elseif  (isfield(Optional,'filename') && ~ischar(Optional.filename));       fprinf('filename is not a string. Filename spacar_file is used instead.');
 elseif  (isfield(Optional,'filename') && isempty(Optional.filename));       fprinf('filename is empty. Filename spacar_file is used instead.');
-else     isfield(Optional,'filename');                                      filename = Optional.filename; end
+elseif   isfield(Optional,'filename');                                      filename = Optional.filename; end
 if      ~exist('filename','var');                                           filename = 'spacar_file'; end
 
 if ~simple_mode %skip checks for simple mode
     %CHECK EXISTENSE OF REQUIRED FUNCTIONS
-    if ~exist('spavisual','file')   ==2;   error('spavisual.m not in your path');                               end
-    if ~exist('stressbeam','file')  ==2;   error('stressbeam.m not in your path (part of spavisual install)');  end
+    if ~exist('spavisual','file')   ==2;   error('spavisual not in your path');                               end
+    if ~exist('stressbeam','file')  ==2;   error('stressbeam not in your path (part of spavisual install)');  end
     if ~exist('spacar','file')      ==3;   error('spacar not in your path');                                    end
     
     %CHECK NODES INPUT VARIABLE
@@ -80,23 +87,42 @@ if ~simple_mode %skip checks for simple mode
     end
     
     %CHECK ELEM_PROPS INPUT VARIABLE
-    validateattributes(Elem_props,{'struct'},{'nonempty'},'','Elem_props')
+    el_nr_doubles_check = []; %filling this with user defined element numbers (with .El_Nrs) to check for doubles and missing elements
     for i=1:size(Elem_props,2)
         
         %mandatory fields (%EL_Nrs)
         if ~(isfield(Elem_props(i),'El_Nrs') && ~isempty(Elem_props(i).El_Nrs)); error('Property El_Nrs is not defined in Elem_props(%u)',i);   end
         validateattributes(Elem_props(i).El_Nrs,{'double'},{'vector'},'',sprintf('El_Nrs property in Elem_props(%u)',i));
+        validateattributes(Elem_props(i).El_Nrs,{'double'},{'positive'},'',sprintf('El_Nrs property in Elem_props(%u)',i));
+        
+        %check if El_Nrs for set i are unique
+        if length(unique(Elem_props(i).El_Nrs)) < length(Elem_props(i).El_Nrs)
+            error('Property El_Nrs of Elem_props(%i) contains non-unique element numbers',i)
+        end
+        
+        %check if El_Nrs only contains defined elements
+        undef_el_index = ~ismember(Elem_props(i).El_Nrs,1:size(Elements,1));
+        if any(undef_el_index)
+            error('Elem_props(%i).El_Nrs contains undefined element number(s).',i)
+        end
+        
+        %check if elements in El_Nrs are  notalready defined previously
+        double_el_index = ismember(Elem_props(i).El_Nrs,el_nr_doubles_check);
+        if any(double_el_index)
+            error('Elem_props(%i).El_Nrs contains element(s) whose properties have already been defined',i)
+        end
+        el_nr_doubles_check = [el_nr_doubles_check; Elem_props(i).El_Nrs(:)];
         
         %mandatory fields when properties are flexible
         if (isfield(Elem_props(i),'flex') && ~isempty(Elem_props(i).flex))
+            validateattributes(getfield(Elem_props(i),'flex'),{'double'},{'vector','positive'},'',sprintf('flex property in Elem_props(%u)',i));  
             
             %Check if field exist in structure
-            if ~(isfield(Elem_props(i),'flex') && ~isempty(Elem_props(i).flex));    error('Property flex is not defined in Elem_props(%u)',i);  end
             if ~(isfield(Elem_props(i),'E') && ~isempty(Elem_props(i).E));          error('Property E is not defined in Elem_props(%u)',i);     end
             if ~(isfield(Elem_props(i),'G') && ~isempty(Elem_props(i).G));          error('Property G is not defined in Elem_props(%u)',i);     end
-            if ~(isfield(Elem_props(i),'rho') && ~isempty(Elem_props(i).rho));      error('Property rho is not defined in Elem_props(%u)',i);   end
-            if ~(isfield(Elem_props(i),'type') && ~isempty(Elem_props(i).type));    error('Property type is not defined in Elem_props(%u)',i);  end
-            if ~(isfield(Elem_props(i),'dim') && ~isempty(Elem_props(i).dim));      error('Property dim is not defined in Elem_props(%u)',i);   end
+            if ~(isfield(Elem_props(i),'rho') && ~isempty(Elem_props(i).rho));          error('Property rho is not defined in Elem_props(%u)',i);     end
+            if ~(isfield(Elem_props(i),'type') && ~isempty(Elem_props(i).G));          error('Property type is not defined in Elem_props(%u)',i);     end
+            if ~(isfield(Elem_props(i),'dim') && ~isempty(Elem_props(i).dim));          error('Property dim is not defined in Elem_props(%u)',i);     end
             
             %Check if values are valid
             validateattributes(Elem_props(i).flex,{'double'},{'vector'},'',  sprintf('flex property in Elem_props(%u)',i));
@@ -107,22 +133,49 @@ if ~simple_mode %skip checks for simple mode
             validateattributes(Elem_props(i).G,{'double'},{'scalar'},'',                    sprintf('G property in Elem_props(%u)',i));
             validateattributes(Elem_props(i).rho,{'double'},{'scalar'},'',                  sprintf('rho property in Elem_props(%u)',i));
             validateattributes(Elem_props(i).type,{'char'},{'nonempty'},'',                 sprintf('type property in Elem_props(%u)',i));
-            validateattributes(Elem_props(i).dim,{'double'},{'vector'},'',   sprintf('dim property in Elem_props(%u)',i));
+            if ~any(strcmp(Elem_props(i).type,{'wire','leafspring','rigid'}))               error('Element type should be either leafspring, wire or rigid'); end
+            validateattributes(Elem_props(i).dim,{'double'},{'vector'},'',                  sprintf('dim property in Elem_props(%u)',i));
+        else
+            Elem_props(i).flex = [];
         end
         
-        %Check optional fields
-        Elem_fields = fields(Elem_props(i));
-        for j=1:length(Elem_fields)
-            switch Elem_fields{j}
-                case 'orien'
-                    if ~isempty(getfield(Elem_props(i),Elem_fields{j}));     validateattributes(getfield(Elem_props(i),Elem_fields{j}),{'double'},{'vector','numel',3},'',             sprintf('orien property in Elem_props(%u)',i));      end
-                case 'n_beams'
-                    if ~isempty(getfield(Elem_props(i),Elem_fields{j}));     validateattributes(getfield(Elem_props(i),Elem_fields{j}),{'double'},{'scalar'},'',                       sprintf('n_beams property in Elem_props(%u)',i));    end
-                case 'color'
-                    if ~isempty(getfield(Elem_props(i),Elem_fields{j}));     validateattributes(getfield(Elem_props(i),Elem_fields{j}),{'double'},{'vector','numel',3},'',             sprintf('color property in Elem_props(%u)',i));      end
-                case 'hide'
-                    if ~isempty(getfield(Elem_props(i),Elem_fields{j}));     validateattributes(getfield(Elem_props(i),Elem_fields{j}),{'logical'},{'scalar'},'',                      sprintf('hide property in Elem_props(%u)',i));      end
-            end
+        %Check optional fields - check if specified by user, else defaults
+        if (isfield(Elem_props(i),'orien') && ~isempty(Elem_props(i).orien))
+            validateattributes(getfield(Elem_props(i),'orien'),{'double'},{'vector','numel',3},'',             sprintf('orien property in Elem_props(%u)',i));      
+        else
+            Elem_props(i).orien = [0 1 0];
+        end
+
+        if (isfield(Elem_props(i),'n_beams') && ~isempty(Elem_props(i).n_beams))
+            validateattributes(getfield(Elem_props(i),'n_beams'),{'double'},{'scalar','>=',1},'',                       sprintf('n_beams property in Elem_props(%u)',i));    
+        else
+            Elem_props(i).n_beams = 1;
+        end
+    
+        if (isfield(Elem_props(i),'color') && ~isempty(Elem_props(i).color))
+            validateattributes(getfield(Elem_props(i),'color'),{'double'},{'vector','numel',3},'',             sprintf('color property in Elem_props(%u)',i));
+        else
+%             Elem_props(i).color = [];
+        end
+        
+        if (isfield(Elem_props(i),'hide') && ~isempty(Elem_props(i).hide))
+            validateattributes(getfield(Elem_props(i),'hide'),{'logical'},{'scalar'},'',                      sprintf('hide property in Elem_props(%u)',i));
+        else
+%             Elem_props(i).hide = [];
+        end
+        
+    end
+    
+    %warn user if elements are defined without adding properties to them
+    el_without_prop_index = ~ismember(1:size(Elements,1),el_nr_doubles_check);
+    if any(el_without_prop_index)
+        el_without_prop = find(el_without_prop_index);
+        if length(el_without_prop) == 1
+            el_without_prop_str = num2str(el_without_prop);
+            warning('Element %s has no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
+        else
+            el_without_prop_str = [num2str(el_without_prop(1)) sprintf(', %i',el_without_prop(2:end))];
+            warning('Elements %s have no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
         end
     end
     
@@ -150,8 +203,6 @@ if ~simple_mode %skip checks for simple mode
     end
 end
 
-
-
 %% START CREATING DATFILE
 fileID = fopen([filename '.dat'],'w');
 
@@ -161,7 +212,6 @@ fprintf(fileID,'#NODES\n');
 for i=1:size(Nodes,1)
     fprintf(fileID,'X       %3u  %6f  %6f  %6f      #node %u\n',(i-1)*2+1,Nodes(i,1),Nodes(i,2),Nodes(i,3),i);
 end
-
 
 %% ELEMENTS
 fprintf(fileID,'\n\n#ELEMENTS\n');
@@ -174,8 +224,7 @@ for i=1:size(Elements,1)
         if sum(Elem_props(j).El_Nrs==i)>0 %element i is in property set j
             
             %element information
-            N           = Elem_props(j).n_beams;    %number of beams
-            if isempty(N); N=1; end                 %if number of beams not given, N = 1
+            N  = Elem_props(j).n_beams;             %number of beams per userdefined element
             Orien       = Elem_props(j).orien;      %orientation local y-vector
             Flex        = Elem_props(j).flex;       %flexibility of this element
             N_p         = Elements(i,1);            %p-node nodenumber
@@ -314,10 +363,10 @@ fprintf(fileID,'\n\nEND\nHALT\n\n');
 %% STIFFNESS/INERTIA PROPS
 for i=1:size(Elem_props,2) %loop over each element property set
     
-    %only write stiffness values when deformations are flexible
+    %only write stiffness and mass values when deformations are flexible
     if (isfield(Elem_props(i),'flex') && ~isempty(Elem_props(i).flex))
         stiffness = calc_stiffness(Elem_props(i)); %calculate stiffness values
-        
+        inertia = calc_inertia(Elem_props(i));     %calculate mass properties
         for j=1:length(Elem_props(i).El_Nrs)                        %loop over all elemenents in element property set
             L   = norm(Nodes(Elements(Elem_props(i).El_Nrs(j),2),:)...
                 - Nodes(Elements(Elem_props(i).El_Nrs(j),1),:));    %calculate flexure length for constrained warping values
@@ -328,19 +377,15 @@ for i=1:size(Elem_props,2) %loop over each element property set
                     fprintf(fileID,'ESTIFF      %u %f %f %f %f %f %f \n',El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                 end
             end
-        end
-    end
-    
-    %write mass/inertia values
-    inertia = calc_inertia(Elem_props(i));          %calculate mass properties
-    for j=1:length(Elem_props(i).El_Nrs)            %loop over all element property sets
-        for k=1:size(E_list,2)
-            El = E_list(Elem_props(i).El_Nrs(j),k); %loop over all beams in element set
-            if El>0
-                fprintf(fileID,'EM      %u %f %f %f %f %f \n',El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
+            for k=1:size(E_list,2) %write mass/inertia values
+                El = E_list(Elem_props(i).El_Nrs(j),k); %loop over all beams in element set
+                if El>0
+                    fprintf(fileID,'EM      %u %f %f %f %f %f \n',El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
+                end
             end
         end
     end
+   
 end
 
 
@@ -356,10 +401,10 @@ for i=1:size(Node_props,2) %loop over all user defined nodes
     
     %TO BE DONE
     %if(isfield(Node_props(i),'moment') && ~isempty(Node_props(i).moment));
-    %   moments = e2q(Node_props(i).moment);
+    %   moments = eul2quat(Node_props(i).moment);
     %                                                                                        fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3),moments(4));                                                id_add = true;  id_inputf=true; end
     %if(isfield(Node_props(i),'moment_initial') && ~isempty(Node_props(i).moment_initial));
-    %   moments = e2q(Node_props(i).moment_initial) ;
+    %   moments = eul2quat(Node_props(i).moment_initial) ;
     %                                                                                        fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3),moments(4));                                                id_ini = true;  id_inputf=true; end
     
     %displacements
@@ -371,17 +416,17 @@ for i=1:size(Node_props,2) %loop over all user defined nodes
     if(isfield(Node_props(i),'disp_initial_z') && ~isempty(Node_props(i).disp_initial_z));  fprintf(fileID,'INPUTX   %3u  3  %6f  \n',(i-1)*2+1,Nodes(i,3) +Node_props(i).disp_initial_z(1));   id_ini = true; end
     
     %rotations
-    if(isfield(Node_props(i),'disp_rx') && ~isempty(Node_props(i).disp_rx));                rot = e2q([Node_props(i).disp_rx(1) 0 0]);
+    if(isfield(Node_props(i),'disp_rx') && ~isempty(Node_props(i).disp_rx));                rot = eul2quat([Node_props(i).disp_rx(1) 0 0]);
         fprintf(fileID,'DELINPX     %3u     4   %6f  \n',(i-1)*2+2,rot(4)); id_add = true; end
-    if(isfield(Node_props(i),'disp_ry') && ~isempty(Node_props(i).disp_ry));                rot = e2q([0 Node_props(i).disp_ry(1) 0]);
+    if(isfield(Node_props(i),'disp_ry') && ~isempty(Node_props(i).disp_ry));                rot = eul2quat([0 Node_props(i).disp_ry(1) 0]);
         fprintf(fileID,'DELINPX     %3u     3   %6f  \n',(i-1)*2+2,rot(3)); id_add = true; end
-    if(isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz));                rot = e2q([0 0 Node_props(i).disp_rz(1)]);
+    if(isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz));                rot = eul2quat([0 0 Node_props(i).disp_rz(1)]);
         fprintf(fileID,'DELINPX     %3u     2   %6f  \n',(i-1)*2+2,rot(2)); id_add = true; end
-    if(isfield(Node_props(i),'disp_initial_rx') && ~isempty(Node_props(i).disp_initial_rx));rot = e2q([Node_props(i).disp_initial_rx(1) 0 0]);
+    if(isfield(Node_props(i),'disp_initial_rx') && ~isempty(Node_props(i).disp_initial_rx));rot = eul2quat([Node_props(i).disp_initial_rx(1) 0 0]);
         fprintf(fileID,'INPUTX     %3u     4   %6f  \n',(i-1)*2+2,rot(4));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_ry') && ~isempty(Node_props(i).disp_initial_ry));rot = e2q([0 Node_props(i).disp_initial_ry(1) 0]);
+    if(isfield(Node_props(i),'disp_initial_ry') && ~isempty(Node_props(i).disp_initial_ry));rot = eul2quat([0 Node_props(i).disp_initial_ry(1) 0]);
         fprintf(fileID,'INPUTX     %3u     3   %6f  \n',(i-1)*2+2,rot(3));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz));rot = e2q([0 0 Node_props(i).disp_initial_rz(1)]);
+    if(isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz));rot = eul2quat([0 0 Node_props(i).disp_initial_rz(1)]);
         fprintf(fileID,'INPUTX     %3u     2   %6f  \n',(i-1)*2+2,rot(2));  id_ini = true; end
     
     %nodal masses/inertia
@@ -463,13 +508,19 @@ for i=1:size(Elem_props,2) %loop over all element property sets
             end
         end
     end
-    switch Elem_props(i).type
-        case {'leafspring','rigid'} %if leafspring or rigid, rect crossection
-            fprintf(fileID,'\nCROSSTYPE  RECT');
-            fprintf(fileID,'\nCROSSDIM  %f  %f',Elem_props(i).dim(1),Elem_props(i).dim(2));
-        case 'wire'                 %if wire, circular crossection
-            fprintf(fileID,'\nCROSSTYPE  CIRC');
-            fprintf(fileID,'\nCROSSDIM  %f ',Elem_props(i).dim(1));
+    
+    if isempty(Elem_props(i).type)
+        fprintf(fileID,'\nCROSSTYPE  RECT');
+        fprintf(fileID,'\nCROSSDIM 0.05 0.05');
+    else
+        switch Elem_props(i).type
+            case {'leafspring','rigid'} %if leafspring or rigid, do rect crossection
+                fprintf(fileID,'\nCROSSTYPE  RECT');
+                fprintf(fileID,'\nCROSSDIM  %f  %f',Elem_props(i).dim(1),Elem_props(i).dim(2));
+            case 'wire'                 %if wire, do circular crossection
+                fprintf(fileID,'\nCROSSTYPE  CIRC');
+                fprintf(fileID,'\nCROSSDIM  %f ',Elem_props(i).dim(1));
+        end
     end
     
     %COLOR
@@ -504,7 +555,12 @@ fclose(fileID); %datfile finished!
 
 %% SIMULATE CONSTRAINTS
 if simple_mode==0
-    spacar(0,filename)
+    try 
+        %TO DO: do manual check here
+        spacar(0,filename)
+    catch
+        error('Connectivity incorrect. Check element lengths, orientation vectors, etc.');
+    end
     
     %CHECK CONSTRAINTS
     sbd     = [filename '.sbd'];
@@ -516,80 +572,82 @@ if simple_mode==0
     [ U, s, V ] = svd(Dcc);
     s       = diag(s);
     
-    nsing = length(find(s<sqrt(eps)*s(1))); %number of near zero singular values
-    if length(U)>length(V)
-        nover  = length(U)-length(V)+nsing;
-        nunder = nsing;
-    elseif length(U)<length(V)
-        nover  = nsing;
-        nunder = length(V)-length(U)+nsing;
-    else
-        nover  = nsing;
-        nunder = nsing;
-    end
-    
-    if nunder>0 %underconstrained
-        fprintf('\nSystem is underconstrained. Check element conectivity and fixes\n')
-        warning('on','all')
-        return
-    elseif nover>0 %overconstrained
-        overconstraint = U(:,end-nover+1:end);
-        oc = overconstraint(:,1);
-        [oc_sort,order] = sort(oc.^2,1,'descend');
-        idx = find(cumsum(oc_sort)>sqrt(0.95),1,'first');% select only part that explains 95% (or more) of singular vector's length
-        idx = order(1:idx);
-        sel = (1:numel(oc))';
-        sel = sel(idx);
-        
-        listData = zeros(numel(sel),3);
-        listData(:,3) = oc(idx);
-        for i=1:size(listData,1)
-            [elnr,defpar] = find(le==sel(i));
-            listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
+    if ~isempty(s) %%% TO BE DONE: s can be empty. What does this mean?
+        nsing = length(find(s<sqrt(eps)*s(1))); %number of near zero singular values
+        if length(U)>length(V)
+            nover  = length(U)-length(V)+nsing;
+            nunder = nsing;
+        elseif length(U)<length(V)
+            nover  = nsing;
+            nunder = length(V)-length(U)+nsing;
+        else
+            nover  = nsing;
+            nunder = nsing;
         end
-        
-        %Reshape rlse suggestions according to user defined elements
-        OC_el= [];
-        OC_defs = [];
-        for i=1:size(E_list,1)
-            list = [];
-            for j=1:size(E_list,2)
-                list = [list; sort(listData(find(listData(:,1)==E_list(i,j)),2))]; %#ok<FNDSB>
+
+        if nunder>0 %underconstrained
+            fprintf('\nSystem is underconstrained. Check element conectivity and fixes\n')
+            warning('on','all')
+            return
+        elseif nover>0 %overconstrained
+            overconstraint = U(:,end-nover+1:end);
+            oc = overconstraint(:,1);
+            [oc_sort,order] = sort(oc.^2,1,'descend');
+            idx = find(cumsum(oc_sort)>sqrt(0.95),1,'first');% select only part that explains 95% (or more) of singular vector's length
+            idx = order(1:idx);
+            sel = (1:numel(oc))';
+            sel = sel(idx);
+
+            listData = zeros(numel(sel),3);
+            listData(:,3) = oc(idx);
+            for i=1:size(listData,1)
+                [elnr,defpar] = find(le==sel(i));
+                listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
             end
-            red_list=[];
-            for j=1:6
-                if sum(list==j)>0
-                    red_list(end+1) = j;
+
+            %Reshape rlse suggestions according to user defined elements
+            OC_el= [];
+            OC_defs = [];
+            for i=1:size(E_list,1)
+                list = [];
+                for j=1:size(E_list,2)
+                    list = [list; sort(listData(find(listData(:,1)==E_list(i,j)),2))]; %#ok<FNDSB>
+                end
+                red_list=[];
+                for j=1:6
+                    if sum(list==j)>0
+                        red_list(end+1) = j;
+                    end
+                end
+                if ~isempty(red_list)
+                    OC_defs(end+1,1:length(red_list)) = red_list;
+                    OC_el(end+1,1) = i;
                 end
             end
-            if ~isempty(red_list)
-                OC_defs(end+1,1:length(red_list)) = red_list;
-                OC_el(end+1,1) = i;
-            end
+
+            Results.overconstraints = [OC_el OC_defs];
+            fprintf('\nSystem is overconstrained, releases are required in order to run static simulation.\nA suggestion for possible releases is given in Results.overconstraints in the workspace and the table below.\n')
+            fprintf('\nNumber of overconstraints: %u\n\n',nover);
+            disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
+                'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
+            warning('on','all')
+            return
         end
-        
-        Results.overconstraints = [OC_el OC_defs];
-        fprintf('\nSystem is overconstrained, releases are required in order to run static simulation.\nA suggestion for possible releases is given in Results.overconstraints in the workspace and the table below.\n')
-        fprintf('\nNumber of overconstraints: %u\n\n',nover);
-        disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
-            'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
-        warning('on','all')
-        return
     end
 end
-
 
 %% SIMULATE STATICS
 try
     %TO BE DONE
     %of toch mode 10 draaien, mode 9 werkt zeer slecht voor input
     %displacements/rotaties. Mode 10 geeft niet de transfer functies
-    spacar(9,filename)
+    spacar(-9,filename)
     if simple_mode==0
         spavisual(filename)
     end
     %get results
     Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, Elements, Node_props, Elem_props, Rlse, Optional);
+    disp('Spacar simulation succeeded.')
 catch
     disp('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
 end
@@ -611,7 +669,7 @@ E       = Elem_props.E;
 G       = Elem_props.G;
 v       = E/(2*G) - 1;
 switch lower(type)
-    case 'leafspring'
+    case {'leafspring','rigid'}
         t   = dim(1);
         w   = dim(2);
         A   = t*w;
@@ -726,11 +784,11 @@ for i=t_list
     fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
     for j=1:size(Nodes,1)
         Results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
-        Results.step(i).node(j).rx_eulzyx   = q2e(x(lnp((j-1)*2+2,1:4))');
+%         Results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
         Results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
         Results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
         %TO BE DONE
-        %Results.step(i).node(j).Mreac       = q2e(fxtot(lnp((j-1)*2+2,1:4))');
+        %Results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
         [Results.step(i).node(j).CMglob, Results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
     end
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
@@ -779,7 +837,7 @@ locv    =[lnp(ntr,1:3), lnp(nrot,1:4)];
 % test whether the selected coordinates are feasible
 for i=1:7
     if locv(i) <= 0
-        disp('ERROR: invalid node number');
+        disp('Error: invalid node number');
         return;
     end;
     if locv(i) <= nxp(1) || ...
@@ -850,55 +908,5 @@ for i=1:size(E_list,1)
             end
         end
     end
-end
-end
-
-
-function q = e2q( eul )
-%e2q Convert Euler angles to quaternion
-
-% Pre-allocate output
-q = zeros(size(eul,1), 4, 'like', eul);
-
-% Compute sines and cosines of half angles
-c = cos(eul/2);
-s = sin(eul/2);
-
-
-q = [c(:,1).*c(:,2).*c(:,3)+s(:,1).*s(:,2).*s(:,3), ...
-    c(:,1).*c(:,2).*s(:,3)-s(:,1).*s(:,2).*c(:,3), ...
-    c(:,1).*s(:,2).*c(:,3)+s(:,1).*c(:,2).*s(:,3), ...
-    s(:,1).*c(:,2).*c(:,3)-c(:,1).*s(:,2).*s(:,3)];
-
-
-end
-
-
-function eul = q2e( q )
-%q2e Convert quaternion to Euler angles
-
-% Normalize the quaternions
-q = robotics.internal.normalizeRows(q);
-
-qw = q(:,1);
-qx = q(:,2);
-qy = q(:,3);
-qz = q(:,4);
-
-% Pre-allocate output
-eul = zeros(size(q,1), 3, 'like', q);
-
-% The parsed sequence will be in all upper-case letters and validated
-aSinInput = -2*(qx.*qz-qw.*qy);
-aSinInput(aSinInput > 1) = 1;
-
-eul = [ atan2( 2*(qx.*qy+qw.*qz), qw.^2 + qx.^2 - qy.^2 - qz.^2 ), ...
-    asin( aSinInput ), ...
-    atan2( 2*(qy.*qz+qw.*qx), qw.^2 - qx.^2 - qy.^2 + qz.^2 )];
-
-
-% Check for complex numbers
-if ~isreal(eul)
-    eul = real(eul);
 end
 end
