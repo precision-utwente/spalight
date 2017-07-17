@@ -7,25 +7,34 @@ function [Results] = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse,
 % Contact: m.naves@utwente.nl
 %
 % CONTRIBUTIONS
-% J. Meijaard (complm)
+% J.P. Meijaard (complm)
 % S.E. Boer (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
-% D. H. Wiersma (CWvalues)
+% D.H. Wiersma (CWvalues)
 %
-% LIMITATIONS
+% LIMITATIONS (note that the full Spacar version does allow these things)
+% - Transfer functions: applied moments and node rotations cannot be used as
+% input or output of transfer functions.
+% - Boundary conditions: the orientation of a node can either be fixed or
+% free. It is not possible to create a boundary condition that is pinned
+% about a certain axis.
+
 % On each node only a single rotational input can be prescribed (due to concatenation of spatial rotations)
 % Output rotations are provided in quaternions and euler rotations in order z, y, x
-%
+
+% For certain desired simulations, the current feature set of 
+% Spacar_light() is too limited. In that case, the full version of Spacar 
+% should be used. It offers *many* more features.
+
 % NOTES
-% Torsional stiffness of beams is corrected for constrained warping by
-% multiplying torsional stiffness with the constraint warping value
+% Constrained warping is included by means of an effective torsional
+% stiffness increase.
 
-
-%% DO NOT ALLOW RUNNING THIS FUNCTION AS A SCRIPT
-if nargin == 0; error('Call spacarlight function from a script instead'); end
+%% DO NOT ALLOW RUNNING THIS FUNCTION AS A SCRIPT DIRECTLY
+if nargin == 0; error('Call Spacar_light() from a script instead.'); end
 
 %% INITIALIZE VARIABLES
 %#ok<*AGROW>
-% warning('off','all');               %suppress spacar warnings
+warning('off','all');               %suppress spacar warnings
 Results     = [];
 id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
 id_inputf   = false;                %identifier to check for external load
@@ -40,7 +49,7 @@ E_list      = [];                   %list with element numbers
 %afgemaakt als de omschrijving voor momenten geimplementeerd is.
 
 %CHECK FOR OPTIONAL INPUT
-if nargin > 6 || nargin < 5; error('Expecting either 5 or 6 input arguments'); end
+if nargin > 6 || nargin < 5; error('Expecting either 5 or 6 input arguments.'); end
 if nargin == 6; Optional = varargin{1}; end
 if nargin == 5; Optional = struct(); end
 
@@ -48,17 +57,18 @@ if nargin == 5; Optional = struct(); end
 if (isfield(Optional,'simple_mode') && Optional.simple_mode==1); simple_mode = 1; else simple_mode = 0; end
 
 %CHECK FILENAME
-if      (isfield(Optional,'filename') && length(Optional.filename)>19);     fprinf('filename too long, maximum of 20 characters. Filename spacar_file is used instead.');
-elseif  (isfield(Optional,'filename') && ~ischar(Optional.filename));       fprinf('filename is not a string. Filename spacar_file is used instead.');
-elseif  (isfield(Optional,'filename') && isempty(Optional.filename));       fprinf('filename is empty. Filename spacar_file is used instead.');
+if      (isfield(Optional,'filename') && length(Optional.filename)>19);     fprintf('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
+elseif  (isfield(Optional,'filename') && ~ischar(Optional.filename));       fprintf('Filename is not a string. Filename spacar_file is used instead.');
+elseif  (isfield(Optional,'filename') && isempty(Optional.filename));       fprintf('Filename is empty. Filename spacar_file is used instead.');
 elseif   isfield(Optional,'filename');                                      filename = Optional.filename; end
 if      ~exist('filename','var');                                           filename = 'spacar_file'; end
 
 if ~simple_mode %skip checks for simple mode
-    %CHECK EXISTENSE OF REQUIRED FUNCTIONS
-    if ~exist('spavisual','file')   ==2;   error('spavisual not in your path');                               end
-    if ~exist('stressbeam','file')  ==2;   error('stressbeam not in your path (part of spavisual install)');  end
-    if ~exist('spacar','file')      ==3;   error('spacar not in your path');                                    end
+    
+    %CHECK EXISTENCE OF REQUIRED FUNCTIONS
+    if exist('spavisual','file')   ~=2;   error('spavisual() is not in your path.');                                         end
+    if exist('stressbeam','file')  ~=2;   error('stressbeam() is not in your path (typically part of spavisual package).');  end
+    if exist('spacar','file')      ~=3;   error('spacar() is not in your path.');                                            end
     
     %CHECK NODES INPUT VARIABLE
     validateattributes(Nodes,   {'double'},{'ncols',3,'ndims',2},'','Nodes')
@@ -72,10 +82,12 @@ if ~simple_mode %skip checks for simple mode
         Node_fields = fields(Node_props(i));
         for j=1:length(Node_fields)
             switch Node_fields{j}
-                case {'fix_all','fix_xyz','fix_x','fix_y','fix_z','fix_rxyz','fix_rx','fix_ry','fix_rz'}
+                case {'fix_all','fix_xyz','fix_x','fix_y','fix_z','fix_rot'}
                     if ~isempty(getfield(Node_props(i),Node_fields{j}));    validateattributes(getfield(Node_props(i),Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix property in Node_props(%u)',i));       end %#ok<*GFLD>
                 case {'force','force_initial'}
                     if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('force property in Node_props(%u)',i));     end
+                case {'moment','moment_initial'}
+                    if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('moment property in Node_props(%u)',i));     end    
                 case {'disp_x','disp_y','disp_z','disp_initial_x','disp_initial_y','disp_initial_z','disp_rx','disp_ry','disp_rz','disp_initial_rx','disp_initial_ry','disp_initial_rz'}
                     if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'scalar'},'',             sprintf('disp property in Node_props(%u)',i));      end
                 case 'mass'
@@ -97,7 +109,7 @@ if ~simple_mode %skip checks for simple mode
         
         %check if El_Nrs for set i are unique
         if length(unique(Elem_props(i).El_Nrs)) < length(Elem_props(i).El_Nrs)
-            error('Property El_Nrs of Elem_props(%i) contains non-unique element numbers',i)
+            error('Property El_Nrs of Elem_props(%i) contains non-unique element numbers.',i)
         end
         
         %check if El_Nrs only contains defined elements
@@ -109,7 +121,7 @@ if ~simple_mode %skip checks for simple mode
         %check if elements in El_Nrs are  notalready defined previously
         double_el_index = ismember(Elem_props(i).El_Nrs,el_nr_doubles_check);
         if any(double_el_index)
-            error('Elem_props(%i).El_Nrs contains element(s) whose properties have already been defined',i)
+            error('Elem_props(%i).El_Nrs contains element(s) whose properties have already been defined.',i)
         end
         el_nr_doubles_check = [el_nr_doubles_check; Elem_props(i).El_Nrs(:)];
         
@@ -224,7 +236,7 @@ for i=1:size(Elements,1)
         if sum(Elem_props(j).El_Nrs==i)>0 %element i is in property set j
             
             %element information
-            N  = Elem_props(j).n_beams;             %number of beams per userdefined element
+            N           = Elem_props(j).n_beams;    %number of beams per userdefined element
             Orien       = Elem_props(j).orien;      %orientation local y-vector
             Flex        = Elem_props(j).flex;       %flexibility of this element
             N_p         = Elements(i,1);            %p-node nodenumber
@@ -332,10 +344,7 @@ for i=1:size(Node_props,2)
     if(isfield(Node_props(i),'fix_x') && ~isempty(Node_props(i).fix_x));        fprintf(fileID,'FIX      %u 1 \n',(i-1)*2+1);  end
     if(isfield(Node_props(i),'fix_y') && ~isempty(Node_props(i).fix_y));        fprintf(fileID,'FIX      %u 2 \n',(i-1)*2+1);  end
     if(isfield(Node_props(i),'fix_z') && ~isempty(Node_props(i).fix_z));        fprintf(fileID,'FIX      %u 3 \n',(i-1)*2+1);  end
-    if(isfield(Node_props(i),'fix_rxyz') && ~isempty(Node_props(i).fix_rxyz));  fprintf(fileID,'FIX      %u  \n',(i-1)*2+2);   end
-    if(isfield(Node_props(i),'fix_rx') && ~isempty(Node_props(i).fix_rx));      fprintf(fileID,'FIX      %u 4  \n',(i-1)*2+2); end
-    if(isfield(Node_props(i),'fix_ry') && ~isempty(Node_props(i).fix_ry));      fprintf(fileID,'FIX      %u 3  \n',(i-1)*2+2); end
-    if(isfield(Node_props(i),'fix_rz') && ~isempty(Node_props(i).fix_rz));      fprintf(fileID,'FIX      %u 2  \n',(i-1)*2+2); end
+    if(isfield(Node_props(i),'fix_rot') && ~isempty(Node_props(i).fix_rot));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+2);   end
     
     %input displacements
     if((isfield(Node_props(i),'disp_x') && ~isempty(Node_props(i).disp_x)) ||...
@@ -354,7 +363,7 @@ for i=1:size(Node_props,2)
     if((isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz)) ||...
             (isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz))); fprintf(fileID,'INPUTX      %3u     2\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
-        error('Only a single input rotation can be added on a single node. Multiple rotational inputs defined for node %u',i)
+        error('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
     end
 end
 fprintf(fileID,'\n\nEND\nHALT\n\n');
@@ -399,13 +408,13 @@ for i=1:size(Node_props,2) %loop over all user defined nodes
     if(isfield(Node_props(i),'force') && ~isempty(Node_props(i).force));                    fprintf(fileID,'DELXF   %3u %6f %6f %6f  \n',(i-1)*2+1,Node_props(i).force(1),Node_props(i).force(2),Node_props(i).force(3));                           id_add = true;  id_inputf=true; end
     if(isfield(Node_props(i),'force_initial') && ~isempty(Node_props(i).force_initial));    fprintf(fileID,'XF      %3u %6f %6f %6f  \n',(i-1)*2+1,Node_props(i).force_initial(1),Node_props(i).force_initial(2),Node_props(i).force_initial(3));   id_ini = true;  id_inputf=true; end
     
-    %TO BE DONE
-    %if(isfield(Node_props(i),'moment') && ~isempty(Node_props(i).moment));
-    %   moments = eul2quat(Node_props(i).moment);
-    %                                                                                        fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3),moments(4));                                                id_add = true;  id_inputf=true; end
-    %if(isfield(Node_props(i),'moment_initial') && ~isempty(Node_props(i).moment_initial));
-    %   moments = eul2quat(Node_props(i).moment_initial) ;
-    %                                                                                        fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3),moments(4));                                                id_ini = true;  id_inputf=true; end
+    %moments
+    if(isfield(Node_props(i),'moment') && ~isempty(Node_props(i).moment)),
+      moments = Node_props(i).moment;
+                                                                                           fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments(1),2*moments(2),2*moments(3));                                                id_add = true;  id_inputf=true; end
+    if(isfield(Node_props(i),'moment_initial') && ~isempty(Node_props(i).moment_initial)),
+      moments_i = Node_props(i).moment_initial;
+                                                                                           fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments_i(1),2*moments_i(2),2*moments_i(3));                                          id_ini = true;  id_inputf=true; end
     
     %displacements
     if(isfield(Node_props(i),'disp_x') && ~isempty(Node_props(i).disp_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,Node_props(i).disp_x(1));                       id_add = true; end
@@ -449,7 +458,7 @@ else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 
 %TRANSFER FUNCTION INPUT/OUTPUT
 if ((isfield(Optional,'transfer_in') && ~isempty(Optional.transfer_in)) ||  (isfield(Optional,'transfer_out') && ~isempty(Optional.transferout)))
     if id_inputx
-        disp('Warning: input displacement is prediscribed, possibly affecting input/ouput transferfunction')
+        disp('Warning: input displacement is prediscribed, possibly affecting input/ouput transfer function.')
     end
     
     fprintf(fileID,'\n\nEND\nHALT\n\n');
@@ -566,74 +575,83 @@ if simple_mode==0
     sbd     = [filename '.sbd'];
     nep     = getfrsbf(sbd,'nep');
     nxp     = getfrsbf(sbd,'nxp');
+    nddof   = getfrsbf(sbd,'nddof');
     le      = getfrsbf(sbd,'le');
     BigD    = getfrsbf(sbd,'bigd',1);
     Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
     [ U, s, V ] = svd(Dcc);
     s       = diag(s);
     
-    if ~isempty(s) %%% TO BE DONE: s can be empty. What does this mean?
-        nsing = length(find(s<sqrt(eps)*s(1))); %number of near zero singular values
-        if length(U)>length(V)
-            nover  = length(U)-length(V)+nsing;
-            nunder = nsing;
-        elseif length(U)<length(V)
-            nover  = nsing;
-            nunder = length(V)-length(U)+nsing;
-        else
-            nover  = nsing;
-            nunder = nsing;
-        end
-
-        if nunder>0 %underconstrained
-            fprintf('\nSystem is underconstrained. Check element conectivity and fixes\n')
-            warning('on','all')
-            return
-        elseif nover>0 %overconstrained
-            overconstraint = U(:,end-nover+1:end);
-            oc = overconstraint(:,1);
-            [oc_sort,order] = sort(oc.^2,1,'descend');
-            idx = find(cumsum(oc_sort)>sqrt(0.95),1,'first');% select only part that explains 95% (or more) of singular vector's length
-            idx = order(1:idx);
-            sel = (1:numel(oc))';
-            sel = sel(idx);
-
-            listData = zeros(numel(sel),3);
-            listData(:,3) = oc(idx);
-            for i=1:size(listData,1)
-                [elnr,defpar] = find(le==sel(i));
-                listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
-            end
-
-            %Reshape rlse suggestions according to user defined elements
-            OC_el= [];
-            OC_defs = [];
-            for i=1:size(E_list,1)
-                list = [];
-                for j=1:size(E_list,2)
-                    list = [list; sort(listData(find(listData(:,1)==E_list(i,j)),2))]; %#ok<FNDSB>
-                end
-                red_list=[];
-                for j=1:6
-                    if sum(list==j)>0
-                        red_list(end+1) = j;
-                    end
-                end
-                if ~isempty(red_list)
-                    OC_defs(end+1,1:length(red_list)) = red_list;
-                    OC_el(end+1,1) = i;
-                end
-            end
-
-            Results.overconstraints = [OC_el OC_defs];
-            fprintf('\nSystem is overconstrained, releases are required in order to run static simulation.\nA suggestion for possible releases is given in Results.overconstraints in the workspace and the table below.\n')
-            fprintf('\nNumber of overconstraints: %u\n\n',nover);
-            disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
-                'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
-            warning('on','all')
-            return
-        end
+    if isempty(s) %%% TO BE DONE: s can be empty. What does this mean?
+        return
     end
+    
+    nsing = length(find(s<sqrt(eps)*s(1))); %number of near zero singular values
+    if length(U)>length(V)
+        nover  = length(U)-length(V)+nsing;
+        nunder = nsing;
+    elseif length(U)<length(V)
+        nover  = nsing;
+        nunder = length(V)-length(U)+nsing;
+    else
+        nover  = nsing;
+        nunder = nsing;
+    end
+
+    if nunder>0 %underconstrained
+        fprintf('\nSystem is underconstrained. Check element connectivity, boundary conditions and releases.\n')
+        warning('on','all')
+        return
+    elseif nover>0 %overconstrained
+        overconstraint = U(:,end-nover+1:end);
+        oc = overconstraint(:,1);
+        [oc_sort,order] = sort(oc.^2,1,'descend');
+        idx = find(cumsum(oc_sort)>sqrt(0.95),1,'first');% select only part that explains 95% (or more) of singular vector's length
+        idx = order(1:idx);
+        sel = (1:numel(oc))';
+        sel = sel(idx);
+
+        listData = zeros(numel(sel),3);
+        listData(:,3) = oc(idx);
+        for i=1:size(listData,1)
+            [elnr,defpar] = find(le==sel(i));
+            listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
+        end
+
+        %Reshape rlse suggestions according to user defined elements
+        OC_el= [];
+        OC_defs = [];
+        for i=1:size(E_list,1)
+            list = [];
+            for j=1:size(E_list,2)
+                list = [list; sort(listData(find(listData(:,1)==E_list(i,j)),2))]; %#ok<FNDSB>
+            end
+            red_list=[];
+            for j=1:6
+                if sum(list==j)>0
+                    red_list(end+1) = j;
+                end
+            end
+            if ~isempty(red_list)
+                OC_defs(end+1,1:length(red_list)) = red_list;
+                OC_el(end+1,1) = i;
+            end
+        end
+
+        Results.overconstraints = [OC_el OC_defs];
+        fprintf('\nSystem is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in Results.overconstraints in the workspace and the table below.\n')
+        fprintf('\nNumber of overconstraints: %u\n\n',nover);
+        disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
+            'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
+        warning('on','all')
+        return
+    end
+    
+    if nddof == 0
+        display('The system has no degrees of freedom (so no Spacar simulation will be performed). Check Elem_props.flex and Rlse.')
+        return;
+    end
+        
 end
 
 %% SIMULATE STATICS
@@ -642,14 +660,18 @@ try
     %of toch mode 10 draaien, mode 9 werkt zeer slecht voor input
     %displacements/rotaties. Mode 10 geeft niet de transfer functies
     spacar(-9,filename)
-    if simple_mode==0
+    if ~simple_mode
         spavisual(filename)
     end
-    %get results
-    Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, Elements, Node_props, Elem_props, Rlse, Optional);
     disp('Spacar simulation succeeded.')
 catch
     disp('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
+end
+try
+    %get results
+    Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, Elements, Node_props, Elem_props, Rlse, Optional);
+catch
+    disp('Error in processing simulation results.')
 end
 
 %% END OF SPACAR_LIGHT
@@ -746,6 +768,11 @@ function Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, ~
 nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
 t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %timesteps
 lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
+
+if nddof == 0
+    error('No dynamic degrees of freedom')
+end
+
 %CHECK BUCKLING SETTINGS
 calcbuck = false;
 if (isfield(Optional,'buck_load') && Optional.buck_load == 1)
@@ -787,8 +814,8 @@ for i=t_list
 %         Results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
         Results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
         Results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
-        %TO BE DONE
-        %Results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
+        
+        Results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
         [Results.step(i).node(j).CMglob, Results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
     end
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
@@ -820,7 +847,7 @@ tstp    = tstp-1;
 CMglob  =zeros(6,6);
 CMloc   =zeros(6,6);
 if (nargin < 3) || (nargin>4)
-    disp('complm needs 3 or 4 input arguments');
+    disp('complm() needs 3 or 4 input arguments');
     return;
 end;
 if nargin < 4, tstp=0; end;
@@ -837,7 +864,7 @@ locv    =[lnp(ntr,1:3), lnp(nrot,1:4)];
 % test whether the selected coordinates are feasible
 for i=1:7
     if locv(i) <= 0
-        disp('Error: invalid node number');
+        disp('Invalid node number for complm()');
         return;
     end;
     if locv(i) <= nxp(1) || ...

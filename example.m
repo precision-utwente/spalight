@@ -32,13 +32,12 @@ Elements = [    1   3;  %element 1
 %NODE_PROPS(i).fix_x                value true  to constraint translational motion in x-direction of node i
 %NODE_PROPS(i).fix_y                value true  to constraint translational motion in y-direction of node i
 %NODE_PROPS(i).fix_z                value true  to constraint translational motion in z-direction of node i
-%NODE_PROPS(i).fix_rxyz             value true  to constraint rotational motion of node i
-%NODE_PROPS(i).fix_rx             	value true  to constraint rotational motion around the x-axis of node i
-%NODE_PROPS(i).fix_ry               value true  to constraint rotational motion around the y-axis of node i
-%NODE_PROPS(i).fix_rz               value true  to constraint rotational motion around the z-axis of node i
+%NODE_PROPS(i).fix_rot              value true  to constraint rotational motion of node i
 %
-%NODE_PROPS(i).force                vector with length 3 containing a force added in 10 loadsteps at node i in Newtons, [Fx Fy Fx]
-%NODE_PROPS(i).force_initial        vector with length 3 containing an initial force at node i in Newtons, [Fx Fy Fx]
+%NODE_PROPS(i).force                vector of length 3 containing a force added in 10 loadsteps at node i in Newton, [Fx Fy Fx]
+%NODE_PROPS(i).force_initial        vector of length 3 containing an initial force at node i in Newton, [Fx Fy Fx]
+%NODE_PROPS(i).moment               vector of length 3 containing the moment components applied to node i in 10 loadsteps, in Newton*meter, [Mx My Mz]
+%NODE_PROPS(i).moment_initial       vector of length 3 containing the initial moment components applied to node i in Newton*meter, [Mx My Mz]
 %
 %NODE_PROPS(i).disp_x               input displacement at node i in x-direction added in 10 steps in meters
 %NODE_PROPS(i).disp_y               input displacement at node i in y-direction added in 10 steps in meters
@@ -64,9 +63,14 @@ Elements = [    1   3;  %element 1
 %node 1
 Node_props(1).fix_all           = true;             %Fix node 1
 %node 3
-Node_props(3).force_initial     = [0 -0.3 0];        %Initial moment around z-axis on node 3 
-Node_props(3).force             = [0 0.6 0];         %Initial moment around z-axis on node 3
-Node_props(3).mass              = 1;               %Mass of node 3: 10kg
+
+% Node_props(3).force             = [0 1 0]; 
+% Node_props(3).force_initial     = [0 0.2 0];
+        
+        
+Node_props(3).moment_initial    = [0 0 0.01];       %Initial moment [Nm] around z-axis on node 3 
+Node_props(3).moment            = [0 0 0.05];       %Moment [Nm] around z-axis on node 3
+Node_props(3).mass              = 10;               %Mass of node 3: 10kg
 Node_props(3).inertia           = [1 0 0 1 0 1];    %Inertia of node 3: Ixx = 1kgm^2, Iyy = 1kgm^2, Izz = 1kgm^2
 %node 4
 Node_props(4).fix_all           = true;             %Fix node 4
@@ -141,11 +145,11 @@ Rlse(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to pre
 %optional input/outputs for transferfunctions (note prediscribing displacements possibly affects input/output transfer functions as prediscribed nodes are not free to move)
 %
 %OPTIONAL.transfer_in(i).type               type of input for the ith input for the transferfunction. Value is a string with options:
-%                                           'force_x','force_y','force_z','moment_x','moment_y','moment_z',disp_x','disp_y','disp_z','rot_x','rot_y','rot_z'
-%                                           which indicates a force/dipslacement in x,y or z-direction or a moment/rotation around the x,y or z-axis
+%                                           'force_x','force_y','force_z',disp_x','disp_y','disp_z'
+%                                           which indicates a force/dipslacement in x,y or z-direction
 %OPTIONAL.transfer_in(i).node               node to apply the ith input for the transferfunction
-%OPTIONAL.transfer_out(i).type              type of output for the ith output for the transferfunction. Optional values similar to input
-%OPTIONAL.transfer_out(i).node              node to apply the ith output for the transferfunction
+%OPTIONAL.transfer_out(i).type              type of output for the ith output for the transfer function. Optional values similar to input
+%OPTIONAL.transfer_out(i).node              node to apply the ith output for the transfer function
 %
 %
 %   *evaluation of the load multipliers is only allowed when external force is applied on the system. Furthermore, load multipliers are also with respect to the reaction forces caused by prescribed
@@ -174,7 +178,7 @@ Results = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse, Optional);
 %Results.step(i)                            Results at loadstep i (i=1 if no additional loads or displacements are specified)
 %Results.step(i).Freq                       List with eigenfrequencies in Hz, sorted from lowest to highest
 %Results.step(i).Buck*                      List with load multipliers, sorted from lowest to highest
-%Results.step(i).stressmax                  Maxmimum stress
+%Results.step(i).stressmax                  Maximum stress
 %Results.step(i).node(j)                    Results at loadstep i, node number j
 %Results.step(i).node(j).x                  Position
 %Results.step(i).node(j).rx_eulzyx          Euler rotations in order z, y, x
