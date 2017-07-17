@@ -8,9 +8,13 @@ This is a list of requirements for a valid SPACAR model, and actions to take if 
 
 2. Elements
     unique pairs of existing node numbers (p/q order does not matter)
+    
         [error]
+    
     all node numbers should be 'used' at least once
+    
         [error, but showGeom]
+    
     element length larger than ..
         [error]
 
