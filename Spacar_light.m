@@ -33,6 +33,10 @@ E_list      = [];                   %list with element numbers
 
 
 %% CHECK INPUT
+%TO BE DONE
+%Check input voor transfer functies, en input momenten. Kan worden
+%afgemaakt als de omschrijving voor momenten geimplementeerd is.
+
 %CHECK FOR SIMPLE SIMULATION MODE
 if (isfield(Optional,'simple_mode') && Optional.simple_mode==1); simple_mode = 1; else simple_mode = 0; end
 
@@ -50,7 +54,7 @@ if ~simple_mode %skip checks for simple mode
     if ~exist('spacar','file')      ==3;   error('spacar not in your path');                                    end
     
     %CHECK NODES INPUT VARIABLE
-    validateattributes(Nodes,   {'double'},{'ncols',3,'ndims',2},'','Nodes')    
+    validateattributes(Nodes,   {'double'},{'ncols',3,'ndims',2},'','Nodes')
     
     %CHECK ELEMENTS INPUT VARIABLE
     validateattributes(Elements,{'double'},{'ncols',2,'ndims',2},'','Elements')
@@ -136,13 +140,13 @@ if ~simple_mode %skip checks for simple mode
     
     %CHECK OPTIONAL ARGUMENTS
     if (isfield(Optional,'filename') && ~isempty(Optional.filename));
-       validateattributes(Optional.filename,{'char'},{'vector'},'',             'filename property in Optional'); 
+        validateattributes(Optional.filename,{'char'},{'vector'},'',             'filename property in Optional');
     end; if (isfield(Optional,'simple_mode') && ~isempty(Optional.simple_mode));
-        validateattributes(Optional.simple_mode,{'logical'},{'scalar'},'',      'simple_mode property in Optional'); 
+        validateattributes(Optional.simple_mode,{'logical'},{'scalar'},'',      'simple_mode property in Optional');
     end; if (isfield(Optional,'buck_load') && ~isempty(Optional.buck_load));
-        validateattributes(Optional.buck_load,{'logical'},{'scalar'},'',        'buck_load property in Optional'); 
+        validateattributes(Optional.buck_load,{'logical'},{'scalar'},'',        'buck_load property in Optional');
     end; if (isfield(Optional,'gravity') && ~isempty(Optional.gravity));
-        validateattributes(Optional.gravity,{'double'},{'vector','numel',3},'', 'gravity property in Optional'); 
+        validateattributes(Optional.gravity,{'double'},{'vector','numel',3},'', 'gravity property in Optional');
     end
 end
 
@@ -350,6 +354,14 @@ for i=1:size(Node_props,2) %loop over all user defined nodes
     if(isfield(Node_props(i),'force') && ~isempty(Node_props(i).force));                    fprintf(fileID,'DELXF   %3u %6f %6f %6f  \n',(i-1)*2+1,Node_props(i).force(1),Node_props(i).force(2),Node_props(i).force(3));                           id_add = true;  id_inputf=true; end
     if(isfield(Node_props(i),'force_initial') && ~isempty(Node_props(i).force_initial));    fprintf(fileID,'XF      %3u %6f %6f %6f  \n',(i-1)*2+1,Node_props(i).force_initial(1),Node_props(i).force_initial(2),Node_props(i).force_initial(3));   id_ini = true;  id_inputf=true; end
     
+    %TO BE DONE
+    %if(isfield(Node_props(i),'moment') && ~isempty(Node_props(i).moment));
+    %   moments = e2q(Node_props(i).moment);
+    %                                                                                        fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3),moments(4));                                                id_add = true;  id_inputf=true; end
+    %if(isfield(Node_props(i),'moment_initial') && ~isempty(Node_props(i).moment_initial));
+    %   moments = e2q(Node_props(i).moment_initial) ;
+    %                                                                                        fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3),moments(4));                                                id_ini = true;  id_inputf=true; end
+    
     %displacements
     if(isfield(Node_props(i),'disp_x') && ~isempty(Node_props(i).disp_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,Node_props(i).disp_x(1));                       id_add = true; end
     if(isfield(Node_props(i),'disp_y') && ~isempty(Node_props(i).disp_y));                  fprintf(fileID,'DELINPX  %3u  2  %6f  \n',(i-1)*2+1,Node_props(i).disp_y(1));                       id_add = true; end
@@ -358,17 +370,18 @@ for i=1:size(Node_props,2) %loop over all user defined nodes
     if(isfield(Node_props(i),'disp_initial_y') && ~isempty(Node_props(i).disp_initial_y));  fprintf(fileID,'INPUTX   %3u  2  %6f  \n',(i-1)*2+1,Nodes(i,2) + Node_props(i).disp_initial_y(1));  id_ini = true; end
     if(isfield(Node_props(i),'disp_initial_z') && ~isempty(Node_props(i).disp_initial_z));  fprintf(fileID,'INPUTX   %3u  3  %6f  \n',(i-1)*2+1,Nodes(i,3) +Node_props(i).disp_initial_z(1));   id_ini = true; end
     
-    if(isfield(Node_props(i),'disp_rx') && ~isempty(Node_props(i).disp_rx));                rot = eul2quat([Node_props(i).disp_rx(1) 0 0]);
+    %rotations
+    if(isfield(Node_props(i),'disp_rx') && ~isempty(Node_props(i).disp_rx));                rot = e2q([Node_props(i).disp_rx(1) 0 0]);
         fprintf(fileID,'DELINPX     %3u     4   %6f  \n',(i-1)*2+2,rot(4)); id_add = true; end
-    if(isfield(Node_props(i),'disp_ry') && ~isempty(Node_props(i).disp_ry));                rot = eul2quat([0 Node_props(i).disp_ry(1) 0]);
+    if(isfield(Node_props(i),'disp_ry') && ~isempty(Node_props(i).disp_ry));                rot = e2q([0 Node_props(i).disp_ry(1) 0]);
         fprintf(fileID,'DELINPX     %3u     3   %6f  \n',(i-1)*2+2,rot(3)); id_add = true; end
-    if(isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz));                rot = eul2quat([0 0 Node_props(i).disp_rz(1)]);
+    if(isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz));                rot = e2q([0 0 Node_props(i).disp_rz(1)]);
         fprintf(fileID,'DELINPX     %3u     2   %6f  \n',(i-1)*2+2,rot(2)); id_add = true; end
-    if(isfield(Node_props(i),'disp_initial_rx') && ~isempty(Node_props(i).disp_initial_rx));rot = eul2quat([Node_props(i).disp_initial_rx(1) 0 0]);
+    if(isfield(Node_props(i),'disp_initial_rx') && ~isempty(Node_props(i).disp_initial_rx));rot = e2q([Node_props(i).disp_initial_rx(1) 0 0]);
         fprintf(fileID,'INPUTX     %3u     4   %6f  \n',(i-1)*2+2,rot(4));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_ry') && ~isempty(Node_props(i).disp_initial_ry));rot = eul2quat([0 Node_props(i).disp_initial_ry(1) 0]);
+    if(isfield(Node_props(i),'disp_initial_ry') && ~isempty(Node_props(i).disp_initial_ry));rot = e2q([0 Node_props(i).disp_initial_ry(1) 0]);
         fprintf(fileID,'INPUTX     %3u     3   %6f  \n',(i-1)*2+2,rot(3));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz));rot = eul2quat([0 0 Node_props(i).disp_initial_rz(1)]);
+    if(isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz));rot = e2q([0 0 Node_props(i).disp_initial_rz(1)]);
         fprintf(fileID,'INPUTX     %3u     2   %6f  \n',(i-1)*2+2,rot(2));  id_ini = true; end
     
     %nodal masses/inertia
@@ -379,14 +392,60 @@ end
 
 
 %% ADITIONAL OPTIONS
+%GRAVITY
 if(isfield(Optional,'gravity') && ~isempty(Optional.gravity)); fprintf(fileID,'\nGRAVITY  %6f %6f %6f',Optional.gravity(1),Optional.gravity(2),Optional.gravity(3)); end
 
-
-%% ITERSTEP SETTINGS
+%ITERSTEP SETTINGS
 if      (id_ini && id_add);      fprintf(fileID,'\nITERSTEP 10 10 0.0000005 1 3 10');    %if initial and aditional loading/displacement
 elseif  (id_ini && ~id_add);     fprintf(fileID,'\nITERSTEP 10 1 0.0000005  1 1 10');    %if initial loading/displacement
 elseif  (~id_ini && id_add);     fprintf(fileID,'\nITERSTEP 10 10 0.0000005 1 3 0');     %if initial loading/displacement
 else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 0');  end%no loading/displacement
+
+%TRANSFER FUNCTION INPUT/OUTPUT
+if ((isfield(Optional,'transfer_in') && ~isempty(Optional.transfer_in)) ||  (isfield(Optional,'transfer_out') && ~isempty(Optional.transferout)))
+    if id_inputx
+        disp('Warning: input displacement is prediscribed, possibly affecting input/ouput transferfunction')
+    end
+    
+    fprintf(fileID,'\n\nEND\nHALT\n\n');
+    for i=1:size(Optional.transfer_in,2) %add inputs
+        switch Optional.transfer_in(i).type
+            case 'force_x';     fprintf(fileID,'\nINPUTF %2u %3u 1',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'force_y';     fprintf(fileID,'\nINPUTF %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'force_z';     fprintf(fileID,'\nINPUTF %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+1);
+                %TO BE DONE
+                %case 'moment_x';    fprintf(fileID,'\nINPUTF %2u %3u 4',i,(Optional.transfer_in(i).node-1)*2+2);
+                %case 'moment_y';    fprintf(fileID,'\nINPUTF %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+2);
+                %case 'moment_z';    fprintf(fileID,'\nINPUTF %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+2);
+                
+            case 'disp_x';      fprintf(fileID,'\nINX %2u %3u 1',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'disp_y';      fprintf(fileID,'\nINX %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'disp_z';      fprintf(fileID,'\nINX %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+1);
+                %case 'rot_x';       fprintf(fileID,'\nINX %2u %3u 4',i,(Optional.transfer_in(i).node-1)*2+2);
+                %case 'rot_y';       fprintf(fileID,'\nINX %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+2);
+                %case 'rot_z';       fprintf(fileID,'\nINX %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+2);
+        end
+    end
+    for i=1:size(Optional.transfer_out,2) %add outputs
+        switch Optional.transfer_out(i).type
+            case 'force_x';     fprintf(fileID,'\nOUTF %2u %3u 1',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'force_y';     fprintf(fileID,'\nOUTF %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'force_z';     fprintf(fileID,'\nOUTF %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+1);
+                %TO BE DONE
+                %case 'moment_x';    fprintf(fileID,'\nOUTF %2u %3u 4',i,(Optional.transfer_out(i).node-1)*2+2);
+                %case 'moment_y';    fprintf(fileID,'\nOUTF %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+2);
+                %case 'moment_z';    fprintf(fileID,'\nOUTF %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+2);
+                
+            case 'disp_x';      fprintf(fileID,'\nOUTX %2u %3u 1',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'disp_y';      fprintf(fileID,'\nOUTX %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'disp_z';      fprintf(fileID,'\nOUTX %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+1);
+                %case 'rot_x';       fprintf(fileID,'\nOUTX %2u %3u 4',i,(Optional.transfer_out(i).node-1)*2+2);
+                %case 'rot_y';       fprintf(fileID,'\nOUTX %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+2);
+                %case 'rot_z';       fprintf(fileID,'\nOUTX %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+2);
+        end
+    end
+end
+
 fprintf(fileID,'\n\nEND\nEND\n\n');
 
 
@@ -444,7 +503,7 @@ fclose(fileID); %datfile finished!
 
 
 %% SIMULATE CONSTRAINTS
-if simple_mode==0    
+if simple_mode==0
     spacar(0,filename)
     
     %CHECK CONSTRAINTS
@@ -476,7 +535,7 @@ if simple_mode==0
     elseif nover>0 %overconstrained
         overconstraint = U(:,end-nover+1:end);
         oc = overconstraint(:,1);
-        [oc_sort,order] = sort(oc.^2,1,'descend');  
+        [oc_sort,order] = sort(oc.^2,1,'descend');
         idx = find(cumsum(oc_sort)>sqrt(0.95),1,'first');% select only part that explains 95% (or more) of singular vector's length
         idx = order(1:idx);
         sel = (1:numel(oc))';
@@ -503,7 +562,7 @@ if simple_mode==0
                     red_list(end+1) = j;
                 end
             end
-            if ~isempty(red_list)     
+            if ~isempty(red_list)
                 OC_defs(end+1,1:length(red_list)) = red_list;
                 OC_el(end+1,1) = i;
             end
@@ -522,7 +581,10 @@ end
 
 %% SIMULATE STATICS
 try
-    spacar(10,filename)
+    %TO BE DONE
+    %of toch mode 10 draaien, mode 9 werkt zeer slecht voor input
+    %displacements/rotaties. Mode 10 geeft niet de transfer functies
+    spacar(9,filename)
     if simple_mode==0
         spavisual(filename)
     end
@@ -664,16 +726,19 @@ for i=t_list
     fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
     for j=1:size(Nodes,1)
         Results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
-        Results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
+        Results.step(i).node(j).rx_eulzyx   = q2e(x(lnp((j-1)*2+2,1:4))');
         Results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
         Results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
-        Results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
+        %TO BE DONE
+        %Results.step(i).node(j).Mreac       = q2e(fxtot(lnp((j-1)*2+2,1:4))');
         [Results.step(i).node(j).CMglob, Results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
     end
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
     Results.step(i).stressmax = stressextrema.max*1e6;
+    %  Results.step(i).bode_data =  getss('spacarfile',i);
 end
 Results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
+
 end
 
 
@@ -788,8 +853,9 @@ for i=1:size(E_list,1)
 end
 end
 
-function q = e2( eul, varargin )
-%EUL2QUAT Convert Euler angles to quaternion
+
+function q = e2q( eul )
+%e2q Convert Euler angles to quaternion
 
 % Pre-allocate output
 q = zeros(size(eul,1), 4, 'like', eul);
@@ -799,10 +865,40 @@ c = cos(eul/2);
 s = sin(eul/2);
 
 
-        q = [c(:,1).*c(:,2).*c(:,3)+s(:,1).*s(:,2).*s(:,3), ...
-            c(:,1).*c(:,2).*s(:,3)-s(:,1).*s(:,2).*c(:,3), ...
-            c(:,1).*s(:,2).*c(:,3)+s(:,1).*c(:,2).*s(:,3), ...
-            s(:,1).*c(:,2).*c(:,3)-c(:,1).*s(:,2).*s(:,3)];
-        
+q = [c(:,1).*c(:,2).*c(:,3)+s(:,1).*s(:,2).*s(:,3), ...
+    c(:,1).*c(:,2).*s(:,3)-s(:,1).*s(:,2).*c(:,3), ...
+    c(:,1).*s(:,2).*c(:,3)+s(:,1).*c(:,2).*s(:,3), ...
+    s(:,1).*c(:,2).*c(:,3)-c(:,1).*s(:,2).*s(:,3)];
 
+
+end
+
+
+function eul = q2e( q )
+%q2e Convert quaternion to Euler angles
+
+% Normalize the quaternions
+q = robotics.internal.normalizeRows(q);
+
+qw = q(:,1);
+qx = q(:,2);
+qy = q(:,3);
+qz = q(:,4);
+
+% Pre-allocate output
+eul = zeros(size(q,1), 3, 'like', q);
+
+% The parsed sequence will be in all upper-case letters and validated
+aSinInput = -2*(qx.*qz-qw.*qy);
+aSinInput(aSinInput > 1) = 1;
+
+eul = [ atan2( 2*(qx.*qy+qw.*qz), qw.^2 + qx.^2 - qy.^2 - qz.^2 ), ...
+    asin( aSinInput ), ...
+    atan2( 2*(qy.*qz+qw.*qx), qw.^2 - qx.^2 - qy.^2 + qz.^2 )];
+
+
+% Check for complex numbers
+if ~isreal(eul)
+    eul = real(eul);
+end
 end

@@ -60,9 +60,8 @@ Elements = [    1   3;  %element 1
 %node 1
 Node_props(1).fix_all           = true;             %Fix node 1
 %node 3
-Node_props(3).disp_rx           = 0.5;              %Aditional rotation of node 3: 0.5 rad
-Node_props(3).disp_initial_rx   = -0.25;            %Initial rotation of node 3: -0.25 rad
-Node_props(3).force_initial     = [0 10 0];         %Initial force in y-direction on node 3: 10N 
+Node_props(3).force_initial     = [0 -0.3 0];        %Initial moment around z-axis on node 3 
+Node_props(3).force             = [0 0.6 0];         %Initial moment around z-axis on node 3
 Node_props(3).mass              = 10;               %Mass of node 3: 10kg
 Node_props(3).inertia           = [1 0 0 1 0 1];    %Inertia of node 3: Ixx = 1kgm^2, Iyy = 1kgm^2, Izz = 1kgm^2
 %node 4
@@ -97,7 +96,7 @@ Elem_props(1).E         = 210E9;            %E-modulus
 Elem_props(1).G         = 70E9;             %G-modulus
 Elem_props(1).rho       = 7800;             %Density
 Elem_props(1).type      = 'leafspring';     %Simulate leafspring
-Elem_props(1).dim       = [50e-3 1e-3];     %Width: 50mm, tickness: 1mm
+Elem_props(1).dim       = [50e-3 0.2e-3];     %Width: 50mm, tickness: 1mm
 Elem_props(1).orien     = [0 0 1];          %Width-direction of the leafspring in z-direction
 Elem_props(1).n_beams   = 4;                %4 beam elements to simulate leafspring
 Elem_props(1).flex      = [ 3 4 ];          %Model out-of-plane bending as flexible
@@ -126,8 +125,7 @@ Elem_props(2).hide      = false;            %Body is visible, set to true to hid
 %example:
 
 Rlse(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to prevent overconstraints. 
-Rlse(3).def = 3;                            %Extra release to compensate for the aditional constrained due to prescribed rotation at node 3
-Rlse = [];                                  %Create empty Rlse variable to check for overconstraints
+%Rlse = [];                                  %Create empty Rlse variable to check for overconstraints
 
 %% OPTIONAL
 %Structure with optional arguments:
@@ -136,6 +134,16 @@ Rlse = [];                                  %Create empty Rlse variable to check
 %OPTIONAL.simple_mode                       value true (1) to supress visualization after the simulation is completed. Can be usefull when calling Spacar_light.m in a for-loop during optimization
 %OPTIONAL.buck_load*                        value true (1) to calculate the load multipliers for buckling
 %OPTIONAL.gravity                           vector with length 3 providing the gravitation vector in m/s^2, [0 -9.81 0]
+%
+%optional input/outputs for transferfunctions (note prediscribing displacements possibly affects input/output transfer functions as prediscribed nodes are not free to move)
+%
+%OPTIONAL.transfer_in(i).type               type of input for the ith input for the transferfunction. Value is a string with options:
+%                                           'force_x','force_y','force_z','moment_x','moment_y','moment_z',disp_x','disp_y','disp_z','rot_x','rot_y','rot_z'
+%                                           which indicates a force/dipslacement in x,y or z-direction or a moment/rotation around the x,y or z-axis
+%OPTIONAL.transfer_in(i).node               node to apply the ith input for the transferfunction
+%OPTIONAL.transfer_out(i).type              type of output for the ith output for the transferfunction. Optional values similar to input
+%OPTIONAL.transfer_out(i).node              node to apply the ith output for the transferfunction
+%
 %
 %   *evaluation of the load multipliers is only allowed when external force is applied on the system. Furthermore, load multipliers are also with respect to the reaction forces caused by prescribed
 %   displacements/rotations. It is recommended to only evaluate load multipliers with a single force/moment applied to the system and no prescribed rotations/displacements.
@@ -146,7 +154,14 @@ Rlse = [];                                  %Create empty Rlse variable to check
 Optional.filename       = 'spacarfile';     %Filename
 Optional.simple_mode    = false;            %Run in normal mode
 Optional.buck_load      = false;             %Disable calcuation of load multipliers (default)
-Optional.gravity        = [0 -9.81 0];      %Gravitation in y-direction
+Optional.gravity        = [0 0 -9.81];      %Gravitation in z-direction
+
+Optional.transfer_in(1).type = 'force_x';
+Optional.transfer_in(1).node = 2;
+
+Optional.transfer_out(1).type = 'disp_x';
+Optional.transfer_out(1).node = 2;
+
 
 %% CALL SPACAR_LIGHT
 Results = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse, Optional);
