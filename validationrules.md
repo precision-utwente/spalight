@@ -3,10 +3,12 @@
 This is a list of requirements for a valid SPACAR model, and actions to take if they are not met.
 
 1. Nodes
+
     list of unique, feasible coordinates in space
         [error]
 
 2. Elements
+    
     unique pairs of existing node numbers (p/q order does not matter)
     
         [error]
