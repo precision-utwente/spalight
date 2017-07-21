@@ -1,4 +1,4 @@
-function showGeom(no,el,nopr)
+function plane_Amat = showGeom(no,el,nopr)
     
     %to do:
     %return handles (optionally) to user?
@@ -54,10 +54,30 @@ function showGeom(no,el,nopr)
     %plot elements
     eh = [];
     for i=1:nel
-        eh(i) = plot3(...
-                    [no(el(i,1),1) no(el(i,2),1)], ...
-                    [no(el(i,1),2) no(el(i,2),2)], ...
-                    [no(el(i,1),3) no(el(i,2),3)]);
+        xp = no(el(i,1),:);
+        xq = no(el(i,2),:);
+
+%         %check element length: if not too short, leave some space for the
+%         %element number tag
+%         minlen = ;
+%         d = 0.1;
+%         len = norm(xq - xp);
+%         if len > minlen
+%             x1 = xp+1/len*(xq-xp)*(len/2-d/2);
+%             x2 = xp+1/len*(xq-xp)*(len/2+d/2);
+%             eh(end+1) = plot3(...
+%                 [xp(1) x1(1)],[xp(2) x1(2)],[xp(3) x1(3)]);
+%             eh(end+1) = plot3(...
+%                 [x2(1) xq(1)],[x2(2) xq(2)],[x2(3) xq(3)]);
+%                 
+%         else
+%             %use index end+1 instead of i, because elements have one or two
+%             %line handles, depending on element length
+%                 eh(end+1) = plot3(...
+%                     [xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)]);
+%         end
+
+          eh(i) = plot3([xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)]);
     end
     
     %plot nodes
@@ -79,12 +99,24 @@ function showGeom(no,el,nopr)
     nmax1 = maxdisti;
     clen = maxdist/20; %for distance between node and its label
     arrowlength = maxdist/6; %for length of arrows
-    
+
     %get average plane through nodes
-    planecoef = [no(:,1) no(:,2) ones(nno,1)]\no(:,3);
-    normalvec = planecoef;
-    normalvec(3) = -1;
-    normalvec = normVec(normalvec);
+%     warning off MATLAB:rankDeficientMatrix %surpress rank deficiency warning (happens for 2-D mechanisms)
+    plane_Amat = [no(:,1) no(:,2) ones(nno,1)];
+    plane_Bmat = no(:,3);
+    rank(plane_Amat)
+    if rank(plane_Amat) == 1
+        
+    elseif rank(plane_Amat) == 2
+        error('problem visualizing 2-d mechanisms. Define a normal vector!');
+        return;
+        
+    elseif rank(plane_Amat) == 3
+        planecoef = plane_Amat\plane_Bmat;
+        normalvec = planecoef;
+        normalvec(3) = -1;
+        normalvec = normVec(normalvec);
+    end
     
     %plot node numbers
     nnh = [];
@@ -160,10 +192,9 @@ function showGeom(no,el,nopr)
     set([leg2],'Marker','.','MarkerSize',16,'Color','r')
     set([leg3],'Marker','.','MarkerSize',16,'Color','b')
     set([leg4],'Marker','.','MarkerSize',16,'Color','g')
-    set(eh,'Color',0.5*[1 1 1],'LineWidth',2.5)
+    set(eh,'Color',0.75*[1 1 1],'LineWidth',2.5)
     set([nnh leg5],'BackgroundColor','w','Color','b')
-    set([enh leg6],'BackgroundColor','w','EdgeColor','k')
-%     set(gca,'color',get(gcf,'color'))
+    set([enh leg6],'BackgroundColor','w','EdgeColor','k','FontWeight','bold')
     grid on
     
     %axes
@@ -172,9 +203,15 @@ function showGeom(no,el,nopr)
     zlabel('z');
     axis(getAxesLim(no,arrowlength))
     set(gca,'DataAspectRatio',[1 1 1])
-    [az,el] = view(normalvec);
-    if el<0
-        view(az,20)
+    
+    %set view
+    try
+        [az,el] = view(normalvec);
+        %do not view mechanism from below horizon, just override
+        if el<0
+            %TO DO: for 2-D mechanisms, this should be different
+            view(az,20)
+        end
     end
     
     %plot force
