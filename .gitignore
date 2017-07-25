@@ -36,6 +36,10 @@
 ehthumbs.db
 Thumbs.db
 
+# Folders #
+###########
+txt/
+
 # SPACAR files #
 ################
 *.ltv
