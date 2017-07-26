@@ -1,5 +1,5 @@
-function [Results] = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse, varargin)
-% SPACAR_LIGHT(Nodes, Elements, Node_props, Elem_props, Rlse, Optional)
+function [results] = spacarlight(nodes, elements, nprops, eprops, rls, varargin)
+% SPACAR_LIGHT(nodes, elements, nprops, eprops, rls, opt)
 % runs spacar simulation with reduced set of input arguments. See
 % www.spacar.nl for more information.
 %
@@ -22,23 +22,23 @@ function [Results] = Spacar_light(Nodes, Elements, Node_props, Elem_props, Rlse,
 % Output rotations are provided in quaternions and euler rotations in order z, y, x
 
 % For certain desired simulations, the current feature set of 
-% Spacar_light() is too limited. In that case, the full version of Spacar 
+% spacarlight() is too limited. In that case, the full version of Spacar 
 % should be used. It offers *many* more features.
 
 % NOTES
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 
-%% DO NOT ALLOW RUNNING THIS FUNCTION AS A SCRIPT DIRECTLY
-if nargin == 0; error('Call Spacar_light() from a script instead.'); end
+%% DO NOT ALLOW RUNNING THIS FUNCTION AS A SCRIPT
+if nargin == 0; error('Call spacarlight() from a script instead.'); end
 
 %% INITIALIZE VARIABLES
 %#ok<*AGROW>
 warning('off','all');               %suppress spacar warnings
-Results     = [];
+results     = [];
 id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
 id_inputf   = false;                %identifier to check for external load
-x_count     = size(Nodes,1)*2+1;    %counter for node numbering
+x_count     = size(nodes,1)*2+1;    %counter for node numbering
 e_count     = 1;                    %counter for element numbering
 X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
@@ -54,7 +54,7 @@ if nargin == 6; Optional = varargin{1}; end
 if nargin == 5; Optional = struct(); end
 
 %CHECK FOR SIMPLE SIMULATION MODE
-if (isfield(Optional,'simple_mode') && Optional.simple_mode==1); simple_mode = 1; else simple_mode = 0; end
+if (isfield(Optional,'silent') && Optional.silent==1); silent = 1; else silent = 0; end
 
 %CHECK FILENAME
 if      (isfield(Optional,'filename') && length(Optional.filename)>19);     fprintf('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
@@ -63,7 +63,7 @@ elseif  (isfield(Optional,'filename') && isempty(Optional.filename));       fpri
 elseif   isfield(Optional,'filename');                                      filename = Optional.filename; end
 if      ~exist('filename','var');                                           filename = 'spacar_file'; end
 
-if ~simple_mode %skip checks for simple mode
+if ~silent %skip checks for silent mode
     
     %CHECK EXISTENCE OF REQUIRED FUNCTIONS
     if exist('spavisual','file')   ~=2;   error('spavisual() is not in your path.');                                         end
@@ -71,115 +71,115 @@ if ~simple_mode %skip checks for simple mode
     if exist('spacar','file')      ~=3;   error('spacar() is not in your path.');                                            end
     
     %CHECK NODES INPUT VARIABLE
-    validateattributes(Nodes,   {'double'},{'ncols',3,'ndims',2},'','Nodes')
+    validateattributes(nodes,   {'double'},{'ncols',3,'ndims',2},'','nodes')
     
     %CHECK ELEMENTS INPUT VARIABLE
-    validateattributes(Elements,{'double'},{'ncols',2,'ndims',2},'','Elements')
+    validateattributes(elements,{'double'},{'ncols',2,'ndims',2},'','elements')
     
-    %CHECK NODE_PROPS INPUT VARIABLE
-    validateattributes(Node_props,{'struct'},{'nonempty'},'','Node_props')
-    for i=1:size(Node_props,2)
-        Node_fields = fields(Node_props(i));
+    %CHECK nprops INPUT VARIABLE
+    validateattributes(nprops,{'struct'},{'nonempty'},'','nprops')
+    for i=1:size(nprops,2)
+        Node_fields = fields(nprops(i));
         for j=1:length(Node_fields)
             switch Node_fields{j}
-                case {'fix_all','fix_xyz','fix_x','fix_y','fix_z','fix_rot'}
-                    if ~isempty(getfield(Node_props(i),Node_fields{j}));    validateattributes(getfield(Node_props(i),Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix property in Node_props(%u)',i));       end %#ok<*GFLD>
+                case {'fix','fix_pos','fix_x','fix_y','fix_z','fix_orien'}
+                    if ~isempty(getfield(nprops(i),Node_fields{j}));    validateattributes(getfield(nprops(i),Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix property in nprops(%u)',i));       end %#ok<*GFLD>
                 case {'force','force_initial'}
-                    if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('force property in Node_props(%u)',i));     end
+                    if ~isempty(getfield(nprops(i),Node_fields{j}));     validateattributes(getfield(nprops(i),Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('force property in nprops(%u)',i));     end
                 case {'moment','moment_initial'}
-                    if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('moment property in Node_props(%u)',i));     end    
-                case {'disp_x','disp_y','disp_z','disp_initial_x','disp_initial_y','disp_initial_z','disp_rx','disp_ry','disp_rz','disp_initial_rx','disp_initial_ry','disp_initial_rz'}
-                    if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'scalar'},'',             sprintf('disp property in Node_props(%u)',i));      end
+                    if ~isempty(getfield(nprops(i),Node_fields{j}));     validateattributes(getfield(nprops(i),Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('moment property in nprops(%u)',i));     end    
+                case {'displ_x','displ_y','displ_z','displ_initial_x','displ_initial_y','displ_initial_z','rot_x','rot_y','rot_z','rot_initial_x','rot_initial_y','rot_initial_z'}
+                    if ~isempty(getfield(nprops(i),Node_fields{j}));     validateattributes(getfield(nprops(i),Node_fields{j}),{'double'},{'scalar'},'',             sprintf('displ or rot property in nprops(%u)',i));      end
                 case 'mass'
-                    if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'scalar'},'',             sprintf('mass property in Node_props(%u)',i));      end
-                case 'inertia'
-                    if ~isempty(getfield(Node_props(i),Node_fields{j}));     validateattributes(getfield(Node_props(i),Node_fields{j}),{'double'},{'vector','numel',6},'',   sprintf('inertia property in Node_props(%u)',i));   end
+                    if ~isempty(getfield(nprops(i),Node_fields{j}));     validateattributes(getfield(nprops(i),Node_fields{j}),{'double'},{'scalar'},'',             sprintf('mass property in nprops(%u)',i));      end
+                case 'mominertia'
+                    if ~isempty(getfield(nprops(i),Node_fields{j}));     validateattributes(getfield(nprops(i),Node_fields{j}),{'double'},{'vector','numel',6},'',   sprintf('mominertia property in nprops(%u)',i));   end
             end
         end
     end
     
-    %CHECK ELEM_PROPS INPUT VARIABLE
-    el_nr_doubles_check = []; %filling this with user defined element numbers (with .El_Nrs) to check for doubles and missing elements
-    for i=1:size(Elem_props,2)
+    %CHECK eprops INPUT VARIABLE
+    el_nr_doubles_check = []; %filling this with user defined element numbers (with .elems) to check for doubles and missing elements
+    for i=1:size(eprops,2)
         
-        %mandatory fields (%EL_Nrs)
-        if ~(isfield(Elem_props(i),'El_Nrs') && ~isempty(Elem_props(i).El_Nrs)); error('Property El_Nrs is not defined in Elem_props(%u)',i);   end
-        validateattributes(Elem_props(i).El_Nrs,{'double'},{'vector'},'',sprintf('El_Nrs property in Elem_props(%u)',i));
-        validateattributes(Elem_props(i).El_Nrs,{'double'},{'positive'},'',sprintf('El_Nrs property in Elem_props(%u)',i));
+        %mandatory fields (%elems)
+        if ~(isfield(eprops(i),'elems') && ~isempty(eprops(i).elems)); error('Property elems is not defined in eprops(%u)',i);   end
+        validateattributes(eprops(i).elems,{'double'},{'vector'},'',sprintf('elems property in eprops(%u)',i));
+        validateattributes(eprops(i).elems,{'double'},{'positive'},'',sprintf('elems property in eprops(%u)',i));
         
-        %check if El_Nrs for set i are unique
-        if length(unique(Elem_props(i).El_Nrs)) < length(Elem_props(i).El_Nrs)
-            error('Property El_Nrs of Elem_props(%i) contains non-unique element numbers.',i)
+        %check if elems for set i are unique
+        if length(unique(eprops(i).elems)) < length(eprops(i).elems)
+            error('Property elems of eprops(%i) contains non-unique element numbers.',i)
         end
         
-        %check if El_Nrs only contains defined elements
-        undef_el_index = ~ismember(Elem_props(i).El_Nrs,1:size(Elements,1));
+        %check if elems only contains defined elements
+        undef_el_index = ~ismember(eprops(i).elems,1:size(elements,1));
         if any(undef_el_index)
-            error('Elem_props(%i).El_Nrs contains undefined element number(s).',i)
+            error('eprops(%i).elems contains undefined element number(s).',i)
         end
         
-        %check if elements in El_Nrs are  notalready defined previously
-        double_el_index = ismember(Elem_props(i).El_Nrs,el_nr_doubles_check);
+        %check if elements in elems are  notalready defined previously
+        double_el_index = ismember(eprops(i).elems,el_nr_doubles_check);
         if any(double_el_index)
-            error('Elem_props(%i).El_Nrs contains element(s) whose properties have already been defined.',i)
+            error('eprops(%i).elems contains element(s) whose properties have already been defined.',i)
         end
-        el_nr_doubles_check = [el_nr_doubles_check; Elem_props(i).El_Nrs(:)];
+        el_nr_doubles_check = [el_nr_doubles_check; eprops(i).elems(:)];
         
         %mandatory fields when properties are flexible
-        if (isfield(Elem_props(i),'flex') && ~isempty(Elem_props(i).flex))
-            validateattributes(getfield(Elem_props(i),'flex'),{'double'},{'vector','positive'},'',sprintf('flex property in Elem_props(%u)',i));  
+        if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
+            validateattributes(getfield(eprops(i),'flex'),{'double'},{'vector','positive'},'',sprintf('flex property in eprops(%u)',i));  
             
             %Check if field exist in structure
-            if ~(isfield(Elem_props(i),'E') && ~isempty(Elem_props(i).E));          error('Property E is not defined in Elem_props(%u)',i);     end
-            if ~(isfield(Elem_props(i),'G') && ~isempty(Elem_props(i).G));          error('Property G is not defined in Elem_props(%u)',i);     end
-            if ~(isfield(Elem_props(i),'rho') && ~isempty(Elem_props(i).rho));          error('Property rho is not defined in Elem_props(%u)',i);     end
-            if ~(isfield(Elem_props(i),'type') && ~isempty(Elem_props(i).G));          error('Property type is not defined in Elem_props(%u)',i);     end
-            if ~(isfield(Elem_props(i),'dim') && ~isempty(Elem_props(i).dim));          error('Property dim is not defined in Elem_props(%u)',i);     end
+            if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));          error('Property emod is not defined in eprops(%u)',i);     end
+            if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod));          error('Property smod is not defined in eprops(%u)',i);     end
+            if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens));          error('Property dens is not defined in eprops(%u)',i);     end
+            if ~(isfield(eprops(i),'type') && ~isempty(eprops(i).type));          error('Property type is not defined in eprops(%u)',i);     end
+            if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));          error('Property dim is not defined in eprops(%u)',i);     end
             
             %Check if values are valid
-            validateattributes(Elem_props(i).flex,{'double'},{'vector'},'',  sprintf('flex property in Elem_props(%u)',i));
-            if any(((Elem_props(i).flex==1)+(Elem_props(i).flex==2)+(Elem_props(i).flex==3)+(Elem_props(i).flex==4)+(Elem_props(i).flex==5)+(Elem_props(i).flex==6))==0)
-                error('Invalid deformation mode in Elem_props(%u).flex',i)
+            validateattributes(eprops(i).flex,{'double'},{'vector'},'',  sprintf('flex property in eprops(%u)',i));
+            if any(((eprops(i).flex==1)+(eprops(i).flex==2)+(eprops(i).flex==3)+(eprops(i).flex==4)+(eprops(i).flex==5)+(eprops(i).flex==6))==0)
+                error('Invalid deformation mode in eprops(%u).flex',i)
             end
-            validateattributes(Elem_props(i).E,{'double'},{'scalar'},'',                    sprintf('E property in Elem_props(%u)',i));
-            validateattributes(Elem_props(i).G,{'double'},{'scalar'},'',                    sprintf('G property in Elem_props(%u)',i));
-            validateattributes(Elem_props(i).rho,{'double'},{'scalar'},'',                  sprintf('rho property in Elem_props(%u)',i));
-            validateattributes(Elem_props(i).type,{'char'},{'nonempty'},'',                 sprintf('type property in Elem_props(%u)',i));
-            if ~any(strcmp(Elem_props(i).type,{'wire','leafspring','rigid'}))               error('Element type should be either leafspring, wire or rigid'); end
-            validateattributes(Elem_props(i).dim,{'double'},{'vector'},'',                  sprintf('dim property in Elem_props(%u)',i));
+            validateattributes(eprops(i).emod,{'double'},{'scalar'},'',                    sprintf('emod property in eprops(%u)',i));
+            validateattributes(eprops(i).smod,{'double'},{'scalar'},'',                    sprintf('smod property in eprops(%u)',i));
+            validateattributes(eprops(i).dens,{'double'},{'scalar'},'',                  sprintf('dens property in eprops(%u)',i));
+            validateattributes(eprops(i).type,{'char'},{'nonempty'},'',                 sprintf('type property in eprops(%u)',i));
+            if ~any(strcmp(eprops(i).type,{'wire','leafspring','rigid'}))               error('Element type should be either leafspring, wire or rigid'); end
+            validateattributes(eprops(i).dim,{'double'},{'vector'},'',                  sprintf('dim property in eprops(%u)',i));
         else
-            Elem_props(i).flex = [];
+            eprops(i).flex = [];
         end
         
         %Check optional fields - check if specified by user, else defaults
-        if (isfield(Elem_props(i),'orien') && ~isempty(Elem_props(i).orien))
-            validateattributes(getfield(Elem_props(i),'orien'),{'double'},{'vector','numel',3},'',             sprintf('orien property in Elem_props(%u)',i));      
+        if (isfield(eprops(i),'orien') && ~isempty(eprops(i).orien))
+            validateattributes(getfield(eprops(i),'orien'),{'double'},{'vector','numel',3},'',             sprintf('orien property in eprops(%u)',i));      
         else
-            Elem_props(i).orien = [0 1 0];
+            eprops(i).orien = [0 1 0];
         end
 
-        if (isfield(Elem_props(i),'n_beams') && ~isempty(Elem_props(i).n_beams))
-            validateattributes(getfield(Elem_props(i),'n_beams'),{'double'},{'scalar','>=',1},'',                       sprintf('n_beams property in Elem_props(%u)',i));    
+        if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
+            validateattributes(getfield(eprops(i),'nbeams'),{'double'},{'scalar','>=',1},'',                       sprintf('nbeams property in eprops(%u)',i));    
         else
-            Elem_props(i).n_beams = 1;
+            eprops(i).nbeams = 1;
         end
     
-        if (isfield(Elem_props(i),'color') && ~isempty(Elem_props(i).color))
-            validateattributes(getfield(Elem_props(i),'color'),{'double'},{'vector','numel',3},'',             sprintf('color property in Elem_props(%u)',i));
+        if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
+            validateattributes(getfield(eprops(i),'color'),{'double'},{'vector','numel',3},'',             sprintf('color property in eprops(%u)',i));
         else
-%             Elem_props(i).color = [];
+%             eprops(i).color = [];
         end
         
-        if (isfield(Elem_props(i),'hide') && ~isempty(Elem_props(i).hide))
-            validateattributes(getfield(Elem_props(i),'hide'),{'logical'},{'scalar'},'',                      sprintf('hide property in Elem_props(%u)',i));
+        if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide))
+            validateattributes(getfield(eprops(i),'hide'),{'logical'},{'scalar'},'',                      sprintf('hide property in eprops(%u)',i));
         else
-%             Elem_props(i).hide = [];
+%             eprops(i).hide = [];
         end
         
     end
     
     %warn user if elements are defined without adding properties to them
-    el_without_prop_index = ~ismember(1:size(Elements,1),el_nr_doubles_check);
+    el_without_prop_index = ~ismember(1:size(elements,1),el_nr_doubles_check);
     if any(el_without_prop_index)
         el_without_prop = find(el_without_prop_index);
         if length(el_without_prop) == 1
@@ -191,13 +191,13 @@ if ~simple_mode %skip checks for simple mode
         end
     end
     
-    %CHECK RLSE INPUT VARIABLE
-    if ~isempty(Rlse)
-        for i=1:size(Rlse,2)
-            if ~isempty(Rlse(i).def)
-                validateattributes(Rlse(i).def,{'double'},{'vector'},'',   sprintf('def property in Rlse(%u)',i));
-                if any(((Rlse(i).def==1)+(Rlse(i).def==2)+(Rlse(i).def==3)+(Rlse(i).def==4)+(Rlse(i).def==5)+(Rlse(i).def==6))==0)
-                    error('Invalid deformation mode in Rlse(%u)',i)
+    %CHECK RLS INPUT VARIABLE
+    if ~isempty(rls)
+        for i=1:size(rls,2)
+            if ~isempty(rls(i).def)
+                validateattributes(rls(i).def,{'double'},{'vector'},'',   sprintf('def property in rls(%u)',i));
+                if any(((rls(i).def==1)+(rls(i).def==2)+(rls(i).def==3)+(rls(i).def==4)+(rls(i).def==5)+(rls(i).def==6))==0)
+                    error('Invalid deformation mode in rls(%u)',i)
                 end
             end
         end
@@ -206,10 +206,10 @@ if ~simple_mode %skip checks for simple mode
     %CHECK OPTIONAL ARGUMENTS
     if (isfield(Optional,'filename') && ~isempty(Optional.filename));
         validateattributes(Optional.filename,{'char'},{'vector'},'',             'filename property in Optional');
-    end; if (isfield(Optional,'simple_mode') && ~isempty(Optional.simple_mode));
-        validateattributes(Optional.simple_mode,{'logical'},{'scalar'},'',      'simple_mode property in Optional');
-    end; if (isfield(Optional,'buck_load') && ~isempty(Optional.buck_load));
-        validateattributes(Optional.buck_load,{'logical'},{'scalar'},'',        'buck_load property in Optional');
+    end; if (isfield(Optional,'silent') && ~isempty(Optional.silent));
+        validateattributes(Optional.silent,{'logical'},{'scalar'},'',      'silent property in Optional');
+    end; if (isfield(Optional,'buckload') && ~isempty(Optional.buckload));
+        validateattributes(Optional.buckload,{'logical'},{'scalar'},'',        'buckload property in Optional');
     end; if (isfield(Optional,'gravity') && ~isempty(Optional.gravity));
         validateattributes(Optional.gravity,{'double'},{'vector','numel',3},'', 'gravity property in Optional');
     end
@@ -221,32 +221,32 @@ fileID = fopen([filename '.dat'],'w');
 %% USERDEFINED NODES
 fprintf(fileID,'#NODES\n');
 %print all nodes provides by user
-for i=1:size(Nodes,1)
-    fprintf(fileID,'X       %3u  %6f  %6f  %6f      #node %u\n',(i-1)*2+1,Nodes(i,1),Nodes(i,2),Nodes(i,3),i);
+for i=1:size(nodes,1)
+    fprintf(fileID,'X       %3u  %6f  %6f  %6f      #node %u\n',(i-1)*2+1,nodes(i,1),nodes(i,2),nodes(i,3),i);
 end
 
 %% ELEMENTS
 fprintf(fileID,'\n\n#ELEMENTS\n');
 
-for i=1:size(Elements,1)
+for i=1:size(elements,1)
     fprintf(fileID,'#ELEMENT %u\n',i);
     
     % get element property set corresponding to element i
-    for j=1:size(Elem_props,2)
-        if sum(Elem_props(j).El_Nrs==i)>0 %element i is in property set j
+    for j=1:size(eprops,2)
+        if sum(eprops(j).elems==i)>0 %element i is in property set j
             
             %element information
-            N           = Elem_props(j).n_beams;    %number of beams per userdefined element
-            Orien       = Elem_props(j).orien;      %orientation local y-vector
-            Flex        = Elem_props(j).flex;       %flexibility of this element
-            N_p         = Elements(i,1);            %p-node nodenumber
-            N_q         = Elements(i,2);            %q-node nodenumber
+            N           = eprops(j).nbeams;    %number of beams per userdefined element
+            Orien       = eprops(j).orien;      %orientation local y-vector
+            Flex        = eprops(j).flex;       %flexibility of this element
+            N_p         = elements(i,1);            %p-node nodenumber
+            N_q         = elements(i,2);            %q-node nodenumber
             X_list(i,1) = N_p;                      %store p-node in X_list
             
             if N>1 %if more then 1 beam
                 
-                X_p = Nodes(N_p,1:3);   %Location p-node
-                X_q = Nodes(N_q,1:3);   %Location q-node
+                X_p = nodes(N_p,1:3);   %Location p-node
+                X_q = nodes(N_q,1:3);   %Location q-node
                 V   = X_q - X_p;        %Vector from p to q-node
                 
                 %create additional intermediate nodes
@@ -288,24 +288,24 @@ for i=1:size(Elements,1)
             end
             
             %for the last beam only, add dyne and/or rlse
-            if isempty(Rlse)            %if no rlse, add all flexible deformation modes as dyne
+            if isempty(rls)            %if no rlse, add all flexible deformation modes as dyne
                 fprintf(fileID,'dyne    %3u',e_count);
                 for m=1:length(Flex)    %loop over all flexible deformation modes
                     fprintf(fileID,'  %3u',Flex(m));
                 end
                 fprintf(fileID,'\n');
                 
-            else%if some rlse are specified
-                %compensate size of Rlse if size is smaller then element list
-                if i>size(Rlse,2)
-                    Rlse(i).def = [];
+            else%if some rls are specified
+                %compensate size of rls if size is smaller then element list
+                if i>size(rls,2)
+                    rls(i).def = [];
                 end
                 
                 % add dyne
                 if ~isempty(Flex)                           %if some flexibility is specified
                     dyn_added = false;                      %reset identifier to check if string 'dyne' is added
                     for m=1:length(Flex)                    %loop over all flexible deformation modes
-                        if ~(sum(Rlse(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
+                        if ~(sum(rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
                             if ~dyn_added                   %only add string 'dyne' if it is not yet added
                                 fprintf(fileID,'dyne    %3u',e_count);
                                 dyn_added = true;           %set 'dyne' identifier
@@ -318,12 +318,12 @@ for i=1:size(Elements,1)
                 
                 % add rlse
                 rlse_added = false;                     %reset identifier to check if string 'rlse' is added
-                for m=1:length(Rlse(i).def)             %loop over all released deformation modes
+                for m=1:length(rls(i).def)             %loop over all released deformation modes
                     if ~rlse_added                      %only add string 'rlse' if it is not yet added
                         fprintf(fileID,'rlse    %3u',e_count);
                         rlse_added = true;
                     end
-                    fprintf(fileID,'  %3u',Rlse(i).def(m));
+                    fprintf(fileID,'  %3u',rls(i).def(m));
                 end
                 fprintf(fileID,'\n');
             end
@@ -336,32 +336,32 @@ end
 
 %% NODE FIXES AND INPUTS
 fprintf(fileID,'\n\n#NODE FIXES AND INPUTS\n');
-for i=1:size(Node_props,2)
+for i=1:size(nprops,2)
     %fixes
-    if(isfield(Node_props(i),'fix_all') && ~isempty(Node_props(i).fix_all));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+1);
+    if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+1);
         fprintf(fileID,'FIX      %u  \n',(i-1)*2+2);   end
-    if(isfield(Node_props(i),'fix_xyz') && ~isempty(Node_props(i).fix_xyz));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+1);   end
-    if(isfield(Node_props(i),'fix_x') && ~isempty(Node_props(i).fix_x));        fprintf(fileID,'FIX      %u 1 \n',(i-1)*2+1);  end
-    if(isfield(Node_props(i),'fix_y') && ~isempty(Node_props(i).fix_y));        fprintf(fileID,'FIX      %u 2 \n',(i-1)*2+1);  end
-    if(isfield(Node_props(i),'fix_z') && ~isempty(Node_props(i).fix_z));        fprintf(fileID,'FIX      %u 3 \n',(i-1)*2+1);  end
-    if(isfield(Node_props(i),'fix_rot') && ~isempty(Node_props(i).fix_rot));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+2);   end
+    if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+1);   end
+    if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x));        fprintf(fileID,'FIX      %u 1 \n',(i-1)*2+1);  end
+    if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y));        fprintf(fileID,'FIX      %u 2 \n',(i-1)*2+1);  end
+    if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z));        fprintf(fileID,'FIX      %u 3 \n',(i-1)*2+1);  end
+    if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+2);   end
     
     %input displacements
-    if((isfield(Node_props(i),'disp_x') && ~isempty(Node_props(i).disp_x)) ||...
-            (isfield(Node_props(i),'disp_initial_x') && ~isempty(Node_props(i).disp_initial_x)));   fprintf(fileID,'INPUTX      %3u     1\n',(i-1)*2+1);id_inputx = true;    end
-    if((isfield(Node_props(i),'disp_y') && ~isempty(Node_props(i).disp_y)) ||...
-            (isfield(Node_props(i),'disp_initial_y') && ~isempty(Node_props(i).disp_initial_y)));   fprintf(fileID,'INPUTX      %3u     2\n',(i-1)*2+1);id_inputx = true;    end
-    if((isfield(Node_props(i),'disp_z') && ~isempty(Node_props(i).disp_z)) ||...
-            (isfield(Node_props(i),'disp_initial_z') && ~isempty(Node_props(i).disp_initial_z)));   fprintf(fileID,'INPUTX      %3u     3\n',(i-1)*2+1);id_inputx = true;    end
+    if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
+            (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   fprintf(fileID,'INPUTX      %3u     1\n',(i-1)*2+1);id_inputx = true;    end
+    if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
+            (isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y)));   fprintf(fileID,'INPUTX      %3u     2\n',(i-1)*2+1);id_inputx = true;    end
+    if((isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z)) ||...
+            (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));   fprintf(fileID,'INPUTX      %3u     3\n',(i-1)*2+1);id_inputx = true;    end
     
     %input rotations
     id_inputr = 0; %identifier to count the number of input rotations
-    if((isfield(Node_props(i),'disp_rx') && ~isempty(Node_props(i).disp_rx)) ||...
-            (isfield(Node_props(i),'disp_initial_rx') && ~isempty(Node_props(i).disp_initial_rx))); fprintf(fileID,'INPUTX      %3u     4\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
-    if((isfield(Node_props(i),'disp_ry') && ~isempty(Node_props(i).disp_ry)) ||...
-            (isfield(Node_props(i),'disp_initial_ry') && ~isempty(Node_props(i).disp_initial_ry))); fprintf(fileID,'INPUTX      %3u     3\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
-    if((isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz)) ||...
-            (isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz))); fprintf(fileID,'INPUTX      %3u     2\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+    if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
+            (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); fprintf(fileID,'INPUTX      %3u     4\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+    if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
+            (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); fprintf(fileID,'INPUTX      %3u     3\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+    if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
+            (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); fprintf(fileID,'INPUTX      %3u     2\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
         error('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
     end
@@ -370,24 +370,24 @@ fprintf(fileID,'\n\nEND\nHALT\n\n');
 
 
 %% STIFFNESS/INERTIA PROPS
-for i=1:size(Elem_props,2) %loop over each element property set
+for i=1:size(eprops,2) %loop over each element property set
     
     %only write stiffness and mass values when deformations are flexible
-    if (isfield(Elem_props(i),'flex') && ~isempty(Elem_props(i).flex))
-        stiffness = calc_stiffness(Elem_props(i)); %calculate stiffness values
-        inertia = calc_inertia(Elem_props(i));     %calculate mass properties
-        for j=1:length(Elem_props(i).El_Nrs)                        %loop over all elemenents in element property set
-            L   = norm(Nodes(Elements(Elem_props(i).El_Nrs(j),2),:)...
-                - Nodes(Elements(Elem_props(i).El_Nrs(j),1),:));    %calculate flexure length for constrained warping values
-            cw  = CWvalues(L,Elem_props(i));                        %calculate constrained warping values
+    if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
+        stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
+        inertia = calc_inertia(eprops(i));     %calculate mass properties
+        for j=1:length(eprops(i).elems)                        %loop over all elemenents in element property set
+            L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
+                - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
+            cw  = CWvalues(L,eprops(i));                        %calculate constrained warping values
             for k=1:size(E_list,2)                                  %loop over all beams in the element
-                El = E_list(Elem_props(i).El_Nrs(j),k);
+                El = E_list(eprops(i).elems(j),k);
                 if El>0
                     fprintf(fileID,'ESTIFF      %u %f %f %f %f %f %f \n',El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                 end
             end
             for k=1:size(E_list,2) %write mass/inertia values
-                El = E_list(Elem_props(i).El_Nrs(j),k); %loop over all beams in element set
+                El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                 if El>0
                     fprintf(fileID,'EM      %u %f %f %f %f %f \n',El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                 end
@@ -403,45 +403,45 @@ fprintf(fileID,'\n\n#FROCES/MOMENTS\n');
 id_ini  = false; %check for initial loading or displacement
 id_add  = false; %check for aditional loading or displacement
 
-for i=1:size(Node_props,2) %loop over all user defined nodes
+for i=1:size(nprops,2) %loop over all user defined nodes
     %forces
-    if(isfield(Node_props(i),'force') && ~isempty(Node_props(i).force));                    fprintf(fileID,'DELXF   %3u %6f %6f %6f  \n',(i-1)*2+1,Node_props(i).force(1),Node_props(i).force(2),Node_props(i).force(3));                           id_add = true;  id_inputf=true; end
-    if(isfield(Node_props(i),'force_initial') && ~isempty(Node_props(i).force_initial));    fprintf(fileID,'XF      %3u %6f %6f %6f  \n',(i-1)*2+1,Node_props(i).force_initial(1),Node_props(i).force_initial(2),Node_props(i).force_initial(3));   id_ini = true;  id_inputf=true; end
+    if(isfield(nprops(i),'force') && ~isempty(nprops(i).force));                    fprintf(fileID,'DELXF   %3u %6f %6f %6f  \n',(i-1)*2+1,nprops(i).force(1),nprops(i).force(2),nprops(i).force(3));                           id_add = true;  id_inputf=true; end
+    if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    fprintf(fileID,'XF      %3u %6f %6f %6f  \n',(i-1)*2+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
     
     %moments
-    if(isfield(Node_props(i),'moment') && ~isempty(Node_props(i).moment)),
-      moments = Node_props(i).moment;
+    if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)),
+      moments = nprops(i).moment;
                                                                                            fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments(1),2*moments(2),2*moments(3));                                                id_add = true;  id_inputf=true; end
-    if(isfield(Node_props(i),'moment_initial') && ~isempty(Node_props(i).moment_initial)),
-      moments_i = Node_props(i).moment_initial;
+    if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial)),
+      moments_i = nprops(i).moment_initial;
                                                                                            fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments_i(1),2*moments_i(2),2*moments_i(3));                                          id_ini = true;  id_inputf=true; end
     
     %displacements
-    if(isfield(Node_props(i),'disp_x') && ~isempty(Node_props(i).disp_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,Node_props(i).disp_x(1));                       id_add = true; end
-    if(isfield(Node_props(i),'disp_y') && ~isempty(Node_props(i).disp_y));                  fprintf(fileID,'DELINPX  %3u  2  %6f  \n',(i-1)*2+1,Node_props(i).disp_y(1));                       id_add = true; end
-    if(isfield(Node_props(i),'disp_z') && ~isempty(Node_props(i).disp_z));                  fprintf(fileID,'DELINPX  %3u  3  %6f  \n',(i-1)*2+1,Node_props(i).disp_z(1));                       id_add = true; end
-    if(isfield(Node_props(i),'disp_initial_x') && ~isempty(Node_props(i).disp_initial_x));  fprintf(fileID,'INPUTX   %3u  1  %6f  \n',(i-1)*2+1,Nodes(i,1) + Node_props(i).disp_initial_x(1));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_y') && ~isempty(Node_props(i).disp_initial_y));  fprintf(fileID,'INPUTX   %3u  2  %6f  \n',(i-1)*2+1,Nodes(i,2) + Node_props(i).disp_initial_y(1));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_z') && ~isempty(Node_props(i).disp_initial_z));  fprintf(fileID,'INPUTX   %3u  3  %6f  \n',(i-1)*2+1,Nodes(i,3) +Node_props(i).disp_initial_z(1));   id_ini = true; end
+    if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
+    if(isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y));                  fprintf(fileID,'DELINPX  %3u  2  %6f  \n',(i-1)*2+1,nprops(i).displ_y(1));                       id_add = true; end
+    if(isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z));                  fprintf(fileID,'DELINPX  %3u  3  %6f  \n',(i-1)*2+1,nprops(i).displ_z(1));                       id_add = true; end
+    if(isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x));  fprintf(fileID,'INPUTX   %3u  1  %6f  \n',(i-1)*2+1,nodes(i,1) + nprops(i).displ_initial_x(1));  id_ini = true; end
+    if(isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y));  fprintf(fileID,'INPUTX   %3u  2  %6f  \n',(i-1)*2+1,nodes(i,2) + nprops(i).displ_initial_y(1));  id_ini = true; end
+    if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  fprintf(fileID,'INPUTX   %3u  3  %6f  \n',(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
     
     %rotations
-    if(isfield(Node_props(i),'disp_rx') && ~isempty(Node_props(i).disp_rx));                rot = eul2quat([Node_props(i).disp_rx(1) 0 0]);
+    if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([nprops(i).rot_x(1) 0 0]);
         fprintf(fileID,'DELINPX     %3u     4   %6f  \n',(i-1)*2+2,rot(4)); id_add = true; end
-    if(isfield(Node_props(i),'disp_ry') && ~isempty(Node_props(i).disp_ry));                rot = eul2quat([0 Node_props(i).disp_ry(1) 0]);
+    if(isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y));                rot = eul2quat([0 nprops(i).rot_y(1) 0]);
         fprintf(fileID,'DELINPX     %3u     3   %6f  \n',(i-1)*2+2,rot(3)); id_add = true; end
-    if(isfield(Node_props(i),'disp_rz') && ~isempty(Node_props(i).disp_rz));                rot = eul2quat([0 0 Node_props(i).disp_rz(1)]);
+    if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([0 0 nprops(i).rot_z(1)]);
         fprintf(fileID,'DELINPX     %3u     2   %6f  \n',(i-1)*2+2,rot(2)); id_add = true; end
-    if(isfield(Node_props(i),'disp_initial_rx') && ~isempty(Node_props(i).disp_initial_rx));rot = eul2quat([Node_props(i).disp_initial_rx(1) 0 0]);
+    if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([nprops(i).rot_initial_x(1) 0 0]);
         fprintf(fileID,'INPUTX     %3u     4   %6f  \n',(i-1)*2+2,rot(4));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_ry') && ~isempty(Node_props(i).disp_initial_ry));rot = eul2quat([0 Node_props(i).disp_initial_ry(1) 0]);
+    if(isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y));rot = eul2quat([0 nprops(i).rot_initial_y(1) 0]);
         fprintf(fileID,'INPUTX     %3u     3   %6f  \n',(i-1)*2+2,rot(3));  id_ini = true; end
-    if(isfield(Node_props(i),'disp_initial_rz') && ~isempty(Node_props(i).disp_initial_rz));rot = eul2quat([0 0 Node_props(i).disp_initial_rz(1)]);
+    if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([0 0 nprops(i).rot_initial_z(1)]);
         fprintf(fileID,'INPUTX     %3u     2   %6f  \n',(i-1)*2+2,rot(2));  id_ini = true; end
     
     %nodal masses/inertia
-    if(isfield(Node_props(i),'mass') && ~isempty(Node_props(i).mass));                      fprintf(fileID,'XM      %3u %6f  \n',(i-1)*2+1,Node_props(i).mass); end
-    if(isfield(Node_props(i),'inertia') && ~isempty(Node_props(i).inertia));                fprintf(fileID,'XM      %3u %6f %6f %6f %6f %6f %6f\n',(i-1)*2+2,Node_props(i).inertia(1),Node_props(i).inertia(2),Node_props(i).inertia(3),...
-            Node_props(i).inertia(4),Node_props(i).inertia(5),Node_props(i).inertia(6)); end
+    if(isfield(nprops(i),'mass') && ~isempty(nprops(i).mass));                      fprintf(fileID,'XM      %3u %6f  \n',(i-1)*2+1,nprops(i).mass); end
+    if(isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia));                fprintf(fileID,'XM      %3u %6f %6f %6f %6f %6f %6f\n',(i-1)*2+2,nprops(i).mominertia(1),nprops(i).mominertia(2),nprops(i).mominertia(3),...
+            nprops(i).mominertia(4),nprops(i).mominertia(5),nprops(i).mominertia(6)); end
 end
 
 
@@ -472,9 +472,9 @@ if ((isfield(Optional,'transfer_in') && ~isempty(Optional.transfer_in)) ||  (isf
                 %case 'moment_y';    fprintf(fileID,'\nINPUTF %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+2);
                 %case 'moment_z';    fprintf(fileID,'\nINPUTF %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+2);
                 
-            case 'disp_x';      fprintf(fileID,'\nINX %2u %3u 1',i,(Optional.transfer_in(i).node-1)*2+1);
-            case 'disp_y';      fprintf(fileID,'\nINX %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+1);
-            case 'disp_z';      fprintf(fileID,'\nINX %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'displ_x';      fprintf(fileID,'\nINX %2u %3u 1',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'displ_y';      fprintf(fileID,'\nINX %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+1);
+            case 'displ_z';      fprintf(fileID,'\nINX %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+1);
                 %case 'rot_x';       fprintf(fileID,'\nINX %2u %3u 4',i,(Optional.transfer_in(i).node-1)*2+2);
                 %case 'rot_y';       fprintf(fileID,'\nINX %2u %3u 3',i,(Optional.transfer_in(i).node-1)*2+2);
                 %case 'rot_z';       fprintf(fileID,'\nINX %2u %3u 2',i,(Optional.transfer_in(i).node-1)*2+2);
@@ -490,9 +490,9 @@ if ((isfield(Optional,'transfer_in') && ~isempty(Optional.transfer_in)) ||  (isf
                 %case 'moment_y';    fprintf(fileID,'\nOUTF %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+2);
                 %case 'moment_z';    fprintf(fileID,'\nOUTF %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+2);
                 
-            case 'disp_x';      fprintf(fileID,'\nOUTX %2u %3u 1',i,(Optional.transfer_out(i).node-1)*2+1);
-            case 'disp_y';      fprintf(fileID,'\nOUTX %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+1);
-            case 'disp_z';      fprintf(fileID,'\nOUTX %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'displ_x';      fprintf(fileID,'\nOUTX %2u %3u 1',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'displ_y';      fprintf(fileID,'\nOUTX %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+1);
+            case 'displ_z';      fprintf(fileID,'\nOUTX %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+1);
                 %case 'rot_x';       fprintf(fileID,'\nOUTX %2u %3u 4',i,(Optional.transfer_out(i).node-1)*2+2);
                 %case 'rot_y';       fprintf(fileID,'\nOUTX %2u %3u 3',i,(Optional.transfer_out(i).node-1)*2+2);
                 %case 'rot_z';       fprintf(fileID,'\nOUTX %2u %3u 2',i,(Optional.transfer_out(i).node-1)*2+2);
@@ -505,53 +505,53 @@ fprintf(fileID,'\n\nEND\nEND\n\n');
 
 %% VISUALIZATION
 fprintf(fileID,'\n\nVISUALIZATION');
-for i=1:size(Elem_props,2) %loop over all element property sets
+for i=1:size(eprops,2) %loop over all element property sets
     
     %CROSSECTIONAL PROPERTIES
     fprintf(fileID,'\n\nBEAMPROPS ');
-    for j=1:length(Elem_props(i).El_Nrs) %loop over all elemenents in element set i
+    for j=1:length(eprops(i).elems) %loop over all elemenents in element set i
         for k=1:size(E_list,2)
-            El = E_list(Elem_props(i).El_Nrs(j),k);
+            El = E_list(eprops(i).elems(j),k);
             if El>0
                 fprintf(fileID,' %u ',El);
             end
         end
     end
     
-    if isempty(Elem_props(i).type)
+    if isempty(eprops(i).type)
         fprintf(fileID,'\nCROSSTYPE  RECT');
         fprintf(fileID,'\nCROSSDIM 0.05 0.05');
     else
-        switch Elem_props(i).type
+        switch eprops(i).type
             case {'leafspring','rigid'} %if leafspring or rigid, do rect crossection
                 fprintf(fileID,'\nCROSSTYPE  RECT');
-                fprintf(fileID,'\nCROSSDIM  %f  %f',Elem_props(i).dim(1),Elem_props(i).dim(2));
+                fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
             case 'wire'                 %if wire, do circular crossection
                 fprintf(fileID,'\nCROSSTYPE  CIRC');
-                fprintf(fileID,'\nCROSSDIM  %f ',Elem_props(i).dim(1));
+                fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
         end
     end
     
     %COLOR
-    if (isfield(Elem_props(i),'color') && ~isempty(Elem_props(i).color))
+    if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
         fprintf(fileID,'\nGRAPHICS ');
-        for j=1:length(Elem_props(i).El_Nrs)
+        for j=1:length(eprops(i).elems)
             for k=1:size(E_list,2)
-                El = E_list(Elem_props(i).El_Nrs(j),k);
+                El = E_list(eprops(i).elems(j),k);
                 if El>0
                     fprintf(fileID,' %u ',El);
                 end
             end
         end
-        fprintf(fileID,'\nFACECOLOR  %f %f %f ',Elem_props(i).color(1),Elem_props(i).color(2),Elem_props(i).color(3));
+        fprintf(fileID,'\nFACECOLOR  %f %f %f ',eprops(i).color(1),eprops(i).color(2),eprops(i).color(3));
     end
     
     %VISIBILITY
-    if (isfield(Elem_props(i),'hide') && ~isempty(Elem_props(i).hide) && Elem_props(i).hide==1)
+    if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide) && eprops(i).hide==1)
         fprintf(fileID,'\nDONOTDRAW ');
-        for j=1:length(Elem_props(i).El_Nrs)
+        for j=1:length(eprops(i).elems)
             for k=1:size(E_list,2)
-                El = E_list(Elem_props(i).El_Nrs(j),k);
+                El = E_list(eprops(i).elems(j),k);
                 if El>0
                     fprintf(fileID,' %u ',El);
                 end
@@ -563,7 +563,7 @@ fclose(fileID); %datfile finished!
 
 
 %% SIMULATE CONSTRAINTS
-if simple_mode==0
+if silent==0
     try 
         %TO DO: do manual check here
         spacar(0,filename)
@@ -618,7 +618,7 @@ if simple_mode==0
             listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
         end
 
-        %Reshape rlse suggestions according to user defined elements
+        %Reshape rls suggestions according to user defined elements
         OC_el= [];
         OC_defs = [];
         for i=1:size(E_list,1)
@@ -638,7 +638,7 @@ if simple_mode==0
             end
         end
 
-        Results.overconstraints = [OC_el OC_defs];
+        results.overconstraints = [OC_el OC_defs];
         fprintf('\nSystem is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in Results.overconstraints in the workspace and the table below.\n')
         fprintf('\nNumber of overconstraints: %u\n\n',nover);
         disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
@@ -648,7 +648,7 @@ if simple_mode==0
     end
     
     if nddof == 0
-        display('The system has no degrees of freedom (so no Spacar simulation will be performed). Check Elem_props.flex and Rlse.')
+        display('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
         return;
     end
         
@@ -660,7 +660,7 @@ try
     %of toch mode 10 draaien, mode 9 werkt zeer slecht voor input
     %displacements/rotaties. Mode 10 geeft niet de transfer functies
     spacar(-9,filename)
-    if ~simple_mode
+    if ~silent
         spavisual(filename)
     end
     disp('Spacar simulation succeeded.')
@@ -669,7 +669,7 @@ catch
 end
 try
     %get results
-    Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, Elements, Node_props, Elem_props, Rlse, Optional);
+    results = calc_Results(filename, E_list, id_inputf, id_inputx, nodes, elements, nprops, eprops, rls, Optional);
 catch
     disp('Error in processing simulation results.')
 end
@@ -683,12 +683,12 @@ end
 
 
 %% AUXILIARY FUNCTIONS
-function stiffness = calc_stiffness(Elem_props)
+function stiffness = calc_stiffness(eprops)
 % Compute the stiffness properties for leafspring or wireflexure
-type    = Elem_props.type;
-dim     = Elem_props.dim;
-E       = Elem_props.E;
-G       = Elem_props.G;
+type    = eprops.type;
+dim     = eprops.dim;
+E       = eprops.emod;
+G       = eprops.smod;
 v       = E/(2*G) - 1;
 switch lower(type)
     case {'leafspring','rigid'}
@@ -738,11 +738,11 @@ end
 
 
 
-function inertia = calc_inertia(Elem_props)
+function inertia = calc_inertia(eprops)
 % Compute the inertia properties for leafspring or wireflexure
-type    = Elem_props.type;
-dim     = Elem_props.dim;
-rho     = Elem_props.rho;
+type    = eprops.type;
+dim     = eprops.dim;
+rho     = eprops.dens;
 switch lower(type)
     case {'leafspring','rigid'}
         t   = dim(1);
@@ -764,7 +764,7 @@ inertia(1,5) = 0;
 end
 
 
-function Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, ~, ~, Elem_props, ~, Optional)
+function Results = calc_Results(filename, E_list, id_inputf, id_inputx, Nodes, ~, ~, eprops, ~, Optional)
 nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
 t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %timesteps
 lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
@@ -775,7 +775,7 @@ end
 
 %CHECK BUCKLING SETTINGS
 calcbuck = false;
-if (isfield(Optional,'buck_load') && Optional.buck_load == 1)
+if (isfield(Optional,'buckload') && Optional.buckload == 1)
     calcbuck = true;
     if id_inputx
         disp('Warning: input displacement prescribed, buckling load multipliers are also with respect to input reaction forces');
@@ -805,7 +805,7 @@ for i=1:length(t_list)
     end
 end
 
-[propcrossect, Sig_nums]  = calc_propcrossect(E_list,Elem_props);
+[propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
 for i=t_list
     x       = getfrsbf([filename '.sbd'] ,'x', i);
     fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
@@ -827,10 +827,10 @@ Results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
 end
 
 
-function cw= CWvalues(L,Elem_props)
-w = Elem_props.dim(2);
-E = Elem_props.E;
-G = Elem_props.G;
+function cw= CWvalues(L,eprops)
+w = eprops.dim(2);
+E = eprops.emod;
+G = eprops.smod;
 v = E/(2*G) - 1;
 
 aspect  = L/w;        %- aspect ratio of flexure
@@ -900,7 +900,7 @@ CMloc=Tloc*CMlambda*(Tloc');
 end
 
 
-function [propcrossect, Sig_nums]  = calc_propcrossect(E_list,Elem_props)
+function [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops)
 %restructure crossectional properties to evaluate stresses throuqh
 %stressbeam.m
 
@@ -908,29 +908,29 @@ propcrossect = [];Sig_nums = [];
 
 for i=1:size(E_list,1)
     id=[];
-    for j=1:size(Elem_props,2)
-        for k=1:length(Elem_props(j).El_Nrs)
-            if Elem_props(j).El_Nrs(k)==i;
+    for j=1:size(eprops,2)
+        for k=1:length(eprops(j).elems)
+            if eprops(j).elems(k)==i;
                 id=j;
             end
         end
     end
     if ~isempty(id)
-        if (isfield(Elem_props(id),'flex') && ~isempty(Elem_props(id).flex))
+        if (isfield(eprops(id),'flex') && ~isempty(eprops(id).flex))
             Elements = E_list(i,:);
             Elements(Elements==0) = [];
             Sig_nums = [Sig_nums Elements];
             
-            switch Elem_props(id).type
+            switch eprops(id).type
                 case 'leafspring'
                     for j=1:length(Elements)
                         propcrossect(end+1).CrossSection = 'rect';
-                        propcrossect(end).Dimensions = [Elem_props(id).dim(1),Elem_props(id).dim(2)];
+                        propcrossect(end).Dimensions = [eprops(id).dim(1),eprops(id).dim(2)];
                     end
                 case 'wire'
                     for j=1:length(Elements)
                         propcrossect(end+1).CrossSection = 'circ';
-                        propcrossect(end).Dimensions = Elem_props(id).dim(1);
+                        propcrossect(end).Dimensions = eprops(id).dim(1);
                     end
             end
         end
