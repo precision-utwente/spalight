@@ -1,50 +1,49 @@
-addpath ../sp15ex/
-addpath ../spaplus
-addpath ../spaprivate
-
-% rmpath ../sp15ex/
-% rmpath ../spaplus
-% rmpath ../spaprivate
+addpath ~/mlib/sp17ex
+% addpath ../spaplus
+% addpath ../spaprivate
 
 clear
 clc
 
 L = 0.5;
-d = 0.2;
+d = 2e-5;
 
 nodes = [
     0 0 0;
     0 L 0;
-    d 0 0;
+    0 L+d 0;
+    0 1 0;
     ];
-    
+
 elements = [
     1 2;
-%     2 3;
+    2 3;
+    4 3;
     ];
+% 
+nprops(1).fix = true;
+nprops(2).fix = true;
+nprops(3).displ_initial_x = 0;
+nprops(4).force = [1 0 0];
+% nprops(4).fix_orien = true;
+nprops(4).mominertia = [0 0 0 0 0.1 0];
 
-nprops(1).fix_all = true;
-nprops(1).mass = 1;
-nprops(3).fix_rx = true;
-nprops(3).fix_ry = true
+eprops(1).elems = [1 2 3];
+eprops(1).emod = 210e9;
+eprops(1).smod = 70e9;
+eprops(1).dens = 7800;
+eprops(1).dim = [0.03 0.0005];
+eprops(1).type = 'leafspring';
+eprops(1).flex = [1 2];
+% eprops(2).flex = [1];
+eprops(1).orien = [0 0 1];
+eprops(1).nbeams = 1;
 
-elprops(1).El_Nrs = [1];
-elprops(1).E = 210e9;
-elprops(1).G = 70e9;
-elprops(1).rho = 7800;
-elprops(1).dim = [0.03 0.0005];
-elprops(1).type = 'leafspring';
-elprops(1).flex = 1:6;
-elprops(1).orien = [0 0 1];
-elprops(1).n_beams = 1;
+rls(1).def = 1:6;
+rls(2).def = 3;
 
-% elprops(2).El_Nrs = [2];
-% elprops(2).orien = [0 0 1];
+% opt.filename = '';
+opt.silent = false;
+opt.showinputonly = false;
 
-% rls(1).def = 1:5;
-rls(1).def = [4];
-
-opt.filename = 'test';
-% opt.simple_mode = 1;
-
-Spacar_light(nodes,elements,nprops,elprops,rls);
+a=spacarlight(nodes,elements,nprops,eprops,rls,opt);
