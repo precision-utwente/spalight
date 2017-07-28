@@ -26,13 +26,16 @@ function [results] = spacarlight(varargin)
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 
+%% WARNINGS
+warning off backtrace
+
 %% Do not allow running this function as a script
-assert(size(dbstack,1)>1,'Call spacarlight() from a script instead.')
+ensure(size(dbstack,1)>1,'Call spacarlight() from a script instead.')
 
 %% CHECK FOR INCOMPLETE INPUT
 switch nargin
     case 0
-        error('No input was provided.');
+        err('No input was provided.');
     case 1
         warning('Incomplete input; no simulation is run.');
         % validate only nodes
@@ -69,7 +72,7 @@ switch nargin
         end
         % attempt simulation
     otherwise
-        error('Expecting a maximum of 6 input arguments.');
+        err('Expecting a maximum of 6 input arguments.');
 end
 
 %% INITIALIZE VARIABLES, SET DEFAULTS (DO NOT SET DEFAULTS IN VALIDATEINPUT())
@@ -82,9 +85,9 @@ X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
 
 %% CHECK EXISTENCE OF REQUIRED FUNCTIONS
-if exist('spavisual','file')   ~=2;   error('spavisual() is not in your path.');                                         end
-if exist('stressbeam','file')  ~=2;   error('stressbeam() is not in your path (typically part of spavisual package).');  end
-if exist('spacar','file')      ~=3;   error('spacar() is not in your path.');                                            end
+if exist('spavisual','file')   ~=2;   err('spavisual() is not in your path.');                                         end
+if exist('stressbeam','file')  ~=2;   err('stressbeam() is not in your path (typically part of spavisual package).');  end
+if exist('spacar','file')      ~=3;   err('spacar() is not in your path.');                                            end
      
 %% START CREATING DATFILE
 fileID = fopen([opt.filename '.dat'],'w');
@@ -234,7 +237,7 @@ for i=1:size(nprops,2)
     if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
             (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); fprintf(fileID,'INPUTX      %3u     2\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
-        error('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
+        err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
     end
 end
 fprintf(fileID,'\n\nEND\nHALT\n\n');
@@ -280,12 +283,12 @@ for i=1:size(nprops,2) %loop over all user defined nodes
     if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    fprintf(fileID,'XF      %3u %6f %6f %6f  \n',(i-1)*2+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
     
     %moments
-    if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)),
+    if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)) %#ok<*ALIGN>
       moments = nprops(i).moment;
-                                                                                           fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments(1),2*moments(2),2*moments(3));                                                id_add = true;  id_inputf=true; end
-    if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial)),
+                                                                                    fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments(1),2*moments(2),2*moments(3));                                       id_add = true;  id_inputf=true; end
+    if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial))
       moments_i = nprops(i).moment_initial;
-                                                                                           fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments_i(1),2*moments_i(2),2*moments_i(3));                                          id_ini = true;  id_inputf=true; end
+                                                                                    fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments_i(1),2*moments_i(2),2*moments_i(3));                                 id_ini = true;  id_inputf=true; end
     
     %displacements
     if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
@@ -324,7 +327,7 @@ if(fieldexist('opt','gravity') && ~isempty(opt.gravity)); fprintf(fileID,'\nGRAV
 if      (id_ini && id_add);      fprintf(fileID,'\nITERSTEP 10 10 0.0000005 1 3 10');    %if initial and aditional loading/displacement
 elseif  (id_ini && ~id_add);     fprintf(fileID,'\nITERSTEP 10 1 0.0000005  1 1 10');    %if initial loading/displacement
 elseif  (~id_ini && id_add);     fprintf(fileID,'\nITERSTEP 10 10 0.0000005 1 3 0');     %if initial loading/displacement
-else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 0');  end%no loading/displacement
+else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 0');  end%#ok<SEPEX> %no loading/displacement
 
 % %TRANSFER FUNCTION INPUT/OUTPUT
 % if ((isfield(opt,'transfer_in') && ~isempty(opt.transfer_in)) ||  (isfield(opt,'transfer_out') && ~isempty(opt.transferout)))
@@ -436,10 +439,12 @@ fclose(fileID); %datfile finished!
 %% SIMULATE CONSTRAINTS
 if ~(fieldexist('opt','silent') && opt.silent==1)
     try 
-        %TO DO: do manual check here
+        warning('off','all')
         spacar(0,opt.filename)
+        warning('on','all')
     catch
-        error('Connectivity incorrect. Check element lengths, eprops.orien, etc.');
+        warning('on','all') %needed here, since a spacar error in the try block would leave warnings off
+        err('Connectivity incorrect. Check element lengths, eprops.orien, etc.');
     end
     
     %CHECK CONSTRAINTS
@@ -470,7 +475,7 @@ if ~(fieldexist('opt','silent') && opt.silent==1)
     end
 
     if nunder>0 %underconstrained
-        fprintf('\nSystem is underconstrained. Check element connectivity, boundary conditions and releases.\n')
+        warning('System is underconstrained. Check element connectivity, boundary conditions and releases.')
         warning('on','all')
         return
     elseif nover>0 %overconstrained
@@ -510,8 +515,8 @@ if ~(fieldexist('opt','silent') && opt.silent==1)
         end
 
         results.overconstraints = [OC_el OC_defs];
-        fprintf('\nSystem is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in Results.overconstraints in the workspace and the table below.\n')
-        fprintf('\nNumber of overconstraints: %u\n\n',nover);
+        warning('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in results.overconstraints in the workspace and the table below.\n')
+        fprintf('Number of overconstraints: %u\n\n',nover);
         disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
             'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
         warning('on','all')
@@ -519,7 +524,7 @@ if ~(fieldexist('opt','silent') && opt.silent==1)
     end
     
     if nddof == 0
-        disp('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
+        warning('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
         return;
     end
         
@@ -527,20 +532,26 @@ end
 
 %% SIMULATE STATICS
 try
+    warning('off','all')
     spacar(-10,opt.filename)
+    warning('on','all')
     if ~(fieldexist('opt','silent') && opt.silent==1)
         spavisual(opt.filename)
     end
     disp('Spacar simulation succeeded.')
 catch
-    disp('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
+    warning('on','all') %needed here, since a spacar error in the try block would leave warnings off
+    warning('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
 end
 try
     %get results
     results = calc_Results(opt.filename, E_list, id_inputf, id_inputx, nodes, elements, nprops, eprops, rls, opt);
 catch
-    disp('Error in processing simulation results.')
+    err('A problem occurred processing simulation results.')
 end
+
+%% WARNINGS
+warning backtrace on
 
 %% END OF SPACAR_LIGHT
 end
@@ -589,17 +600,17 @@ function varargout = validateInput(varargin)
         if exist('elements','var')
             nno = size(nodes,1);
             validateattributes(elements,{'double'},{'ncols',2,'ndims',2},'','elements')
-            assert(all(elements(:) == floor(elements(:))),'Entries in elements seem to be non-integers.')
+            ensure(all(elements(:) == floor(elements(:))),'Entries in elements seem to be non-integers.')
             
-            assert(all(elements(:)>0),'Element seems connected to node number <=0.')
-            assert(max(elements(:))<=nno,'Element seems connected to node that does not exist.')
-            if max(elements(:))<nno; disp('Warning: node seems not attached to element.'); end
-            assert(~any(abs(elements(:,1)-elements(:,2))==0),('Both sides of element seem connected to the same node.'))
+            ensure(all(elements(:)>0),'Element seems connected to node number <=0.')
+            ensure(max(elements(:))<=nno,'Element seems connected to node that does not exist.')
+            if max(elements(:))<nno; warning('Node seems not attached to element.'); end
+            ensure(~any(abs(elements(:,1)-elements(:,2))==0),('Both sides of element seem connected to the same node.'))
             
             %check if unique pairs node numbers (independent of p/q order)
-            assert(size(unique(sort(elements,2),'rows'),1)==size(elements,1),'Multiple elements seem connected between the same node pair.')
+            ensure(size(unique(sort(elements,2),'rows'),1)==size(elements,1),'Multiple elements seem connected between the same node pair.')
             
-            assert(all(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5),'Element length seems smaller than 0.00001')
+            ensure(all(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5),'Element length seems smaller than 0.00001.')
             
         end
 
@@ -610,7 +621,7 @@ function varargout = validateInput(varargin)
             supplied_nprops = fieldnames(nprops);
             unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
             if any(unknown_nprops_i)
-               error('Unknown nprops field %s\n',supplied_nprops{unknown_nprops_i});
+                err('Unknown nprops field %s',supplied_nprops{unknown_nprops_i});
             end
             
             validateattributes(nprops,{'struct'},{'nonempty'},'','nprops')
@@ -666,33 +677,33 @@ function varargout = validateInput(varargin)
                             (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)));         count_bcs = count_bcs + 1;   end
                     
                 %no combination of fix, force, displ on one node in the same direction (translational along x)
-                assert(sum([ ...
+                ensure(sum([ ...
                 (isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x) && nprops(i).fix_x == true) ...
                 ((isfield(nprops(i),'force') && ~isempty(nprops(i).force) && nprops(i).force(1)~=0) || (isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial) && nprops(i).force_initial(1)~=0 )) ...
                 ((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) || (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x))) ...
-                    ])<=1,'There is a combination of fix_x, force(1) and displ_(initial_)x on node %i',i);
+                    ])<=1,'There is a combination of fix_x, force(1) and displ_(initial_)x on node %i.',i);
                 
                 %no combination of fix, force, displ on one node in the same direction (translational along y)
-                assert(sum([ ...
+                ensure(sum([ ...
                 (isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) && nprops(i).fix_y == true) ...
                 ((isfield(nprops(i),'force') && ~isempty(nprops(i).force) && nprops(i).force(2)~=0) || (isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial) && nprops(i).force_initial(2)~=0 )) ...
                 ((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) || (isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y))) ...
-                    ])<=1,'There is a combination of fix_y, force(2) and displ_(initial_)y on node %i',i);
+                    ])<=1,'There is a combination of fix_y, force(2) and displ_(initial_)y on node %i.',i);
                 
                 %no combination of fix, force, displ on one node in the same direction (translational along z)
-                assert(sum([ ...
+                ensure(sum([ ...
                 (isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) && nprops(i).fix_z == true) ...
                 ((isfield(nprops(i),'force') && ~isempty(nprops(i).force) && nprops(i).force(3)~=0) || (isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial) && nprops(i).force_initial(3)~=0 )) ...
                 ((isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z)) || (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z))) ...
-                    ])<=1,'There is a combination of fix_z, force(3) and displ_(initial_)z on node %i',i);
+                    ])<=1,'There is a combination of fix_z, force(3) and displ_(initial_)z on node %i.',i);
                 
                 %no combination of fix_orien, moment, rot on one node
-                assert(sum([ ...
+                ensure(sum([ ...
                 (isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) && nprops(i).fix_orien == true) ...
                 ((isfield(nprops(i),'moment') && ~isempty(nprops(i).moment) && any(nprops(i).moment~=0)) || (isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial) && any(nprops(i).moment_initial~=0) )) ...
                 ( (isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) || (isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) || (isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) || ...
                   (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)) || (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y)) || (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)) ) ...
-                    ])<=1,'There is a combination of fix_orien, moment and rot_x/y/z on node %i',i);
+                    ])<=1,'There is a combination of fix_orien, moment and rot_x/y/z on node %i.',i);
                 
                 %no combination of fix (6 constraints) and (mass or mominertia)
                 if (isfield(nprops(i),'fix') && ~isempty(nprops(i).fix) && nprops(i).fix == true) && ...
@@ -700,114 +711,161 @@ function varargout = validateInput(varargin)
                             (isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia) && any(nprops(i).mominertia~=0)) ...
                         )
                         
-                    fprintf('Warning: inertia associated with fixed node %i\n',i);
+                    warning('Inertia associated with fixed node %i.',i);
                 end
                 
                 %no combination of fix_pos and mass
                 if (isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos) && nprops(i).fix_pos == true) && ...
                    (isfield(nprops(i),'mass') && ~isempty(nprops(i).mass) && nprops(i).mass~=0)
                         
-                    fprintf('Warning: mass associated with position-fixed node %i\n',i);
+                    warning('Mass associated with position-fixed node %i.',i);
                 end                
                 
                 %no combination of fix_orien and mominertia
                 if (isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) && nprops(i).fix_orien == true) && ...
                    (isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia) && any(nprops(i).mominertia~=0))
                         
-                    fprintf('Warning: moment of inertia associated with orientation-fixed node %i\n',i);
+                    warning('Moment of inertia associated with orientation-fixed node %i.',i);
                 end   
-                
-                
             end
-            assert(count_bcs >= 6,'The nodes seem to have insufficient (%i<6) constraints (fix, displ, or rot).',count_bcs);
+            ensure(count_bcs >= 6,'The nodes seem to have insufficient (%i<6) constraints (fix, displ, or rot).',count_bcs);
         end
         
-        %CHECK eprops INPUT VARIABLE
+        %CHECK EPROPS INPUT VARIABLE
         if exist('eprops','var')
             allowed_eprops = {'elems','emod','smod','dens','type','dim','orien','nbeams','flex','color','hide'};
             supplied_eprops = fieldnames(eprops);
             unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
             if any(unknown_eprops_i)
-               error('Unknown eprops field %s\n',supplied_eprops{unknown_eprops_i});
+               err('Unknown eprops field %s.',supplied_eprops{unknown_eprops_i});
             end
             
             el_nr_doubles_check = []; %filling this with user defined element numbers (with .elems) to check for doubles and missing elements
             for i=1:size(eprops,2)
 
-                %mandatory fields (%elems)
-                if ~(isfield(eprops(i),'elems') && ~isempty(eprops(i).elems)); error('Property elems is not defined in eprops(%u)',i);   end
-                validateattributes(eprops(i).elems,{'double'},{'vector'},'',sprintf('elems property in eprops(%u)',i));
-                validateattributes(eprops(i).elems,{'double'},{'positive'},'',sprintf('elems property in eprops(%u)',i));
+                %the only mandatory field is elems
+                if ~(isfield(eprops(i),'elems') && ~isempty(eprops(i).elems))
+                    warning('Property elems is not defined in eprops(%u); ignoring eprops(%i).',i,i);
+                    eprops(i) = []; %note, this deletes the current property set from the list
+                else
+                    %%%%%%%%%%%%
+                    %elems exists, so validate elems
+                    validateattributes(eprops(i).elems,{'double'},{'vector'},'',sprintf('elems property in eprops(%u)',i));
+                    validateattributes(eprops(i).elems,{'double'},{'positive'},'',sprintf('elems property in eprops(%u)',i));
 
-                %check if elems for set i are unique
-                if length(unique(eprops(i).elems)) < length(eprops(i).elems)
-                    error('Property elems of eprops(%i) contains non-unique element numbers.',i)
-                end
-
-                %check if elems only contains defined elements
-                undef_el_index = ~ismember(eprops(i).elems,1:size(elements,1));
-                if any(undef_el_index)
-                    error('eprops(%i).elems contains undefined element number(s).',i)
-                end
-
-                %check if elements in elems are not already defined previously
-                double_el_index = ismember(eprops(i).elems,el_nr_doubles_check);
-                if any(double_el_index)
-                    error('eprops(%i).elems contains element(s) whose properties have already been defined.',i)
-                end
-                el_nr_doubles_check = [el_nr_doubles_check; eprops(i).elems(:)];
-
-                %mandatory fields when properties are flexible
-                if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
-                    validateattributes(getfield(eprops(i),'flex'),{'double'},{'vector','positive'},'',sprintf('flex property in eprops(%u)',i));  
-
-                    %Check if field exist in structure
-                    if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); error('Property emod is not defined in eprops(%u)',i);     end
-                    if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); error('Property smod is not defined in eprops(%u)',i);     end
-                    if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); error('Property dens is not defined in eprops(%u)',i);     end
-                    if ~(isfield(eprops(i),'type') && ~isempty(eprops(i).type)); error('Property type is not defined in eprops(%u)',i);     end
-                    if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));   error('Property dim is not defined in eprops(%u)',i);     end
-
-                    %Check if values are valid
-                    validateattributes(eprops(i).flex,{'double'},{'vector'},'',  sprintf('flex property in eprops(%u)',i));
-                    if any(((eprops(i).flex==1)+(eprops(i).flex==2)+(eprops(i).flex==3)+(eprops(i).flex==4)+(eprops(i).flex==5)+(eprops(i).flex==6))==0)
-                        error('Invalid deformation mode in eprops(%u).flex',i)
+                    %check if elems for set i are unique
+                    if length(unique(eprops(i).elems)) < length(eprops(i).elems)
+                        err('Property elems of eprops(%i) contains non-unique element numbers.',i)
                     end
-                    validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i));
-                    validateattributes(eprops(i).smod,{'double'},{'scalar'},'',   sprintf('smod property in eprops(%u)',i));
-                    validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i));
-                    validateattributes(eprops(i).type,{'char'},{'nonempty'},'',   sprintf('type property in eprops(%u)',i));
-                    if ~any(strcmp(eprops(i).type,{'wire','leafspring','rigid'})) error('Element type should be either leafspring, wire or rigid'); end
-                    validateattributes(eprops(i).dim,{'double'},{'vector'},'',    sprintf('dim property in eprops(%u)',i));
-                else
-                    eprops(i).flex = [];
-                end
 
-                %Check optional fields - check if specified by user, else defaults
-                if (isfield(eprops(i),'orien') && ~isempty(eprops(i).orien))
-                    validateattributes(getfield(eprops(i),'orien'),{'double'},{'vector','numel',3},'',             sprintf('orien property in eprops(%u)',i));      
-                else
-                    eprops(i).orien = [0 1 0];
-                end
+                    %check if elems only contains defined elements
+                    undef_el_index = ~ismember(eprops(i).elems,1:size(elements,1));
+                    if any(undef_el_index)
+                        err('eprops(%i).elems contains undefined element number(s).',i)
+                    end
 
-                if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
-                    validateattributes(getfield(eprops(i),'nbeams'),{'double'},{'scalar','>=',1},'',                       sprintf('nbeams property in eprops(%u)',i));    
-                else
-                    eprops(i).nbeams = 1;
-                end
+                    %check if elements in elems are not already defined previously
+                    double_el_index = ismember(eprops(i).elems,el_nr_doubles_check);
+                    if any(double_el_index)
+                        err('eprops(%i).elems contains element(s) whose properties have already been defined.',i)
+                    end
+                    el_nr_doubles_check = [el_nr_doubles_check; eprops(i).elems(:)];
+                    %end validation of elems
+                    %%%%%%%%%%%
+                    
+                    %%%%%%%%%%%%%%%
+                    %validate other properties that are specified
+                    if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));     validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i)); end
+                    if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod));     validateattributes(eprops(i).smod,{'double'},{'scalar'},'',   sprintf('smod property in eprops(%u)',i)); end
+                    if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens));     validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i)); end
+                    if (isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));       validateattributes(eprops(i).dim,{'double'},{'vector'},'',    sprintf('dim property in eprops(%u)',i));  end
+                    if (isfield(eprops(i),'color') && ~isempty(eprops(i).color));   validateattributes(eprops(i).color,{'double'},{'vector','numel',3},'',sprintf('color property in eprops(%u)',i)); end
+                    if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide));     validateattributes(eprops(i).hide,{'logical'},{'scalar'},'',sprintf('hide property in eprops(%u)',i)); end
+                    
+                    if (isfield(eprops(i),'type') && ~isempty(eprops(i).type))
+                        validateattributes(eprops(i).type,{'char'},{'nonempty'},'',sprintf('type property in eprops(%u)',i));
+                        if ~any(strcmp(eprops(i).type,{'wire','leafspring','rigid'})), err('Element type should be either leafspring, wire or rigid.'); end
+                    end
+                    
+                    if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
+                        validateattributes(eprops(i).nbeams,{'double'},{'scalar','>=',1},'',sprintf('nbeams property in eprops(%u)',i));
+                    else
+                        eprops(i).nbeams = 1; 
+                    end
 
-                if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
-                    validateattributes(getfield(eprops(i),'color'),{'double'},{'vector','numel',3},'',             sprintf('color property in eprops(%u)',i));
-                else
-        %             eprops(i).color = [];
-                end
+                    if (isfield(eprops(i),'orien') && ~isempty(eprops(i).orien))   
+                        validateattributes(eprops(i).orien,{'double'},{'vector','numel',3},'',sprintf('orien property in eprops(%u)',i));
+                        
+                        for j=1:length(eprops(i).elems)
+                            xp = nodes(elements(eprops(i).elems(j),1),:);
+                            xq = nodes(elements(eprops(i).elems(j),2),:);
+                            
+                            %check if supplied local y vector works
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            %this directly from SPACAR 2015 source:
+                            ex = xq(:) - xp(:);
+                            ex = ex/norm(ex);
+                            ey_input = eprops(i).orien;
+                            ey = ey_input(:)/norm(ey_input);
+                            ex_proj = dot(ey,ex);
+                            noemer = sqrt(1-ex_proj^2);
+                            if noemer < 1e-5
+                                err('Orien property of element %i does not work, because (almost) parallel to element axis.',eprops(i).elems(j))
+                            end
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            
+                            %check if normal to local x axis (else warn)
+                            if dot(ex,ey) > 1e-3
+                                warning('Note that local y-axis of element %i might be different than expected, because orien property is not normal to element axis.',eprops(i).elems(j));
+                            end
+                        end               
+                    else
+                        %check if default works
+                        orien_def = [0 1 0];
+                        for j=1:length(eprops(i).elems)
+                            xp = nodes(elements(eprops(i).elems(j),1),:);
+                            xq = nodes(elements(eprops(i).elems(j),2),:);
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                            %this directly from SPACAR 2015 source:
+                            ex = xq - xp;
+                            ex = ex/norm(ex);
+                            ey_input = orien_def;
+                            ey = ey_input(:)/norm(ey_input);
+                            ex_proj = dot(ey,ex);
+                            noemer = sqrt(1-ex_proj^2);
+                            if noemer < 1e-5
+                                err('No orien property specified for element %i. Default value [0 1 0] does not work, because (almost) parallel to element axis.',eprops(i).elems(j))
+                            end
+                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        end  
+                        eprops(i).orien = orien_def; %default setting
+                    end
 
-                if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide))
-                    validateattributes(getfield(eprops(i),'hide'),{'logical'},{'scalar'},'',                      sprintf('hide property in eprops(%u)',i));
-                else
-        %             eprops(i).hide = [];
-                end
+                    %check for mandatory fields when flex 
+                    if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
+                        validateattributes(eprops(i).flex,{'double'},{'vector','positive'},'',sprintf('flex property in eprops(%u)',i));  
+                        
+                        %Check if values for flex are valid
+                        validateattributes(eprops(i).flex,{'double'},{'vector'},'',  sprintf('flex property in eprops(%u)',i));
+                        if any(((eprops(i).flex==1)+(eprops(i).flex==2)+(eprops(i).flex==3)+(eprops(i).flex==4)+(eprops(i).flex==5)+(eprops(i).flex==6))==0)
+                            err('Invalid deformation mode in eprops(%u).flex.',i)
+                        end
+                        
+                        %Check if field exist in structure
+                        if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
+                        if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); err('Property smod is not defined in eprops(%u)',i);     end
+                        if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); err('Property dens is not defined in eprops(%u)',i);     end
+                        if ~(isfield(eprops(i),'type') && ~isempty(eprops(i).type)); err('Property type is not defined in eprops(%u)',i);     end
+                        if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));   err('Property dim is not defined in eprops(%u)',i);      end
+                        if ~(isfield(eprops(i),'orien') && ~isempty(eprops(i).orien));   err('Property orien is not defined in eprops(%u)',i);      end
 
+                    else
+                        eprops(i).flex = [];
+                        if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warning('Property eprops(%u).emod is redundant without the flex property.',i);     end
+                        if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warning('Property eprops(%u).smod is redundant without the flex property.',i);     end
+                    end
+
+                end  
             end
             %warn user if elements are defined without adding properties to them
             el_without_prop_index = ~ismember(1:size(elements,1),el_nr_doubles_check);
@@ -821,17 +879,21 @@ function varargout = validateInput(varargin)
                     warning('Elements %s have no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
                 end
             end
+            %warn user if no element has flexibility
+            if ~isfield(eprops,'flex') || cellfun(@isempty,{eprops(:).flex})
+                warning('No element seems to have the flex property. Simulation does not seem useful.')
+            end
         end
 
         %CHECK RLS INPUT VARIABLE
         if exist('rls','var') && ~isempty(rls)
-            assert(all(ismember(fieldnames(rls),{'def'})),'Unknown field in rls; only field allowed is def');
+            ensure(all(ismember(fieldnames(rls),{'def'})),'Unknown field in rls; only def field is allowed.');
             
             for i=1:size(rls,2)
                 if ~isempty(rls(i).def)
                     validateattributes(rls(i).def,{'double'},{'vector'},'',   sprintf('def property in rls(%u)',i));
                     if any(((rls(i).def==1)+(rls(i).def==2)+(rls(i).def==3)+(rls(i).def==4)+(rls(i).def==5)+(rls(i).def==6))==0)
-                        error('Invalid deformation mode in rls(%u)',i)
+                        err('Invalid deformation mode in rls(%u).',i)
                     end
                 end
             end
@@ -843,26 +905,26 @@ function varargout = validateInput(varargin)
             supplied_opts = fieldnames(opt);
             unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
             if any(unknown_opts_i)
-               error('Unknown opt field %s\n',supplied_opts{unknown_opts_i});
+               err('Unknown opt field %s.',supplied_opts{unknown_opts_i});
             end
             
             if isfield(opt,'filename')
                 if isempty(opt.filename)
-                    fprintf('Filename cannot be empty. Filename spacar_file is used instead.');
+                    warning('Filename cannot be empty. Filename spacar_file is used instead.');
                         opt.filename = 'spacar_file';
                 else
                     validateattributes(opt.filename,{'char'},{'vector'},'',            'filename property in opt');  
                     if length(opt.filename) > 19
-                        fprintf('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
+                        warning('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
                         opt.filename = 'spacar_file';
                     end
                 end
             end
-            if (isfield(opt,'silent') && ~isempty(opt.silent));
+            if (isfield(opt,'silent') && ~isempty(opt.silent))
                 validateattributes(opt.silent,{'logical'},{'scalar'},'',            'silent property in opt');   end
-            if (isfield(opt,'buckload') && ~isempty(opt.buckload));
+            if (isfield(opt,'buckload') && ~isempty(opt.buckload))
                 validateattributes(opt.buckload,{'logical'},{'scalar'},'',          'buckload property in opt'); end
-            if (isfield(opt,'gravity') && ~isempty(opt.gravity));
+            if (isfield(opt,'gravity') && ~isempty(opt.gravity))
                 validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
             
         end
@@ -909,6 +971,34 @@ function showInput(varargin)
     disp('Showing input geometry');
 end
 
+function err(msg,varargin)
+    %custom error function to hide the backtrace stuff in command window
+    errorstruct.stack.file = '';
+    errorstruct.stack.name = 'spacarlight';
+    errorstruct.stack.line = 1;
+    errorstruct.identifier = '';
+ 
+    if nargin > 1
+        errorstruct.message = sprintf(msg,varargin{:});
+    else
+        errorstruct.message = msg;
+    end
+    
+    error(errorstruct)
+    
+end
+
+function ensure(cond,msg,varargin)
+    %custom assert function to hide the backtrace stuff in command window
+    try
+       %execute assert, but hide output
+       assert(cond); 
+    catch
+        %if assert failed, throw error
+        err(msg,varargin{:});
+    end
+    %if assert succeeded, do nothing
+end
 
 %% AUXILIARY FUNCTIONS
 function stiffness = calc_stiffness(eprops)
@@ -998,7 +1088,7 @@ t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %timesteps
 lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
 
 if nddof == 0
-    error('No dynamic degrees of freedom')
+    err('No dynamic degrees of freedom.')
 end
 
 %CHECK BUCKLING SETTINGS
@@ -1006,10 +1096,10 @@ calcbuck = false;
 if (isfield(opt,'buckload') && opt.buckload == 1)
     calcbuck = true;
     if id_inputx
-        disp('Warning: input displacement prescribed, buckling load multipliers are also with respect to input reaction forces');
+        warning('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
     end
     if ~id_inputf
-        disp('Warning: No external forces are prescribed. Buckling values are not calculated');
+        warning('No external forces are prescribed. Buckling values are not calculated.');
         calcbuck = false;
     end
 end
@@ -1075,10 +1165,10 @@ tstp    = tstp-1;
 CMglob  =zeros(6,6);
 CMloc   =zeros(6,6);
 if (nargin < 3) || (nargin>4)
-    disp('complm() needs 3 or 4 input arguments');
+    warning('complm() needs 3 or 4 input arguments');
     return;
-end;
-if nargin < 4, tstp=0; end;
+end
+if nargin < 4, tstp=0; end
 % get data from files
 DX      =getfrsbf([filename '.sbd'],'dx',tstp+1);
 X       =getfrsbf([filename '.sbd'],'x',tstp+1);
@@ -1092,14 +1182,14 @@ locv    =[lnp(ntr,1:3), lnp(nrot,1:4)];
 % test whether the selected coordinates are feasible
 for i=1:7
     if locv(i) <= 0
-        disp('Invalid node number for complm()');
+        warning('Invalid node number for complm().');
         return;
-    end;
+    end
     if locv(i) <= nxp(1) || ...
             (locv(i)>(nxp(1)+nxp(2)) && locv(i) <= (nxp(1)+nxp(2)+nxp(3)))
         %  disp('WARNING: constrained node');
-    end;
-end;
+    end
+end
 % search for the right degrees of freedom
 locdof=[nxp(3)+(1:nxp(4)), nxp(3)+nxp(4)+nep(3)+(1:nep(4))];
 
@@ -1138,7 +1228,7 @@ for i=1:size(E_list,1)
     id=[];
     for j=1:size(eprops,2)
         for k=1:length(eprops(j).elems)
-            if eprops(j).elems(k)==i;
+            if eprops(j).elems(k)==i
                 id=j;
             end
         end

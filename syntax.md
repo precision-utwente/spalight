@@ -36,12 +36,12 @@
     force_initial (force_add)
     moment_initial (moment_add)
 
-    disp_initial_x (displ_x_add)
-    disp_initial_y (displ_y_add)
-    disp_initial_z (displ_z_add)
-    disp_initial_rx (rot_x_add)
-    disp_initial_ry (rot_y_add)
-    disp_initial_rz (rot_z_add)
+    displ_initial_x (displ_x_add)
+    displ_initial_y (displ_y_add)
+    displ_initial_z (displ_z_add)
+    displ_initial_rx (rot_x_add)
+    displ_initial_ry (rot_y_add)
+    displ_initial_rz (rot_z_add)
     
 4. Element properties eprops.
 

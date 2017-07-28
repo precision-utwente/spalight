@@ -17,17 +17,19 @@ This is a list of requirements for a valid SPACAR model [and actions to take if 
     - no all-fixed BC and mass/inertia [warning, but showGeom]
 
 4. Element properties
-
-    - if no flexibility specified within set, no further input needed, but allowed for visualization purposes (color, orien, hide, type, dim) [warn about redundant E,G input]
-    - if an element property set is created, El_Nrs is required [warning]
-    - El_Nrs for all sets combined should be unique and existing
+    
+    - if an element property set is created, elems is required [warning]
+    - elems for all sets combined should be unique and existing
     (not all elements require specification though) [error]
-    - if orient specified, check if it works. If not specified, check if default works [error]
-    - if orient specified, check if normal to local x axis [warning]
-    - if flexibility specified, require E, G, rho, type, dim [error]
 
+    - if no flexibility specified within set, no further input needed, but allowed for visualization purposes (color, orien, hide, type, dim) [warn about redundant emod,smod input]
+    
+    - if flexibility specified, require emod, smod, dens, type, dim, orien [error]
     - if no flexibility in any set, no need to run spacar (note user though) [warning]
 
+    - if orien specified, check if normal to local x axis [warning]
+    - if orien specified, check if it works. If not specified, check if default works [error]
+    
 5. Releases
 
     - check if specified releases are already specified as flexible [error]
