@@ -36,6 +36,10 @@
 ehthumbs.db
 Thumbs.db
 
+# MATLAB temporary #
+####################
+*.m~
+
 # Folders #
 ###########
 txt/

@@ -139,6 +139,7 @@ rls(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to prev
 %opt.silent                       value true (1) to supress visualization after the simulation is completed. Can be usefull when calling Spacar_light.m in a for-loop during optimization
 %opt.buckload*                    value true (1) to calculate the load multipliers for buckling
 %opt.gravity                      vector with length 3 providing the gravitation vector in m/s^2, [0 -9.81 0]
+%opt.showinputonly                show only the input geometry window, even when >4 input arguments are supplied (and, normally, a simulation would be performed)
 %
 %   *evaluation of the load multipliers is only allowed when external force is applied on the system. Furthermore, load multipliers are also with respect to the reaction forces caused by prescribed
 %   displacements/rotations. It is recommended to only evaluate load multipliers with a single force/moment applied to the system and no prescribed rotations/displacements.
