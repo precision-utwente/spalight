@@ -12,22 +12,22 @@
 
 3. Node properties nprops.
 
-    fix_all (fix)
-    fix_xyz (fix_pos) 
-    fix_rot (fix_orien)
+    fix
+    fix_pos 
+    fix_orien
     
-    disp_x (displ_x)
-    disp_y (displ_y)
-    disp_z (displ_z)
-    disp_rx (rot_x)
-    disp_ry (rot_y)
-    disp_rz (rot_z)
+    displ_x
+    displ_y
+    displ_z
+    rot_x
+    rot_y
+    rot_z
 
     force
     moment
 
     mass
-    inertia (mominertia)
+    mominertia
 
     fix_x
     fix_y
@@ -45,14 +45,14 @@
     
 4. Element properties eprops.
 
-    El_Nrs (elems)
-    E (emod)
-    G (smod)
-    rho (dens)
+    elems
+    emod
+    smod
+    dens
     type
     dim
     orien
-    n_beams (nbeams)
+    nbeams
     flex
     color
     hide
@@ -65,8 +65,6 @@
     
     filename
     gravity
-    simple_mode (silent)
-    buck_load (buckload)
+    silent
+    buckload)
     showinputonly
-
-## Output
