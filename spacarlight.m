@@ -253,7 +253,7 @@ for i=1:size(eprops,2) %loop over each element property set
         for j=1:length(eprops(i).elems)                        %loop over all elemenents in element property set
             L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
                 - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
-            cw  = CWvalues(L,eprops(i));                        %calculate constrained warping values
+            cw  = cw_values(L,eprops(i));                        %calculate constrained warping values
             for k=1:size(E_list,2)                                  %loop over all beams in the element
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
@@ -273,7 +273,7 @@ end
 
 
 %% FORCES/MOMENTS/NODAL MASSES
-fprintf(fileID,'\n\n#FROCES/MOMENTS\n');
+fprintf(fileID,'\n\n#FORCES/MOMENTS\n');
 id_ini  = false; %check for initial loading or displacement
 id_add  = false; %check for aditional loading or displacement
 
@@ -285,10 +285,10 @@ for i=1:size(nprops,2) %loop over all user defined nodes
     %moments
     if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)) %#ok<*ALIGN>
       moments = nprops(i).moment;
-                                                                                    fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments(1),2*moments(2),2*moments(3));                                       id_add = true;  id_inputf=true; end
+                                                                                    fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3));                                       id_add = true;  id_inputf=true; end
     if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial))
       moments_i = nprops(i).moment_initial;
-                                                                                    fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments_i(1),2*moments_i(2),2*moments_i(3));                                 id_ini = true;  id_inputf=true; end
+                                                                                    fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments_i(1),moments_i(2),moments_i(3));                                 id_ini = true;  id_inputf=true; end
     
     %displacements
     if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
@@ -545,7 +545,7 @@ catch
 end
 try
     %get results
-    results = calc_Results(opt.filename, E_list, id_inputf, id_inputx, nodes, elements, nprops, eprops, rls, opt);
+    results = calc_results(opt.filename, E_list, id_inputf, id_inputx, nodes, elements, nprops, eprops, rls, opt);
 catch
     err('A problem occurred processing simulation results.')
 end
@@ -611,6 +611,10 @@ function varargout = validateInput(varargin)
             ensure(size(unique(sort(elements,2),'rows'),1)==size(elements,1),'Multiple elements seem connected between the same node pair.')
             
             ensure(all(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5),'Element length seems smaller than 0.00001.')
+            
+            maxlength = max(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
+            minlength = min(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
+            ensure(maxlength/minlength<=1000,'Ratio between element lengths seems larger than 1000.');
             
         end
 
@@ -1001,91 +1005,11 @@ function ensure(cond,msg,varargin)
 end
 
 %% AUXILIARY FUNCTIONS
-function stiffness = calc_stiffness(eprops)
-% Compute the stiffness properties for leafspring or wireflexure
-type    = eprops.type;
-dim     = eprops.dim;
-E       = eprops.emod;
-G       = eprops.smod;
-v       = E/(2*G) - 1;
-switch lower(type)
-    case {'leafspring','rigid'}
-        t   = dim(1);
-        w   = dim(2);
-        A   = t*w;
-        It 	= calcTorsStiff(t,w);
-        Iy  = (1/12)*t*w^3;
-        Iz  = (1/12)*w*t^3;
-        k   = 10*(1+v)/(12+11*v);
-    case 'wire'
-        d   = dim(1);
-        A   = (pi/4)*d^2;
-        It  = (pi/32)*d^4;
-        Iy  = (pi/64)*d^4;
-        Iz  = Iy;
-        k   = 6*(1+v)/(7+6*v);
-end
-stiffness(1,1) = E*A;
-stiffness(1,2) = G*It;
-stiffness(1,3) = E*Iy;
-stiffness(1,4) = E*Iz;
-stiffness(1,5) = stiffness(1,3)/(G*A*k);
-stiffness(1,6) = stiffness(1,4)/(G*A*k);
-end
-
-
-function Ip = calcTorsStiff(t, w)
-% Compute the polar moment of inertia for rectangular cross-sections
-if w > t
-    a = t/2;
-    b = w/2;
-else
-    a = w/2;
-    b = t/2;
-end
-sumN_new    = 0;
-sumN        = 0;
-n           = 1;
-while (n < 3 || abs((sumN_new/sumN)) > 0.0001)
-    sumN_new    = (1/n^5) * tanh(n*pi*b/(2*a));
-    n           = n + 2;
-    sumN        = sumN + sumN_new;
-end
-Ip = 1/3 * (2*a)^3*(2*b) * (1 - (192/pi^5)*(a/b)*sumN);
-end
-
-
-
-function inertia = calc_inertia(eprops)
-% Compute the inertia properties for leafspring or wireflexure
-type    = eprops.type;
-dim     = eprops.dim;
-rho     = eprops.dens;
-switch lower(type)
-    case {'leafspring','rigid'}
-        t   = dim(1);
-        w   = dim(2);
-        A   = t*w;
-        Iy  = 1/12 * t*w^3;
-        Iz  = 1/12 * w*t^3;
-    case 'wire'
-        d   = dim(1);
-        A   = (pi/4)*d^2;
-        Iy  = (pi/64)*d^4;
-        Iz  = Iy;
-end
-inertia(1,1) = rho*A;
-inertia(1,2) = rho*(Iy+Iz);
-inertia(1,3) = rho*Iy;
-inertia(1,4) = rho*Iz;
-inertia(1,5) = 0;
-end
-
-
-function Results = calc_Results(filename, E_list, id_inputf, id_inputx, nodes, ~, ~, eprops, ~, opt)
+function results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, ~, ~, eprops, ~, opt)
 nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
 t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %timesteps
 lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
+ln     = getfrsbf([filename,'.sbd'],'ln'); %lnp data
 
 if nddof == 0
     err('No dynamic degrees of freedom.')
@@ -1115,11 +1039,11 @@ for i=1:length(t_list)
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
-    Results.step(i).Freq = sqrt(d)*1/(2*pi);
+    results.step(i).Freq = sqrt(d)*1/(2*pi);
     
     if calcbuck
         [~,Buck] = eig(-K,G);
-        Results.step(i).Buck = sort(abs(diag(Buck)));
+        results.step(i).Buck = sort(abs(diag(Buck)));
     end
 end
 
@@ -1128,24 +1052,129 @@ for i=t_list
     x       = getfrsbf([filename '.sbd'] ,'x', i);
     fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
     for j=1:size(nodes,1)
-        Results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
-%         Results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
-        Results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
-        Results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
-        
-        Results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
-        [Results.step(i).node(j).CMglob, Results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
+        if ~ismember((j-1)*2+1,ln)
+            results.step(i).node(j).x = nodes(j,1:3);
+            display('note')
+            continue;
+        end
+        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
+%         results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
+        results.step(i).node(j).rx_axang    = quat2axang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
+        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
+%         results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
+        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
     end
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
-    Results.step(i).stressmax = stressextrema.max*1e6;
-    %  Results.step(i).bode_data =  getss('spacarfile',i);
+    results.step(i).stressmax = stressextrema.max*1e6;
+    %  results.step(i).bode_data =  getss('spacarfile',i);
 end
-Results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
+results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
 
 end
 
+function stiffness = calc_stiffness(eprops)
+% Compute the stiffness properties for leafspring or wireflexure
+type    = eprops.type;
+dim     = eprops.dim;
+E       = eprops.emod;
+G       = eprops.smod;
+v       = E/(2*G) - 1;
+switch lower(type)
+    case {'leafspring','rigid'}
+        t   = dim(1);
+        w   = dim(2);
+        A   = t*w;
+        It 	= calc_torsStiff(t,w);
+        Iy  = (1/12)*t*w^3;
+        Iz  = (1/12)*w*t^3;
+        k   = 10*(1+v)/(12+11*v);
+    case 'wire'
+        d   = dim(1);
+        A   = (pi/4)*d^2;
+        It  = (pi/32)*d^4;
+        Iy  = (pi/64)*d^4;
+        Iz  = Iy;
+        k   = 6*(1+v)/(7+6*v);
+end
+stiffness(1,1) = E*A;
+stiffness(1,2) = G*It;
+stiffness(1,3) = E*Iy;
+stiffness(1,4) = E*Iz;
+stiffness(1,5) = stiffness(1,3)/(G*A*k);
+stiffness(1,6) = stiffness(1,4)/(G*A*k);
+end
 
-function cw= CWvalues(L,eprops)
+function Ip = calc_torsStiff(t, w)
+% Compute the polar moment of inertia for rectangular cross-sections
+if w > t
+    a = t/2;
+    b = w/2;
+else
+    a = w/2;
+    b = t/2;
+end
+sumN_new    = 0;
+sumN        = 0;
+n           = 1;
+while (n < 3 || abs((sumN_new/sumN)) > 0.0001)
+    sumN_new    = (1/n^5) * tanh(n*pi*b/(2*a));
+    n           = n + 2;
+    sumN        = sumN + sumN_new;
+end
+Ip = 1/3 * (2*a)^3*(2*b) * (1 - (192/pi^5)*(a/b)*sumN);
+end
+
+function inertia = calc_inertia(eprops)
+% Compute the inertia properties for leafspring or wireflexure
+type    = eprops.type;
+dim     = eprops.dim;
+rho     = eprops.dens;
+switch lower(type)
+    case {'leafspring','rigid'}
+        t   = dim(1);
+        w   = dim(2);
+        A   = t*w;
+        Iy  = 1/12 * t*w^3;
+        Iz  = 1/12 * w*t^3;
+    case 'wire'
+        d   = dim(1);
+        A   = (pi/4)*d^2;
+        Iy  = (pi/64)*d^4;
+        Iz  = Iy;
+end
+inertia(1,1) = rho*A;
+inertia(1,2) = rho*(Iy+Iz);
+inertia(1,3) = rho*Iy;
+inertia(1,4) = rho*Iz;
+inertia(1,5) = 0;
+end
+
+function out = quat2axang(q)
+    
+    %conversion from quaternions (Euler parameters) to axis-angle representation
+    %based on http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/
+    
+    if q(1)>1, err('Quaternions should be normalized.'); end
+        
+    angle = 2*acos(q(1)); %returns in radians
+    s = sqrt(1-q(1)^2);
+    if s < 0.001 
+        %if s is close to zero, then axis is not important (just pick something normalised)
+        x = 1;
+        y = 0;
+        z = 0;
+    else
+        x = q(2)/s;
+        y = q(3)/s;
+        z = q(4)/s;
+    end
+    
+    out = [angle x y z];
+    
+end
+
+function cw= cw_values(L,eprops)
 w = eprops.dim(2);
 E = eprops.emod;
 G = eprops.smod;
@@ -1155,7 +1184,6 @@ aspect  = L/w;        %- aspect ratio of flexure
 c       = sqrt(24/(1+v));
 cw      = (aspect*c/(aspect*c-2*tanh(aspect*c/2)));
 end
-
 
 function [CMglob, CMloc] = complm(filename,ntr,nrot,tstp)
 % Calculate the compliance matrix in global directions and in body-fixed
@@ -1187,7 +1215,7 @@ for i=1:7
     end
     if locv(i) <= nxp(1) || ...
             (locv(i)>(nxp(1)+nxp(2)) && locv(i) <= (nxp(1)+nxp(2)+nxp(3)))
-        %  disp('WARNING: constrained node');
+%          disp('WARNING: constrained node');
     end
 end
 % search for the right degrees of freedom
@@ -1216,7 +1244,6 @@ Tloc = [ lambdat*(lambdabt') zeros(3,4)
 CMglob=Tglob*CMlambda*(Tglob');
 CMloc=Tloc*CMlambda*(Tloc');
 end
-
 
 function [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops)
 %restructure crossectional properties to evaluate stresses throuqh
