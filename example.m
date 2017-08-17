@@ -81,9 +81,9 @@ nprops(4).fix               = true;             %Fix node 4
 %eprops(i).emod*                  E-modulus in Pa
 %eprops(i).smod*                  G-modulus in Pa
 %eprops(i).dens*                density in kg/m^3
-%eprops(i).type*               a string providing the type of element. Supported options are 'leafspring','wire' or 'rigid'
-%eprops(i).dim*                dimensions of the cross-section matching the element type in meters. For leafspring or rigid body a vector with length 2, [width thickness], for wire a single value [Diameter]
-%eprops(i).orien                vector with length 3 containing the orientation of the  "width direction" of the  leafspring. Can be omited for type 'wire' or 'rigid', [Ox, Oy, Oz]
+%eprops(i).cshape*               a string providing shape of the cross-section. Supported options are 'rect' for rectangular and 'circ' for circular.
+%eprops(i).dim*                dimensions of the cross-section matching the element cshape in meters. For rect,  a vector with length 2, [width thickness]; for circ, a single value [diameter]
+%eprops(i).orien                vector with length 3 containing the orientation of the  "width direction" of the beam. Can be omited for cshape 'circ', [Ox, Oy, Oz]
 %eprops(i).nbeams              number of beam-elements used in the simulation. If omited, the defaults value 1 is used. 
 %eprops(i).flex                 vector containing the deformation modes to be considered flexible. 1: elongation, 2: torsion, 3 & 4: out-of-plane bending, 5 & 6, inplane bending, [2 3 4]
 %eprops(i).color                vector with length 3 containing the rgb values for the color of theelement, [1 0 0]
@@ -100,7 +100,7 @@ eprops(1).elems    = [1 3];            %Add this set of properties to element 1 
 eprops(1).emod     = 210E9;            %E-modulus
 eprops(1).smod     = 70E9;             %G-modulus
 eprops(1).dens     = 7800;             %Density
-eprops(1).type     = 'leafspring';     %Simulate leafspring
+eprops(1).cshape   = 'rect';           %Simulate leafspring with rectangular cross-section
 eprops(1).dim      = [50e-3 0.2e-3];     %Width: 50mm, tickness: 1mm
 eprops(1).orien    = [0 0 1];          %Width-direction of the leafspring in z-direction
 eprops(1).nbeams   = 4;                %4 beam elements to simulate leafspring
@@ -110,7 +110,7 @@ eprops(1).color    = [0 1 0];          %Color: green
 %Property set 1
 eprops(2).elems    = 2;                %Add this set of properties to element 2
 eprops(2).dens     = 3000;             %Density
-eprops(2).type     = 'rigid';          %Simulate leafspring
+eprops(2).cshape   = 'rect';          %Simulate framepart with rectangular cross-section
 eprops(2).dim      = [50e-3 10e-3];    %Width: 50mm, tickness: 10mm
 eprops(2).orien    = [0 0 1];          %Width-direction of the body in z-direction
 eprops(2).nbeams   = 1;                %1 beam elements to simulate body

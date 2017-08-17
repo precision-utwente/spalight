@@ -251,9 +251,15 @@ for i=1:size(eprops,2) %loop over each element property set
         stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
         inertia = calc_inertia(eprops(i));     %calculate mass properties
         for j=1:length(eprops(i).elems)                        %loop over all elemenents in element property set
-            L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
-                - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
-            cw  = cw_values(L,eprops(i));                        %calculate constrained warping values
+            switch eprops(i).cshape
+                case 'rect'
+                    L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
+                        - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
+                    cw  = cw_values(L,eprops(i));                      %calculate constrained warping values                    
+                case 'circ'
+                    cw = 1;
+            end
+            
             for k=1:size(E_list,2)                                  %loop over all beams in the element
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
@@ -337,7 +343,7 @@ else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 
 %     
 %     fprintf(fileID,'\n\nEND\nHALT\n\n');
 %     for i=1:size(opt.transfer_in,2) %add inputs
-%         switch opt.transfer_in(i).type
+%         switch opt.transfer_in(i).cshape
 %             case 'force_x';     fprintf(fileID,'\nINPUTF %2u %3u 1',i,(opt.transfer_in(i).node-1)*2+1);
 %             case 'force_y';     fprintf(fileID,'\nINPUTF %2u %3u 2',i,(opt.transfer_in(i).node-1)*2+1);
 %             case 'force_z';     fprintf(fileID,'\nINPUTF %2u %3u 3',i,(opt.transfer_in(i).node-1)*2+1);
@@ -355,7 +361,7 @@ else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 
 %         end
 %     end
 %     for i=1:size(opt.transfer_out,2) %add outputs
-%         switch opt.transfer_out(i).type
+%         switch opt.transfer_out(i).cshape
 %             case 'force_x';     fprintf(fileID,'\nOUTF %2u %3u 1',i,(opt.transfer_out(i).node-1)*2+1);
 %             case 'force_y';     fprintf(fileID,'\nOUTF %2u %3u 2',i,(opt.transfer_out(i).node-1)*2+1);
 %             case 'force_z';     fprintf(fileID,'\nOUTF %2u %3u 3',i,(opt.transfer_out(i).node-1)*2+1);
@@ -392,11 +398,11 @@ for i=1:size(eprops,2) %loop over all element property sets
         end
     end
     
-    switch eprops(i).type
-        case {'leafspring','rigid'} %if leafspring or rigid, do rect crossection
+    switch eprops(i).cshape
+        case 'rect'
             fprintf(fileID,'\nCROSSTYPE  RECT');
             fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
-        case 'wire'                 %if wire, do circular crossection
+        case 'circ'
             fprintf(fileID,'\nCROSSTYPE  CIRC');
             fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
     end
@@ -733,7 +739,7 @@ function varargout = validateInput(varargin)
         
         %CHECK EPROPS INPUT VARIABLE
         if exist('eprops','var')
-            allowed_eprops = {'elems','emod','smod','dens','type','dim','orien','nbeams','flex','color','hide'};
+            allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide'};
             supplied_eprops = fieldnames(eprops);
             unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
             if any(unknown_eprops_i)
@@ -782,9 +788,15 @@ function varargout = validateInput(varargin)
                     if (isfield(eprops(i),'color') && ~isempty(eprops(i).color));   validateattributes(eprops(i).color,{'double'},{'vector','numel',3},'',sprintf('color property in eprops(%u)',i)); end
                     if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide));     validateattributes(eprops(i).hide,{'logical'},{'scalar'},'',sprintf('hide property in eprops(%u)',i)); end
                     
-                    if (isfield(eprops(i),'type') && ~isempty(eprops(i).type))
-                        validateattributes(eprops(i).type,{'char'},{'nonempty'},'',sprintf('type property in eprops(%u)',i));
-                        if ~any(strcmp(eprops(i).type,{'wire','leafspring','rigid'})), err('Element type should be either leafspring, wire or rigid.'); end
+                    if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
+                        validateattributes(eprops(i).cshape,{'char'},{'nonempty'},'',sprintf('cshape property in eprops(%u)',i));
+                        if ~any(strcmp(eprops(i).cshape,{'rect','circ'})), err('Element cshape should be either rect or circ.'); end
+                        switch eprops(i).cshape
+                            case 'rect'
+                                validateattributes(eprops(i).dim,{'double'},{'vector','numel',2},'',sprintf('dim property in eprops(%u)',i));
+                            case 'circ'
+                                validateattributes(eprops(i).dim,{'double'},{'vector','numel',1},'',sprintf('dim property in eprops(%u)',i));    
+                        end
                     end
                     
                     if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
@@ -855,7 +867,7 @@ function varargout = validateInput(varargin)
                         if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
                         if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); err('Property smod is not defined in eprops(%u)',i);     end
                         if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); err('Property dens is not defined in eprops(%u)',i);     end
-                        if ~(isfield(eprops(i),'type') && ~isempty(eprops(i).type)); err('Property type is not defined in eprops(%u)',i);     end
+                        if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape)); err('Property cshape is not defined in eprops(%u)',i);     end
                         if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));   err('Property dim is not defined in eprops(%u)',i);      end
                         if ~(isfield(eprops(i),'orien') && ~isempty(eprops(i).orien));   err('Property orien is not defined in eprops(%u)',i);      end
 
@@ -1069,14 +1081,14 @@ results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
 end
 
 function stiffness = calc_stiffness(eprops)
-% Compute the stiffness properties for leafspring or wireflexure
-type    = eprops.type;
+% Compute the stiffness properties for rectangular or circular cross-section
+type    = eprops.cshape;
 dim     = eprops.dim;
 E       = eprops.emod;
 G       = eprops.smod;
 v       = E/(2*G) - 1;
 switch lower(type)
-    case {'leafspring','rigid'}
+    case 'rect'
         t   = dim(1);
         w   = dim(2);
         A   = t*w;
@@ -1084,7 +1096,7 @@ switch lower(type)
         Iy  = (1/12)*t*w^3;
         Iz  = (1/12)*w*t^3;
         k   = 10*(1+v)/(12+11*v);
-    case 'wire'
+    case 'circ'
         d   = dim(1);
         A   = (pi/4)*d^2;
         It  = (pi/32)*d^4;
@@ -1121,18 +1133,18 @@ Ip = 1/3 * (2*a)^3*(2*b) * (1 - (192/pi^5)*(a/b)*sumN);
 end
 
 function inertia = calc_inertia(eprops)
-% Compute the inertia properties for leafspring or wireflexure
-type    = eprops.type;
+% Compute the inertia properties for rectangular or circular cross-section
+type    = eprops.cshape;
 dim     = eprops.dim;
 rho     = eprops.dens;
 switch lower(type)
-    case {'leafspring','rigid'}
+    case 'rect'
         t   = dim(1);
         w   = dim(2);
         A   = t*w;
         Iy  = 1/12 * t*w^3;
         Iz  = 1/12 * w*t^3;
-    case 'wire'
+    case 'circ'
         d   = dim(1);
         A   = (pi/4)*d^2;
         Iy  = (pi/64)*d^4;
@@ -1281,13 +1293,13 @@ for i=1:size(E_list,1)
             Elements(Elements==0) = [];
             Sig_nums = [Sig_nums Elements];
             
-            switch eprops(id).type
-                case 'leafspring'
+            switch eprops(id).cshape
+                case 'rect'
                     for j=1:length(Elements)
                         propcrossect(end+1).CrossSection = 'rect';
                         propcrossect(end).Dimensions = [eprops(id).dim(1),eprops(id).dim(2)];
                     end
-                case 'wire'
+                case 'circ'
                     for j=1:length(Elements)
                         propcrossect(end+1).CrossSection = 'circ';
                         propcrossect(end).Dimensions = eprops(id).dim(1);
