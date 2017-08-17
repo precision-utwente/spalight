@@ -16,7 +16,7 @@ function [results] = spacarlight(varargin)
 % free. It is not possible to create a pinned boundary condition about a certain axis.
 
 % On each node only a single rotational input can be prescribed
-% Output rotations are provided in quaternions and euler rotations in order z, y, x
+% Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 
 % For certain desired simulations, the current feature set of 
 % spacarlight() is too limited. In that case, the full version of Spacar 
@@ -392,19 +392,15 @@ for i=1:size(eprops,2) %loop over all element property sets
         end
     end
     
-    if isempty(eprops(i).type)
-        fprintf(fileID,'\nCROSSTYPE  RECT');
-        fprintf(fileID,'\nCROSSDIM 0.05 0.05');
-    else
-        switch eprops(i).type
-            case {'leafspring','rigid'} %if leafspring or rigid, do rect crossection
-                fprintf(fileID,'\nCROSSTYPE  RECT');
-                fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
-            case 'wire'                 %if wire, do circular crossection
-                fprintf(fileID,'\nCROSSTYPE  CIRC');
-                fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
-        end
+    switch eprops(i).type
+        case {'leafspring','rigid'} %if leafspring or rigid, do rect crossection
+            fprintf(fileID,'\nCROSSTYPE  RECT');
+            fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
+        case 'wire'                 %if wire, do circular crossection
+            fprintf(fileID,'\nCROSSTYPE  CIRC');
+            fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
     end
+
     
     %COLOR
     if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
@@ -1054,15 +1050,14 @@ for i=t_list
     for j=1:size(nodes,1)
         if ~ismember((j-1)*2+1,ln)
             results.step(i).node(j).x = nodes(j,1:3);
-            display('note')
             continue;
         end
-        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
-%         results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
+        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3))';
+        results.step(i).node(j).rx_eulzyx   = quat2eulang(x(lnp((j-1)*2+2,1:4)));
         results.step(i).node(j).rx_axang    = quat2axang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
-        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
-%         results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
+        results.step(i).node(j).rx_quat     = x(lnp((j-1)*2+2,1:4))';
+        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3))';
+        results.step(i).node(j).Mreac       = fxtot(lnp((j-1)*2+2,2:4))'/2;
         [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
     end
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
@@ -1154,6 +1149,7 @@ function out = quat2axang(q)
     
     %conversion from quaternions (Euler parameters) to axis-angle representation
     %based on http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/
+    %first output is angle (radians), followed by axis
     
     if q(1)>1, err('Quaternions should be normalized.'); end
         
@@ -1171,6 +1167,25 @@ function out = quat2axang(q)
     end
     
     out = [angle x y z];
+    
+end
+
+function eul = quat2eulang(q)
+    
+    %conversion from quaternions to Euler angles (radians)
+    %rotation sequence is ZYX (following quat2eul from Robotics System Toolbox)
+    
+    q = normc(q(:)); %normalize
+
+    %extra check
+    test = -2*(q(2)*q(4)-q(1)*q(3));
+    if test>1, test = 1; end
+
+    eul(1) = atan2(2*(q(2)*q(3)+q(1)*q(4)),q(1)^2+q(2)^2-q(3)^2-q(4)^2);
+    eul(2) = asin(test);
+    eul(3) = atan2(2*(q(3)*q(4)+q(1)*q(2)),q(1)^2-q(2)^2-q(3)^2+q(4)^2);
+    
+    if ~isreal(eul), eul = real(eul); end
     
 end
 
