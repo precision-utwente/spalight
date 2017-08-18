@@ -1047,11 +1047,11 @@ for i=1:length(t_list)
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
-    results.step(i).Freq = sqrt(d)*1/(2*pi);
+    results.step(i).freq = sqrt(d)*1/(2*pi);
     
     if calcbuck
         [~,Buck] = eig(-K,G);
-        results.step(i).Buck = sort(abs(diag(Buck)));
+        results.step(i).buck = sort(abs(diag(Buck)));
     end
 end
 
