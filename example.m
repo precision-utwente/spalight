@@ -137,7 +137,7 @@ rls(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to prev
 %
 %opt.filename                     string containing the filemane for the spacar .dat file. Length must be smaller then 20 characters
 %opt.silent                       value true (1) to supress visualization after the simulation is completed. Can be usefull when calling Spacar_light.m in a for-loop during optimization
-%opt.buckload*                    value true (1) to calculate the load multipliers for buckling
+%opt.calcbuck*                    value true (1) to calculate the load multipliers for buckling
 %opt.gravity                      vector with length 3 providing the gravitation vector in m/s^2, [0 -9.81 0]
 %opt.showinputonly                show only the input geometry window, even when >4 input arguments are supplied (and, normally, a simulation would be performed)
 %
@@ -148,7 +148,7 @@ rls(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to prev
 
 opt.filename    = 'spacarfile';     %Filename
 opt.silent      = false;            %Run in normal mode
-opt.buckload    = false;             %Disable calcuation of load multipliers (default)
+opt.calcbuck    = false;             %Disable calcuation of load multipliers (default)
 opt.gravity     = [0 0 -9.81];      %Gravitation in z-direction
 
 %% CALL SPACAR_LIGHT
@@ -157,8 +157,8 @@ results = spacarlight(nodes, elements, nprops, eprops, rls, opt);
 %simulation results are stored in RESULTS structure
 %
 %results.step(i)                            results at loadstep i (i=1 if no additional loads or displacements are specified)
-%results.step(i).Freq                       List with eigenfrequencies in Hz, sorted from lowest to highest
-%results.step(i).Buck*                      List with load multipliers, sorted from lowest to highest
+%results.step(i).freq                       List with eigenfrequencies in Hz, sorted from lowest to highest
+%results.step(i).buck*                      List with load multipliers, sorted from lowest to highest
 %results.step(i).stressmax                  Maximum stress
 %results.step(i).node(j)                    results at loadstep i, node number j
 %results.step(i).node(j).x                  Position
@@ -169,4 +169,4 @@ results = spacarlight(nodes, elements, nprops, eprops, rls, opt);
 %results.step(i).node(j).CMglob             6x6 compliance matrix of the node in the global frame
 %results.step(i).node(j).CMloc              6x6 compliance matrix of the node in the local frame
 %
-%   *load multipliers only calculated if opt.buck_load = true.
+%   *load multipliers only calculated if opt.calcbuck = true.

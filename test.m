@@ -23,8 +23,8 @@ elements = [
 nprops(1).fix = true;
 % nprops(2).fix = true;
 % nprops(3).displ_initial_x = 0;
-% nprops(3).force = [10 0 0];
-nprops(3).moment = [0 0 0.1];
+nprops(3).force = [1 0 0];
+% nprops(3).moment = [0 0 0.1];
 % nprops(4).fix_orien = true;
 % nprops(4).mominertia = [0.1 0.1 0.1 0.1 0.1 0.1];
 
@@ -45,6 +45,7 @@ rls = [];
 
 % opt.filename = '';
 opt.silent = false;
-opt.showinputonly = false;
+% opt.showinputonly = false;
+opt.calcbuck = true;
 
 a=spacarlight(nodes,elements,nprops,eprops,rls,opt);

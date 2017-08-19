@@ -66,5 +66,5 @@
     filename
     gravity
     silent
-    buckload)
+    calcbuck
     showinputonly

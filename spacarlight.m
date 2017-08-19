@@ -1,4 +1,4 @@
-function [results] = spacarlight(varargin)
+function results = spacarlight(varargin)
 % SPACARLIGHT(nodes, elements, nprops, eprops, rls, opt)
 % runs spacar simulation with reduced set of input arguments. See
 % www.spacar.nl for more information.
@@ -22,7 +22,7 @@ function [results] = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of Spacar 
 % should be used. It offers *many* more features.
 
-% NOTES
+% NOTE
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 
@@ -83,6 +83,20 @@ x_count     = size(nodes,1)*2+1;    %counter for node numbering
 e_count     = 1;                    %counter for element numbering
 X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
+%if no opt struct provided, create empty one
+if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
+%set filename, even if not specified
+if isfield(opt,'filename') && ~isempty(opt.filename)
+    filename = opt.filename;
+else
+    filename = 'spacar_file';
+end
+%determine whether silent mode
+if isfield(opt,'silent') && opt.silent == 1
+    silent = 1;
+else
+    silent = 0; 
+end
 
 %% CHECK EXISTENCE OF REQUIRED FUNCTIONS
 if exist('spavisual','file')   ~=2;   err('spavisual() is not in your path.');                                         end
@@ -90,7 +104,7 @@ if exist('stressbeam','file')  ~=2;   err('stressbeam() is not in your path (typ
 if exist('spacar','file')      ~=3;   err('spacar() is not in your path.');                                            end
      
 %% START CREATING DATFILE
-fileID = fopen([opt.filename '.dat'],'w');
+fileID = fopen([filename '.dat'],'w');
 
 %% USERDEFINED NODES
 fprintf(fileID,'#NODES\n');
@@ -98,6 +112,7 @@ fprintf(fileID,'#NODES\n');
 for i=1:size(nodes,1)
     fprintf(fileID,'X       %3u  %6f  %6f  %6f      #node %u\n',(i-1)*2+1,nodes(i,1),nodes(i,2),nodes(i,3),i);
 end
+
 
 %% ELEMENTS
 fprintf(fileID,'\n\n#ELEMENTS\n');
@@ -327,7 +342,9 @@ end
 
 %% ADITIONAL OPTIONS
 %GRAVITY
-if(fieldexist('opt','gravity') && ~isempty(opt.gravity)); fprintf(fileID,'\nGRAVITY  %6f %6f %6f',opt.gravity(1),opt.gravity(2),opt.gravity(3)); end
+if (exist('opt','var') && isstruct(opt) && isfield(opt,'gravity') && ~isempty(opt.gravity)) 
+    fprintf(fileID,'\nGRAVITY  %6f %6f %6f',opt.gravity(1),opt.gravity(2),opt.gravity(3)); 
+end
 
 %ITERSTEP SETTINGS
 if      (id_ini && id_add);      fprintf(fileID,'\nITERSTEP 10 10 0.0000005 1 3 10');    %if initial and aditional loading/displacement
@@ -439,10 +456,10 @@ fclose(fileID); %datfile finished!
 
 
 %% SIMULATE CONSTRAINTS
-if ~(fieldexist('opt','silent') && opt.silent==1)
+if ~(silent)
     try 
         warning('off','all')
-        spacar(0,opt.filename)
+        spacar(0,filename)
         warning('on','all')
     catch
         warning('on','all') %needed here, since a spacar error in the try block would leave warnings off
@@ -450,7 +467,7 @@ if ~(fieldexist('opt','silent') && opt.silent==1)
     end
     
     %CHECK CONSTRAINTS
-    sbd     = [opt.filename '.sbd'];
+    sbd     = [filename '.sbd'];
     nep     = getfrsbf(sbd,'nep');
     nxp     = getfrsbf(sbd,'nxp');
     nddof   = getfrsbf(sbd,'nddof');
@@ -535,10 +552,10 @@ end
 %% SIMULATE STATICS
 try
     warning('off','all')
-    spacar(-10,opt.filename)
+    spacar(-10,filename)
     warning('on','all')
-    if ~(fieldexist('opt','silent') && opt.silent==1)
-        spavisual(opt.filename)
+    if ~(silent)
+        spavisual(filename)
     end
     disp('Spacar simulation succeeded.')
 catch
@@ -547,7 +564,7 @@ catch
 end
 try
     %get results
-    results = calc_results(opt.filename, E_list, id_inputf, id_inputx, nodes, elements, nprops, eprops, rls, opt);
+    results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, eprops, opt);
 catch
     err('A problem occurred processing simulation results.')
 end
@@ -559,9 +576,8 @@ warning backtrace on
 end
 
 function varargout = validateInput(varargin)
-
-    %TO BE DONE
-    %Check input voor input momenten
+    %this function receives the user-supplied input and only returns 
+    %that input when it turns out to be valid
     switch nargin
         case 1
             nodes = varargin{1};
@@ -593,7 +609,7 @@ function varargout = validateInput(varargin)
     end
     
     %DO NOT PERFORM CHECKS IN SILENT MODE
-    if ~(fieldexist('opt','silent') && opt.silent==1)
+    if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent==1)
 
         %CHECK NODES INPUT VARIABLE
         validateattributes(nodes,   {'double'},{'ncols',3,'ndims',2},'','nodes')
@@ -913,7 +929,7 @@ function varargout = validateInput(varargin)
 
         %CHECK OPTIONAL ARGUMENTS
         if exist('opt','var')
-            allowed_opts = {'filename','gravity','silent','buckload','showinputonly'};
+            allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly'};
             supplied_opts = fieldnames(opt);
             unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
             if any(unknown_opts_i)
@@ -923,28 +939,22 @@ function varargout = validateInput(varargin)
             if isfield(opt,'filename')
                 if isempty(opt.filename)
                     warning('Filename cannot be empty. Filename spacar_file is used instead.');
-                        opt.filename = 'spacar_file';
                 else
                     validateattributes(opt.filename,{'char'},{'vector'},'',            'filename property in opt');  
                     if length(opt.filename) > 19
                         warning('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
-                        opt.filename = 'spacar_file';
                     end
                 end
             end
             if (isfield(opt,'silent') && ~isempty(opt.silent))
                 validateattributes(opt.silent,{'logical'},{'scalar'},'',            'silent property in opt');   end
-            if (isfield(opt,'buckload') && ~isempty(opt.buckload))
-                validateattributes(opt.buckload,{'logical'},{'scalar'},'',          'buckload property in opt'); end
+            if (isfield(opt,'calcbuck') && ~isempty(opt.calcbuck))
+                validateattributes(opt.calcbuck,{'logical'},{'scalar'},'',          'calcbuck property in opt'); end
             if (isfield(opt,'gravity') && ~isempty(opt.gravity))
                 validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
             
         end
     end %END NOT-SILENT MODE BLOCK
-    
-    if ~fieldexist('opt','filename') || isempty(opt.filename)
-        opt.filename = 'spacar_file';
-    end
     
     % assign output 
     switch nargin
@@ -1013,19 +1023,21 @@ function ensure(cond,msg,varargin)
 end
 
 %% AUXILIARY FUNCTIONS
-function results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, ~, ~, eprops, ~, opt)
+function results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, eprops, opt)
 nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
-t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %timesteps
+t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %list of timesteps
 lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
-ln     = getfrsbf([filename,'.sbd'],'ln'); %lnp data
+ln      = getfrsbf([filename,'.sbd'],'ln'); %lnp data
 
 if nddof == 0
     err('No dynamic degrees of freedom.')
 end
 
+results.ndof = getfrsbf([filename '.sbd'] ,'ndof'); %
+
 %CHECK BUCKLING SETTINGS
 calcbuck = false;
-if (isfield(opt,'buckload') && opt.buckload == 1)
+if (isfield(opt,'calcbuck') && opt.calcbuck == 1)
     calcbuck = true;
     if id_inputx
         warning('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
@@ -1036,47 +1048,65 @@ if (isfield(opt,'buckload') && opt.buckload == 1)
     end
 end
 
-%EIGENFREQUENCIES and BUCKLING
-for i=1:length(t_list)
-    M = getfrsbf([filename '.sbm'] ,'m0', t_list(i));
+%PROCESS RESULTS PER LOADSTEP
+for i=t_list
+    x       = getfrsbf([filename '.sbd'] ,'x', i);
+    fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
+    M = getfrsbf([filename '.sbm'] ,'m0', i);
     G = getfrsbf([filename '.sbm'] ,'g0', i);
-    K = getfrsbf([filename '.sbm'] ,'k0', t_list(i)) + getfrsbf([filename '.sbm'] ,'n0', t_list(i)) + G;
+    K = getfrsbf([filename '.sbm'] ,'k0', i) + getfrsbf([filename '.sbm'] ,'n0', i) + G;
     %C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
     
+    %NODE DEPENDENT RESULTS
+    for j=1:size(nodes,1)
+        if ~ismember((j-1)*2+1,ln) %if node not connected to an element
+            results.step(i).node(j).x = nodes(j,1:3);
+            results.node(j).x(1:3,i) = results.step(i).node(j);
+            continue;
+        end
+        %store results per loadstep, using "step" field
+        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).rx_eulzyx   = quat2eulang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).rx_axang    = quat2axang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).rx_quat     = x(lnp((j-1)*2+2,1:4));
+        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).Mreac       = fxtot(lnp((j-1)*2+2,2:4))/2;
+        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
+        
+        %also store results for all loadsteps combined
+        results.node(j).x(1:3,i)             = results.step(i).node(j).x;
+        results.node(j).rx_eulzyx(1:3,i)     = results.step(i).node(j).rx_eulzyx;
+        results.node(j).rx_axang(1:4,i)      = results.step(i).node(j).rx_axang;
+        results.node(j).rx_quat(1:4,i)       = results.step(i).node(j).rx_quat;
+        results.node(j).Freac(1:3,i)         = results.step(i).node(j).Freac;
+        results.node(j).Mreac(1:3,i)         = results.step(i).node(j).Mreac;
+        results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
+        results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+    end
+    
+    %EIGENFREQUENCIES
     [~,D]   = eig(K(1:nddof,1:nddof),M(1:nddof,1:nddof));
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
-    results.step(i).freq = sqrt(d)*1/(2*pi);
+    results.step(i).freq = sqrt(d)*1/(2*pi); %per loadstep
+    results.freq(1:nddof,i) = results.step(i).freq; %for all loadsteps
     
+    %BUCKLING
     if calcbuck
-        [~,Buck] = eig(-K,G);
-        results.step(i).buck = sort(abs(diag(Buck)));
+        [~,loadmult] = eig(-K,G);
+        results.step(i).buck = sort(abs(diag(loadmult))); %per loadstep
+        results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
     end
-end
 
-[propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
-for i=t_list
-    x       = getfrsbf([filename '.sbd'] ,'x', i);
-    fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
-    for j=1:size(nodes,1)
-        if ~ismember((j-1)*2+1,ln)
-            results.step(i).node(j).x = nodes(j,1:3);
-            continue;
-        end
-        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3))';
-        results.step(i).node(j).rx_eulzyx   = quat2eulang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).rx_axang    = quat2axang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).rx_quat     = x(lnp((j-1)*2+2,1:4))';
-        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3))';
-        results.step(i).node(j).Mreac       = fxtot(lnp((j-1)*2+2,2:4))'/2;
-        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
-    end
+    %MAXIMUM STRESS
+    [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
-    results.step(i).stressmax = stressextrema.max*1e6;
+    results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
+    results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
+    
     %  results.step(i).bode_data =  getss('spacarfile',i);
 end
-results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
 
 end
 
@@ -1178,7 +1208,7 @@ function out = quat2axang(q)
         z = q(4)/s;
     end
     
-    out = [angle x y z];
+    out = [angle; x; y; z];
     
 end
 
@@ -1193,9 +1223,9 @@ function eul = quat2eulang(q)
     test = -2*(q(2)*q(4)-q(1)*q(3));
     if test>1, test = 1; end
 
-    eul(1) = atan2(2*(q(2)*q(3)+q(1)*q(4)),q(1)^2+q(2)^2-q(3)^2-q(4)^2);
-    eul(2) = asin(test);
-    eul(3) = atan2(2*(q(3)*q(4)+q(1)*q(2)),q(1)^2-q(2)^2-q(3)^2+q(4)^2);
+    eul(1,1) = atan2(2*(q(2)*q(3)+q(1)*q(4)),q(1)^2+q(2)^2-q(3)^2-q(4)^2);
+    eul(2,1) = asin(test);
+    eul(3,1) = atan2(2*(q(3)*q(4)+q(1)*q(2)),q(1)^2-q(2)^2-q(3)^2+q(4)^2);
     
     if ~isreal(eul), eul = real(eul); end
     
@@ -1308,10 +1338,4 @@ for i=1:size(E_list,1)
         end
     end
 end
-end
-
-function out = fieldexist(structname,fieldname)
-    
-    out = (exist(structname,'var') && isstruct(eval(structname)) && isfield(eval(structname),fieldname));
-    
 end
