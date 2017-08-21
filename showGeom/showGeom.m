@@ -1,4 +1,4 @@
-function plane_Amat = showGeom(no,el,nopr)
+function showGeom(no,el,nopr)
     
     %to do:
     %return handles (optionally) to user?
@@ -36,7 +36,6 @@ function plane_Amat = showGeom(no,el,nopr)
     
     %mechanism axes
     ah = subplot(1,2,2);
-    set(ah,'Projection','perspective')
     hold on
     
     %handy vars
@@ -101,23 +100,8 @@ function plane_Amat = showGeom(no,el,nopr)
     arrowlength = maxdist/6; %for length of arrows
 
     %get average plane through nodes
-%     warning off MATLAB:rankDeficientMatrix %surpress rank deficiency warning (happens for 2-D mechanisms)
-    plane_Amat = [no(:,1) no(:,2) ones(nno,1)];
-    plane_Bmat = no(:,3);
-    rank(plane_Amat)
-    if rank(plane_Amat) == 1
+    [normalvec, mech_dim, normalvec2] = getPlane(no);
         
-    elseif rank(plane_Amat) == 2
-        error('problem visualizing 2-d mechanisms. Define a normal vector!');
-        return;
-        
-    elseif rank(plane_Amat) == 3
-        planecoef = plane_Amat\plane_Bmat;
-        normalvec = planecoef;
-        normalvec(3) = -1;
-        normalvec = normVec(normalvec);
-    end
-    
     %plot node numbers
     nnh = [];
     for i=1:nno
@@ -202,18 +186,41 @@ function plane_Amat = showGeom(no,el,nopr)
     ylabel('y');
     zlabel('z');
     axis(getAxesLim(no,arrowlength))
-    set(gca,'DataAspectRatio',[1 1 1])
+    set(ah,'DataAspectRatio',[1 1 1])
+    if mech_dim == 3
+        set(ah,'Projection','perspective')
+    end
     
     %set view
     try
-        [az,el] = view(normalvec);
-        %do not view mechanism from below horizon, just override
-        if el<0
-            %TO DO: for 2-D mechanisms, this should be different
-            view(az,20)
+        if mech_dim == 1
+            [az,el] = view(normalvec);
+            [az2,el2] = view(normalvec2);
+            azs = [az az2];
+            els = [el el2];
+            ii = [el el2]>=0;
+            switch sum(ii)
+                case 0
+                    view(az,el)
+                case 1
+                    view(azs(ii),els(ii))
+                case 2
+                    [~,mi] = min(els);
+                    view(azs(mi),els(mi));
+            end
+        else
+            [az,el] = view(normalvec);
+            %do not view mechanism from below horizon, just override
+            if el<3
+                %TO DO: for 2-D mechanisms, this should be different
+                view(az,15)
+            end
         end
+        
+    catch    
+        disp('Issue setting viewport.')
     end
-    
+        
     %plot force
     for i=1:size(nopr,2)
         if(isfield(nopr(i),'force') && ~isempty(nopr(i).force))
@@ -221,6 +228,92 @@ function plane_Amat = showGeom(no,el,nopr)
                     no(i,:)-normVec(nopr(i).force)*clen/2,[],1.5,3)
         end
     end
+    
+end
+
+function [normalvec, mech_dim, normalvec2] = getPlane(no)
+
+% OLD CODE:
+%     %%%warning off MATLAB:rankDeficientMatrix %surpress rank deficiency warning (happens for 2-D mechanisms)
+%     nno = size(no,1);
+%     
+%     plane_Amat = [no(:,1) no(:,2) ones(nno,1)];
+%     plane_Bmat = no(:,3);
+%     rank(plane_Amat);
+%     if rank(plane_Amat) == 1
+%         
+%     elseif rank(plane_Amat) == 2
+%         error('problem visualizing 2-d mechanisms. Define a normal vector!');
+%         return;
+%         
+%     elseif rank(plane_Amat) == 3
+%         planecoef = plane_Amat\plane_Bmat;
+%         normalvec = planecoef;
+%         normalvec(3) = -1;
+%         normalvec = normVec(normalvec);
+%     end
+    
+    %%% NEW CODE:
+    %%% from: http://www.ilikebigbits.com/blog/2015/3/2/plane-from-points
+    
+    %TO DO: check - at least three points required
+    %points relative to centroid (average value)
+    no_c = no - mean(no,1);
+    
+    %covariance components (excluding symmetries)
+    xx = sum(no_c(:,1).^2);
+    yy = sum(no_c(:,2).^2);
+    zz = sum(no_c(:,3).^2);
+    xy = sum(no_c(:,1).*no_c(:,2));
+    xz = sum(no_c(:,1).*no_c(:,3));
+    yz = sum(no_c(:,2).*no_c(:,3));
+    
+    %determinants
+    det_x = yy*zz - yz^2;
+    det_y = xx*zz - xz^2;
+    det_z = xx*yy - xy^2;
+    
+    det_max = max([det_x det_y det_z]);
+        
+    %number of zero determinants
+    normalvec2 = [];
+    switch sum([det_x det_y det_z]==0) 
+        case 3
+            %nodes lie on a line (1-D mechanism)
+            %TO DO: what's a reasonable normalvec here?
+            
+            %get a vector in vectorspace representing nodes
+            v1 = no(2,:) - no(1,:);
+            kern = null(v1);
+            
+            normalvec = kern(:,1);
+            normalvec2 = kern(:,2);
+            mech_dim = 1;
+            return;
+        case 2
+            %nodes lie on a plane (2-D mechanism)
+            mech_dim = 2;
+        otherwise
+            mech_dim = 3;
+    end
+    
+    %pick path with best conditioning
+    switch det_max
+        case det_x
+            a = (xz*yz - xy*zz)/det_x;
+            b = (xy*yz - xz*yy)/det_x;
+            ding = [1,a,b];
+        case det_y
+            a = (yz*xz - xy*zz)/det_y;
+            b = (xy*xz - yz*xx)/det_y;
+            ding = [a,1,b];
+        case det_z
+            a = (yz*xy - xz*yy)/det_z;
+            b = (xz*xy - yz*xx)/det_z;
+            ding = [a,b,1];
+    end
+    
+    normalvec = normVec(ding);
     
 end
 

@@ -1,6 +1,6 @@
 % addpath ../spaplus
-addpath ../../arrow3
-addpath ../../getundoc
+addpath ~/mlib/arrow3
+% addpath ../../getundoc
 
 close all
 % clear all
@@ -27,8 +27,8 @@ nopr = [];
 
 nodes = [
         0 0 0;
-        1 0 0;
-        2 0 1;
+        0 1 1;
+        0 2 2;
         ];
 elements = [
         1 2;
