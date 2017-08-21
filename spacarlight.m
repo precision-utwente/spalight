@@ -1,4 +1,4 @@
-function [results] = spacarlight(varargin)
+function results = spacarlight(varargin)
 % SPACARLIGHT(nodes, elements, nprops, eprops, rls, opt)
 % runs spacar simulation with reduced set of input arguments. See
 % www.spacar.nl for more information.
@@ -16,13 +16,13 @@ function [results] = spacarlight(varargin)
 % free. It is not possible to create a pinned boundary condition about a certain axis.
 
 % On each node only a single rotational input can be prescribed
-% Output rotations are provided in quaternions and euler rotations in order z, y, x
+% Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 
 % For certain desired simulations, the current feature set of 
 % spacarlight() is too limited. In that case, the full version of Spacar 
 % should be used. It offers *many* more features.
 
-% NOTES
+% NOTE
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 
@@ -83,6 +83,20 @@ x_count     = size(nodes,1)*2+1;    %counter for node numbering
 e_count     = 1;                    %counter for element numbering
 X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
+%if no opt struct provided, create empty one
+if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
+%set filename, even if not specified
+if isfield(opt,'filename') && ~isempty(opt.filename)
+    filename = opt.filename;
+else
+    filename = 'spacar_file';
+end
+%determine whether silent mode
+if isfield(opt,'silent') && opt.silent == 1
+    silent = 1;
+else
+    silent = 0; 
+end
 
 %% CHECK EXISTENCE OF REQUIRED FUNCTIONS
 if exist('spavisual','file')   ~=2;   err('spavisual() is not in your path.');                                         end
@@ -90,7 +104,7 @@ if exist('stressbeam','file')  ~=2;   err('stressbeam() is not in your path (typ
 if exist('spacar','file')      ~=3;   err('spacar() is not in your path.');                                            end
      
 %% START CREATING DATFILE
-fileID = fopen([opt.filename '.dat'],'w');
+fileID = fopen([filename '.dat'],'w');
 
 %% USERDEFINED NODES
 fprintf(fileID,'#NODES\n');
@@ -98,6 +112,7 @@ fprintf(fileID,'#NODES\n');
 for i=1:size(nodes,1)
     fprintf(fileID,'X       %3u  %6f  %6f  %6f      #node %u\n',(i-1)*2+1,nodes(i,1),nodes(i,2),nodes(i,3),i);
 end
+
 
 %% ELEMENTS
 fprintf(fileID,'\n\n#ELEMENTS\n');
@@ -251,9 +266,15 @@ for i=1:size(eprops,2) %loop over each element property set
         stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
         inertia = calc_inertia(eprops(i));     %calculate mass properties
         for j=1:length(eprops(i).elems)                        %loop over all elemenents in element property set
-            L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
-                - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
-            cw  = CWvalues(L,eprops(i));                        %calculate constrained warping values
+            switch eprops(i).cshape
+                case 'rect'
+                    L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
+                        - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
+                    cw  = cw_values(L,eprops(i));                      %calculate constrained warping values                    
+                case 'circ'
+                    cw = 1;
+            end
+            
             for k=1:size(E_list,2)                                  %loop over all beams in the element
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
@@ -273,7 +294,7 @@ end
 
 
 %% FORCES/MOMENTS/NODAL MASSES
-fprintf(fileID,'\n\n#FROCES/MOMENTS\n');
+fprintf(fileID,'\n\n#FORCES/MOMENTS\n');
 id_ini  = false; %check for initial loading or displacement
 id_add  = false; %check for aditional loading or displacement
 
@@ -285,10 +306,10 @@ for i=1:size(nprops,2) %loop over all user defined nodes
     %moments
     if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)) %#ok<*ALIGN>
       moments = nprops(i).moment;
-                                                                                    fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments(1),2*moments(2),2*moments(3));                                       id_add = true;  id_inputf=true; end
+                                                                                    fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3));                                       id_add = true;  id_inputf=true; end
     if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial))
       moments_i = nprops(i).moment_initial;
-                                                                                    fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,0,2*moments_i(1),2*moments_i(2),2*moments_i(3));                                 id_ini = true;  id_inputf=true; end
+                                                                                    fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments_i(1),moments_i(2),moments_i(3));                                 id_ini = true;  id_inputf=true; end
     
     %displacements
     if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
@@ -321,7 +342,9 @@ end
 
 %% ADITIONAL OPTIONS
 %GRAVITY
-if(fieldexist('opt','gravity') && ~isempty(opt.gravity)); fprintf(fileID,'\nGRAVITY  %6f %6f %6f',opt.gravity(1),opt.gravity(2),opt.gravity(3)); end
+if (exist('opt','var') && isstruct(opt) && isfield(opt,'gravity') && ~isempty(opt.gravity)) 
+    fprintf(fileID,'\nGRAVITY  %6f %6f %6f',opt.gravity(1),opt.gravity(2),opt.gravity(3)); 
+end
 
 %ITERSTEP SETTINGS
 if      (id_ini && id_add);      fprintf(fileID,'\nITERSTEP 10 10 0.0000005 1 3 10');    %if initial and aditional loading/displacement
@@ -337,7 +360,7 @@ else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 
 %     
 %     fprintf(fileID,'\n\nEND\nHALT\n\n');
 %     for i=1:size(opt.transfer_in,2) %add inputs
-%         switch opt.transfer_in(i).type
+%         switch opt.transfer_in(i).cshape
 %             case 'force_x';     fprintf(fileID,'\nINPUTF %2u %3u 1',i,(opt.transfer_in(i).node-1)*2+1);
 %             case 'force_y';     fprintf(fileID,'\nINPUTF %2u %3u 2',i,(opt.transfer_in(i).node-1)*2+1);
 %             case 'force_z';     fprintf(fileID,'\nINPUTF %2u %3u 3',i,(opt.transfer_in(i).node-1)*2+1);
@@ -355,7 +378,7 @@ else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 
 %         end
 %     end
 %     for i=1:size(opt.transfer_out,2) %add outputs
-%         switch opt.transfer_out(i).type
+%         switch opt.transfer_out(i).cshape
 %             case 'force_x';     fprintf(fileID,'\nOUTF %2u %3u 1',i,(opt.transfer_out(i).node-1)*2+1);
 %             case 'force_y';     fprintf(fileID,'\nOUTF %2u %3u 2',i,(opt.transfer_out(i).node-1)*2+1);
 %             case 'force_z';     fprintf(fileID,'\nOUTF %2u %3u 3',i,(opt.transfer_out(i).node-1)*2+1);
@@ -392,19 +415,15 @@ for i=1:size(eprops,2) %loop over all element property sets
         end
     end
     
-    if isempty(eprops(i).type)
-        fprintf(fileID,'\nCROSSTYPE  RECT');
-        fprintf(fileID,'\nCROSSDIM 0.05 0.05');
-    else
-        switch eprops(i).type
-            case {'leafspring','rigid'} %if leafspring or rigid, do rect crossection
-                fprintf(fileID,'\nCROSSTYPE  RECT');
-                fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
-            case 'wire'                 %if wire, do circular crossection
-                fprintf(fileID,'\nCROSSTYPE  CIRC');
-                fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
-        end
+    switch eprops(i).cshape
+        case 'rect'
+            fprintf(fileID,'\nCROSSTYPE  RECT');
+            fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
+        case 'circ'
+            fprintf(fileID,'\nCROSSTYPE  CIRC');
+            fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
     end
+
     
     %COLOR
     if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
@@ -437,10 +456,10 @@ fclose(fileID); %datfile finished!
 
 
 %% SIMULATE CONSTRAINTS
-if ~(fieldexist('opt','silent') && opt.silent==1)
+if ~(silent)
     try 
         warning('off','all')
-        spacar(0,opt.filename)
+        spacar(0,filename)
         warning('on','all')
     catch
         warning('on','all') %needed here, since a spacar error in the try block would leave warnings off
@@ -448,7 +467,7 @@ if ~(fieldexist('opt','silent') && opt.silent==1)
     end
     
     %CHECK CONSTRAINTS
-    sbd     = [opt.filename '.sbd'];
+    sbd     = [filename '.sbd'];
     nep     = getfrsbf(sbd,'nep');
     nxp     = getfrsbf(sbd,'nxp');
     nddof   = getfrsbf(sbd,'nddof');
@@ -533,10 +552,10 @@ end
 %% SIMULATE STATICS
 try
     warning('off','all')
-    spacar(-10,opt.filename)
+    spacar(-10,filename)
     warning('on','all')
-    if ~(fieldexist('opt','silent') && opt.silent==1)
-        spavisual(opt.filename)
+    if ~(silent)
+        spavisual(filename)
     end
     disp('Spacar simulation succeeded.')
 catch
@@ -545,7 +564,7 @@ catch
 end
 try
     %get results
-    results = calc_Results(opt.filename, E_list, id_inputf, id_inputx, nodes, elements, nprops, eprops, rls, opt);
+    results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, eprops, opt);
 catch
     err('A problem occurred processing simulation results.')
 end
@@ -557,9 +576,8 @@ warning backtrace on
 end
 
 function varargout = validateInput(varargin)
-
-    %TO BE DONE
-    %Check input voor input momenten
+    %this function receives the user-supplied input and only returns 
+    %that input when it turns out to be valid
     switch nargin
         case 1
             nodes = varargin{1};
@@ -591,7 +609,7 @@ function varargout = validateInput(varargin)
     end
     
     %DO NOT PERFORM CHECKS IN SILENT MODE
-    if ~(fieldexist('opt','silent') && opt.silent==1)
+    if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent==1)
 
         %CHECK NODES INPUT VARIABLE
         validateattributes(nodes,   {'double'},{'ncols',3,'ndims',2},'','nodes')
@@ -611,6 +629,10 @@ function varargout = validateInput(varargin)
             ensure(size(unique(sort(elements,2),'rows'),1)==size(elements,1),'Multiple elements seem connected between the same node pair.')
             
             ensure(all(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5),'Element length seems smaller than 0.00001.')
+            
+            maxlength = max(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
+            minlength = min(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
+            ensure(maxlength/minlength<=1000,'Ratio between element lengths seems larger than 1000.');
             
         end
 
@@ -733,7 +755,7 @@ function varargout = validateInput(varargin)
         
         %CHECK EPROPS INPUT VARIABLE
         if exist('eprops','var')
-            allowed_eprops = {'elems','emod','smod','dens','type','dim','orien','nbeams','flex','color','hide'};
+            allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide'};
             supplied_eprops = fieldnames(eprops);
             unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
             if any(unknown_eprops_i)
@@ -782,9 +804,15 @@ function varargout = validateInput(varargin)
                     if (isfield(eprops(i),'color') && ~isempty(eprops(i).color));   validateattributes(eprops(i).color,{'double'},{'vector','numel',3},'',sprintf('color property in eprops(%u)',i)); end
                     if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide));     validateattributes(eprops(i).hide,{'logical'},{'scalar'},'',sprintf('hide property in eprops(%u)',i)); end
                     
-                    if (isfield(eprops(i),'type') && ~isempty(eprops(i).type))
-                        validateattributes(eprops(i).type,{'char'},{'nonempty'},'',sprintf('type property in eprops(%u)',i));
-                        if ~any(strcmp(eprops(i).type,{'wire','leafspring','rigid'})), err('Element type should be either leafspring, wire or rigid.'); end
+                    if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
+                        validateattributes(eprops(i).cshape,{'char'},{'nonempty'},'',sprintf('cshape property in eprops(%u)',i));
+                        if ~any(strcmp(eprops(i).cshape,{'rect','circ'})), err('Element cshape should be either rect or circ.'); end
+                        switch eprops(i).cshape
+                            case 'rect'
+                                validateattributes(eprops(i).dim,{'double'},{'vector','numel',2},'',sprintf('dim property in eprops(%u)',i));
+                            case 'circ'
+                                validateattributes(eprops(i).dim,{'double'},{'vector','numel',1},'',sprintf('dim property in eprops(%u)',i));    
+                        end
                     end
                     
                     if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
@@ -855,7 +883,7 @@ function varargout = validateInput(varargin)
                         if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
                         if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); err('Property smod is not defined in eprops(%u)',i);     end
                         if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); err('Property dens is not defined in eprops(%u)',i);     end
-                        if ~(isfield(eprops(i),'type') && ~isempty(eprops(i).type)); err('Property type is not defined in eprops(%u)',i);     end
+                        if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape)); err('Property cshape is not defined in eprops(%u)',i);     end
                         if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));   err('Property dim is not defined in eprops(%u)',i);      end
                         if ~(isfield(eprops(i),'orien') && ~isempty(eprops(i).orien));   err('Property orien is not defined in eprops(%u)',i);      end
 
@@ -901,7 +929,7 @@ function varargout = validateInput(varargin)
 
         %CHECK OPTIONAL ARGUMENTS
         if exist('opt','var')
-            allowed_opts = {'filename','gravity','silent','buckload','showinputonly'};
+            allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly'};
             supplied_opts = fieldnames(opt);
             unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
             if any(unknown_opts_i)
@@ -911,28 +939,22 @@ function varargout = validateInput(varargin)
             if isfield(opt,'filename')
                 if isempty(opt.filename)
                     warning('Filename cannot be empty. Filename spacar_file is used instead.');
-                        opt.filename = 'spacar_file';
                 else
                     validateattributes(opt.filename,{'char'},{'vector'},'',            'filename property in opt');  
                     if length(opt.filename) > 19
                         warning('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
-                        opt.filename = 'spacar_file';
                     end
                 end
             end
             if (isfield(opt,'silent') && ~isempty(opt.silent))
                 validateattributes(opt.silent,{'logical'},{'scalar'},'',            'silent property in opt');   end
-            if (isfield(opt,'buckload') && ~isempty(opt.buckload))
-                validateattributes(opt.buckload,{'logical'},{'scalar'},'',          'buckload property in opt'); end
+            if (isfield(opt,'calcbuck') && ~isempty(opt.calcbuck))
+                validateattributes(opt.calcbuck,{'logical'},{'scalar'},'',          'calcbuck property in opt'); end
             if (isfield(opt,'gravity') && ~isempty(opt.gravity))
                 validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
             
         end
     end %END NOT-SILENT MODE BLOCK
-    
-    if ~fieldexist('opt','filename') || isempty(opt.filename)
-        opt.filename = 'spacar_file';
-    end
     
     % assign output 
     switch nargin
@@ -1001,23 +1023,110 @@ function ensure(cond,msg,varargin)
 end
 
 %% AUXILIARY FUNCTIONS
+function results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, eprops, opt)
+nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
+t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %list of timesteps
+lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
+ln      = getfrsbf([filename,'.sbd'],'ln'); %lnp data
+
+if nddof == 0
+    err('No dynamic degrees of freedom.')
+end
+
+results.ndof = getfrsbf([filename '.sbd'] ,'ndof'); %
+
+%CHECK BUCKLING SETTINGS
+calcbuck = false;
+if (isfield(opt,'calcbuck') && opt.calcbuck == 1)
+    calcbuck = true;
+    if id_inputx
+        warning('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
+    end
+    if ~id_inputf
+        warning('No external forces are prescribed. Buckling values are not calculated.');
+        calcbuck = false;
+    end
+end
+
+%PROCESS RESULTS PER LOADSTEP
+for i=t_list
+    x       = getfrsbf([filename '.sbd'] ,'x', i);
+    fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
+    M = getfrsbf([filename '.sbm'] ,'m0', i);
+    G = getfrsbf([filename '.sbm'] ,'g0', i);
+    K = getfrsbf([filename '.sbm'] ,'k0', i) + getfrsbf([filename '.sbm'] ,'n0', i) + G;
+    %C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
+    
+    %NODE DEPENDENT RESULTS
+    for j=1:size(nodes,1)
+        if ~ismember((j-1)*2+1,ln) %if node not connected to an element
+            results.step(i).node(j).x = nodes(j,1:3);
+            results.node(j).x(1:3,i) = results.step(i).node(j);
+            continue;
+        end
+        %store results per loadstep, using "step" field
+        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).rx_eulzyx   = quat2eulang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).rx_axang    = quat2axang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).rx_quat     = x(lnp((j-1)*2+2,1:4));
+        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).Mreac       = fxtot(lnp((j-1)*2+2,2:4))/2;
+        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
+        
+        %also store results for all loadsteps combined
+        results.node(j).x(1:3,i)             = results.step(i).node(j).x;
+        results.node(j).rx_eulzyx(1:3,i)     = results.step(i).node(j).rx_eulzyx;
+        results.node(j).rx_axang(1:4,i)      = results.step(i).node(j).rx_axang;
+        results.node(j).rx_quat(1:4,i)       = results.step(i).node(j).rx_quat;
+        results.node(j).Freac(1:3,i)         = results.step(i).node(j).Freac;
+        results.node(j).Mreac(1:3,i)         = results.step(i).node(j).Mreac;
+        results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
+        results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+    end
+    
+    %EIGENFREQUENCIES
+    [~,D]   = eig(K(1:nddof,1:nddof),M(1:nddof,1:nddof));
+    D       = diag(D);
+    [~,o]   = sort(abs(D(:)));
+    d       = D(o);
+    results.step(i).freq = sqrt(d)*1/(2*pi); %per loadstep
+    results.freq(1:nddof,i) = results.step(i).freq; %for all loadsteps
+    
+    %BUCKLING
+    if calcbuck
+        [~,loadmult] = eig(-K,G);
+        results.step(i).buck = sort(abs(diag(loadmult))); %per loadstep
+        results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
+    end
+
+    %MAXIMUM STRESS
+    [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
+    [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
+    results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
+    results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
+    
+    %  results.step(i).bode_data =  getss('spacarfile',i);
+end
+
+end
+
 function stiffness = calc_stiffness(eprops)
-% Compute the stiffness properties for leafspring or wireflexure
-type    = eprops.type;
+% Compute the stiffness properties for rectangular or circular cross-section
+type    = eprops.cshape;
 dim     = eprops.dim;
 E       = eprops.emod;
 G       = eprops.smod;
 v       = E/(2*G) - 1;
 switch lower(type)
-    case {'leafspring','rigid'}
+    case 'rect'
         t   = dim(1);
         w   = dim(2);
         A   = t*w;
-        It 	= calcTorsStiff(t,w);
+        It 	= calc_torsStiff(t,w);
         Iy  = (1/12)*t*w^3;
         Iz  = (1/12)*w*t^3;
         k   = 10*(1+v)/(12+11*v);
-    case 'wire'
+    case 'circ'
         d   = dim(1);
         A   = (pi/4)*d^2;
         It  = (pi/32)*d^4;
@@ -1033,8 +1142,7 @@ stiffness(1,5) = stiffness(1,3)/(G*A*k);
 stiffness(1,6) = stiffness(1,4)/(G*A*k);
 end
 
-
-function Ip = calcTorsStiff(t, w)
+function Ip = calc_torsStiff(t, w)
 % Compute the polar moment of inertia for rectangular cross-sections
 if w > t
     a = t/2;
@@ -1054,21 +1162,19 @@ end
 Ip = 1/3 * (2*a)^3*(2*b) * (1 - (192/pi^5)*(a/b)*sumN);
 end
 
-
-
 function inertia = calc_inertia(eprops)
-% Compute the inertia properties for leafspring or wireflexure
-type    = eprops.type;
+% Compute the inertia properties for rectangular or circular cross-section
+type    = eprops.cshape;
 dim     = eprops.dim;
 rho     = eprops.dens;
 switch lower(type)
-    case {'leafspring','rigid'}
+    case 'rect'
         t   = dim(1);
         w   = dim(2);
         A   = t*w;
         Iy  = 1/12 * t*w^3;
         Iz  = 1/12 * w*t^3;
-    case 'wire'
+    case 'circ'
         d   = dim(1);
         A   = (pi/4)*d^2;
         Iy  = (pi/64)*d^4;
@@ -1081,71 +1187,51 @@ inertia(1,4) = rho*Iz;
 inertia(1,5) = 0;
 end
 
-
-function Results = calc_Results(filename, E_list, id_inputf, id_inputx, nodes, ~, ~, eprops, ~, opt)
-nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
-t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %timesteps
-lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
-
-if nddof == 0
-    err('No dynamic degrees of freedom.')
-end
-
-%CHECK BUCKLING SETTINGS
-calcbuck = false;
-if (isfield(opt,'buckload') && opt.buckload == 1)
-    calcbuck = true;
-    if id_inputx
-        warning('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
-    end
-    if ~id_inputf
-        warning('No external forces are prescribed. Buckling values are not calculated.');
-        calcbuck = false;
-    end
-end
-
-%EIGENFREQUENCIES and BUCKLING
-for i=1:length(t_list)
-    M = getfrsbf([filename '.sbm'] ,'m0', t_list(i));
-    G = getfrsbf([filename '.sbm'] ,'g0', i);
-    K = getfrsbf([filename '.sbm'] ,'k0', t_list(i)) + getfrsbf([filename '.sbm'] ,'n0', t_list(i)) + G;
-    %C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
+function out = quat2axang(q)
     
-    [~,D]   = eig(K(1:nddof,1:nddof),M(1:nddof,1:nddof));
-    D       = diag(D);
-    [~,o]   = sort(abs(D(:)));
-    d       = D(o);
-    Results.step(i).Freq = sqrt(d)*1/(2*pi);
+    %conversion from quaternions (Euler parameters) to axis-angle representation
+    %based on http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/
+    %first output is angle (radians), followed by axis
     
-    if calcbuck
-        [~,Buck] = eig(-K,G);
-        Results.step(i).Buck = sort(abs(diag(Buck)));
-    end
-end
-
-[propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
-for i=t_list
-    x       = getfrsbf([filename '.sbd'] ,'x', i);
-    fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
-    for j=1:size(nodes,1)
-        Results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
-%         Results.step(i).node(j).rx_eulzyx   = quat2eul(x(lnp((j-1)*2+2,1:4))');
-        Results.step(i).node(j).rx_quat     = (x(lnp((j-1)*2+2,1:4))');
-        Results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3)) ;
+    if q(1)>1, err('Quaternions should be normalized.'); end
         
-        Results.step(i).node(j).Mreac       = quat2eul(fxtot(lnp((j-1)*2+2,1:4))');
-        [Results.step(i).node(j).CMglob, Results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
+    angle = 2*acos(q(1)); %returns in radians
+    s = sqrt(1-q(1)^2);
+    if s < 0.001 
+        %if s is close to zero, then axis is not important (just pick something normalised)
+        x = 1;
+        y = 0;
+        z = 0;
+    else
+        x = q(2)/s;
+        y = q(3)/s;
+        z = q(4)/s;
     end
-    [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
-    Results.step(i).stressmax = stressextrema.max*1e6;
-    %  Results.step(i).bode_data =  getss('spacarfile',i);
-end
-Results.ndof = getfrsbf([filename '.sbd'] ,'ndof');
-
+    
+    out = [angle; x; y; z];
+    
 end
 
+function eul = quat2eulang(q)
+    
+    %conversion from quaternions to Euler angles (radians)
+    %rotation sequence is ZYX (following quat2eul from Robotics System Toolbox)
+    
+    q = normc(q(:)); %normalize
 
-function cw= CWvalues(L,eprops)
+    %extra check
+    test = -2*(q(2)*q(4)-q(1)*q(3));
+    if test>1, test = 1; end
+
+    eul(1,1) = atan2(2*(q(2)*q(3)+q(1)*q(4)),q(1)^2+q(2)^2-q(3)^2-q(4)^2);
+    eul(2,1) = asin(test);
+    eul(3,1) = atan2(2*(q(3)*q(4)+q(1)*q(2)),q(1)^2-q(2)^2-q(3)^2+q(4)^2);
+    
+    if ~isreal(eul), eul = real(eul); end
+    
+end
+
+function cw= cw_values(L,eprops)
 w = eprops.dim(2);
 E = eprops.emod;
 G = eprops.smod;
@@ -1155,7 +1241,6 @@ aspect  = L/w;        %- aspect ratio of flexure
 c       = sqrt(24/(1+v));
 cw      = (aspect*c/(aspect*c-2*tanh(aspect*c/2)));
 end
-
 
 function [CMglob, CMloc] = complm(filename,ntr,nrot,tstp)
 % Calculate the compliance matrix in global directions and in body-fixed
@@ -1187,7 +1272,7 @@ for i=1:7
     end
     if locv(i) <= nxp(1) || ...
             (locv(i)>(nxp(1)+nxp(2)) && locv(i) <= (nxp(1)+nxp(2)+nxp(3)))
-        %  disp('WARNING: constrained node');
+%          disp('WARNING: constrained node');
     end
 end
 % search for the right degrees of freedom
@@ -1217,7 +1302,6 @@ CMglob=Tglob*CMlambda*(Tglob');
 CMloc=Tloc*CMlambda*(Tloc');
 end
 
-
 function [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops)
 %restructure crossectional properties to evaluate stresses throuqh
 %stressbeam.m
@@ -1239,13 +1323,13 @@ for i=1:size(E_list,1)
             Elements(Elements==0) = [];
             Sig_nums = [Sig_nums Elements];
             
-            switch eprops(id).type
-                case 'leafspring'
+            switch eprops(id).cshape
+                case 'rect'
                     for j=1:length(Elements)
                         propcrossect(end+1).CrossSection = 'rect';
                         propcrossect(end).Dimensions = [eprops(id).dim(1),eprops(id).dim(2)];
                     end
-                case 'wire'
+                case 'circ'
                     for j=1:length(Elements)
                         propcrossect(end+1).CrossSection = 'circ';
                         propcrossect(end).Dimensions = eprops(id).dim(1);
@@ -1254,10 +1338,4 @@ for i=1:size(E_list,1)
         end
     end
 end
-end
-
-function out = fieldexist(structname,fieldname)
-    
-    out = (exist(structname,'var') && isstruct(eval(structname)) && isfield(eval(structname),fieldname));
-    
 end
