@@ -18,23 +18,28 @@ function showGeom(no,el,nopr)
     
     figure;
     
-    %legend axes
-    subplot(1,2,1);
+    %axes for the legend
+    lah = subplot(1,2,1);
     hold on
-    leg1 = plot(0,0); text(1,0,'node');
-    leg2 = plot(0,-0.2); text(1,-0.2,'node with mass and/or inertia');
-    leg3 = plot(0,-0.4); text(1,-0.4,'fixed node (all directions)');
-    leg4 = plot(0,-0.6); text(1,-0.6,'fixed node (one or two dir.)');
-    leg5 = text(0,0.2,'#'); text(1,0.2,'node number');
-    leg6 = text(0,0.4,'#'); text(1,0.4,'element number');
-
-    set(gca,'DataAspectRatio',[5 1 1])
-    set(gca,'Position',[0.1 0.1 0.3 0.8])
-    set(gca,'Visible','off')
-    set(gca,'XLim',[0 2])
-    set(gca,'YLim',[-1 1])
     
-    %mechanism axes
+    dx = 0.2;
+    dy = 0.2;
+    leg6 = text(0,2*dy,'#'); text(dx,2*dy,'element number');
+    leg5 = text(0,1*dy,'#'); text(dx,1*dy,'node number');
+    leg1 = plot(0,0*dy); text(dx,0*dy,'node');
+    leg2 = plot(0,-1*dy); text(dx,-1*dy,'node with mass and/or inertia');
+    leg3 = plot(0,-2*dy); text(dx,-2*dy,'fixed node (all directions)');
+    leg4 = plot(0,-3*dy); text(dx,-3*dy,'fixed node (one or two dir.)');
+
+    set(lah,'PlotBoxAspectRatio',[1.8 1 1])
+%     set(lah,'Position',[0.1 0.1 0.3 0.8])
+    set(lah,'XLim',[-0.2 1.2])
+    set(lah,'YLim',[-0.7 0.5])
+    set(lah,'xtick',[],'ytick',[])
+    box(lah,'on')
+    
+    
+    %axes for the mechanism
     ah = subplot(1,2,2);
     hold on
     
@@ -100,7 +105,7 @@ function showGeom(no,el,nopr)
     arrowlength = maxdist/6; %for length of arrows
 
     %get average plane through nodes
-    [normalvec, mech_dim, normalvec2] = getPlane(no);
+    [normalvec, mech_dim, normalvec2] = getPlane(no); %normalvec2 only used for 1-D mechanisms, a specialty case
         
     %plot node numbers
     nnh = [];
