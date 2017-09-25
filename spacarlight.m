@@ -225,8 +225,12 @@ end
 
 %% NODE FIXES AND INPUTS
 fprintf(fileID,'\n\n#NODE FIXES AND INPUTS\n');
-for i=1:size(nprops,2)
+if size(nodes,1)<size(nprops,2)
+   error('Node properties applied to non-existing nodes.') 
+end
+for i=1:size(nodes,1)
     %fixes
+    
     if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+1);
         fprintf(fileID,'FIX      %u  \n',(i-1)*2+2);   end
     if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    fprintf(fileID,'FIX      %u  \n',(i-1)*2+1);   end
