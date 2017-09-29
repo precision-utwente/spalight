@@ -3,12 +3,12 @@
 ## General
 - A simulation is performed with the spacarlight() command.
 - The spacarlight() command requires at least five input arguments (a sixth is optional). If fewer are supplied, warnings and a visualization can appear to help in completing the input.
-- The results of a successful simulation are returned in a structure (the first and only output argument)
+- The results of a successful simulation are returned in a structure (the first and only output argument).
 
 ## Input
-1. Node positions nodes
+1. Node positions nodes.
 
-2. Element connectivity elements
+2. Element connectivity elements.
 
 3. Node properties nprops.
 
