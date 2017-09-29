@@ -33,6 +33,11 @@ warning off backtrace
 ensure(size(dbstack,1)>1,'Call spacarlight() from a script instead.')
 
 %% CHECK FOR INCOMPLETE INPUT
+%Temporary disable support for less then 4 input arguments (geometry visualization is not yet completed)
+if nargin<4
+   err('At least four input arguments are required.');
+end
+
 switch nargin
     case 0
         err('No input was provided.');
@@ -177,7 +182,7 @@ for i=1:size(elements,1)
             end
             
             %for the last beam only, add dyne and/or rlse
-            if ~exist('rls','var') || isempty(rls)            %if no rlse, add all flexible deformation modes as dyne
+            if ((~exist('rls','var') || isempty(rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
                 fprintf(fileID,'dyne    %3u',e_count);
                 for m=1:length(Flex)    %loop over all flexible deformation modes
                     fprintf(fileID,'  %3u',Flex(m));
@@ -226,7 +231,7 @@ end
 %% NODE FIXES AND INPUTS
 fprintf(fileID,'\n\n#NODE FIXES AND INPUTS\n');
 if size(nodes,1)<size(nprops,2)
-   error('Node properties applied to non-existing nodes.') 
+   err('Node properties applied to non-existing nodes.') 
 end
 for i=1:size(nodes,1)
     %fixes
@@ -481,7 +486,7 @@ if ~(silent)
     [ U, s, V ] = svd(Dcc);
     s       = diag(s);
     
-    if isempty(s) %%% TO BE DONE: s can be empty. What does this mean?
+    if isempty(s) %%% TO BE DONE: s can be empty. What does this mean? => no calculable nodes? no freedom?
         return
     end
     
@@ -505,7 +510,7 @@ if ~(silent)
         overconstraint = U(:,end-nover+1:end);
         oc = overconstraint(:,1);
         [oc_sort,order] = sort(oc.^2,1,'descend');
-        idx = find(cumsum(oc_sort)>sqrt(0.95),1,'first');% select only part that explains 95% (or more) of singular vector's length
+        idx = find(cumsum(oc_sort)>sqrt(0.99),1,'first');% select only part that explains 99% (or more) of singular vector's length
         idx = order(1:idx);
         sel = (1:numel(oc))';
         sel = sel(idx);
@@ -912,7 +917,8 @@ function varargout = validateInput(varargin)
                 end
             end
             %warn user if no element has flexibility
-            if ~isfield(eprops,'flex') || cellfun(@isempty,{eprops(:).flex})
+            %if ~isfield(eprops,'flex') || cellfun(@isempty,{eprops(:).flex})
+            if ~sum(cellfun(@isempty,{eprops(:).flex}))
                 warning('No element seems to have the flex property. Simulation does not seem useful.')
             end
         end
@@ -1111,6 +1117,7 @@ for i=t_list
     
     %  results.step(i).bode_data =  getss('spacarfile',i);
 end
+
 
 end
 
