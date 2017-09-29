@@ -42,21 +42,21 @@ switch nargin
     case 0
         err('No input was provided.');
     case 1
-        warning('Incomplete input; no simulation is run.');
+        warr('Incomplete input; no simulation is run.');
         % validate only nodes
         [nodes] = validateInput(varargin{:});
         showInput(nodes);
         results = [];
         return
     case 2
-        warning('Incomplete input; no simulation is run.');
+        warr('Incomplete input; no simulation is run.');
         % validate only nodes and elements
         [nodes,elements] = validateInput(varargin{:});
         showInput(nodes,elements);
         results = [];
         return
     case 3
-        warning('Incomplete input; no simulation is run.');
+        warr('Incomplete input; no simulation is run.');
         % validate only nodes, elements and nprops
         [nodes,elements,nprops] = validateInput(varargin{:});
         showInput(nodes,elements,nprops);
@@ -471,8 +471,7 @@ if ~(silent)
         spacar(0,filename)
         warning('on','all')
     catch
-        warning('on','all') %needed here, since a spacar error in the try block would leave warnings off
-        err('Connectivity incorrect. Check element lengths, eprops.orien, etc.');
+        err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
     end
     
     %CHECK CONSTRAINTS
@@ -503,8 +502,7 @@ if ~(silent)
     end
 
     if nunder>0 %underconstrained
-        warning('System is underconstrained. Check element connectivity, boundary conditions and releases.')
-        warning('on','all')
+        warr('System is underconstrained. Check element connectivity, boundary conditions and releases.')
         return
     elseif nover>0 %overconstrained
         overconstraint = U(:,end-nover+1:end);
@@ -543,16 +541,15 @@ if ~(silent)
         end
 
         results.overconstraints = [OC_el OC_defs];
-        warning('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in results.overconstraints in the workspace and the table below.\n')
+        warr('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in results.overconstraints in the workspace and the table below.\n')
         fprintf('Number of overconstraints: %u\n\n',nover);
         disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
             'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
-        warning('on','all')
         return
     end
     
     if nddof == 0
-        warning('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
+        warr('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
         return;
     end
         
@@ -568,8 +565,7 @@ try
     end
     disp('Spacar simulation succeeded.')
 catch
-    warning('on','all') %needed here, since a spacar error in the try block would leave warnings off
-    warning('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
+    warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
 end
 try
     %get results
@@ -631,7 +627,7 @@ function varargout = validateInput(varargin)
             
             ensure(all(elements(:)>0),'Element seems connected to node number <=0.')
             ensure(max(elements(:))<=nno,'Element seems connected to node that does not exist.')
-            if max(elements(:))<nno; warning('Node seems not attached to element.'); end
+            if max(elements(:))<nno; warr('Node seems not attached to element.'); end
             ensure(~any(abs(elements(:,1)-elements(:,2))==0),('Both sides of element seem connected to the same node.'))
             
             %check if unique pairs node numbers (independent of p/q order)
@@ -742,21 +738,21 @@ function varargout = validateInput(varargin)
                             (isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia) && any(nprops(i).mominertia~=0)) ...
                         )
                         
-                    warning('Inertia associated with fixed node %i.',i);
+                    warr('Inertia associated with fixed node %i.',i);
                 end
                 
                 %no combination of fix_pos and mass
                 if (isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos) && nprops(i).fix_pos == true) && ...
                    (isfield(nprops(i),'mass') && ~isempty(nprops(i).mass) && nprops(i).mass~=0)
                         
-                    warning('Mass associated with position-fixed node %i.',i);
+                    warr('Mass associated with position-fixed node %i.',i);
                 end                
                 
                 %no combination of fix_orien and mominertia
                 if (isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) && nprops(i).fix_orien == true) && ...
                    (isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia) && any(nprops(i).mominertia~=0))
                         
-                    warning('Moment of inertia associated with orientation-fixed node %i.',i);
+                    warr('Moment of inertia associated with orientation-fixed node %i.',i);
                 end   
             end
             ensure(count_bcs >= 6,'The nodes seem to have insufficient (%i<6) constraints (fix, displ, or rot).',count_bcs);
@@ -776,7 +772,7 @@ function varargout = validateInput(varargin)
 
                 %the only mandatory field is elems
                 if ~(isfield(eprops(i),'elems') && ~isempty(eprops(i).elems))
-                    warning('Property elems is not defined in eprops(%u); ignoring eprops(%i).',i,i);
+                    warr('Property elems is not defined in eprops(%u); ignoring eprops(%i).',i,i);
                     eprops(i) = []; %note, this deletes the current property set from the list
                 else
                     %%%%%%%%%%%%
@@ -853,7 +849,7 @@ function varargout = validateInput(varargin)
                             
                             %check if normal to local x axis (else warn)
                             if dot(ex,ey) > 1e-3
-                                warning('Note that local y-axis of element %i might be different than expected, because orien property is not normal to element axis.',eprops(i).elems(j));
+                                warr('Note that local y-axis of element %i might be different than expected, because orien property is not normal to element axis.',eprops(i).elems(j));
                             end
                         end               
                     else
@@ -898,8 +894,8 @@ function varargout = validateInput(varargin)
 
                     else
                         eprops(i).flex = [];
-                        if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warning('Property eprops(%u).emod is redundant without the flex property.',i);     end
-                        if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warning('Property eprops(%u).smod is redundant without the flex property.',i);     end
+                        if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warr('Property eprops(%u).emod is redundant without the flex property.',i);     end
+                        if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warr('Property eprops(%u).smod is redundant without the flex property.',i);     end
                     end
 
                 end  
@@ -910,16 +906,16 @@ function varargout = validateInput(varargin)
                 el_without_prop = find(el_without_prop_index);
                 if length(el_without_prop) == 1
                     el_without_prop_str = num2str(el_without_prop);
-                    warning('Element %s has no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
+                    warr('Element %s has no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
                 else
                     el_without_prop_str = [num2str(el_without_prop(1)) sprintf(', %i',el_without_prop(2:end))];
-                    warning('Elements %s have no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
+                    warr('Elements %s have no user-defined properties. Defaults (rigid massless elements) are used.',el_without_prop_str)
                 end
             end
             %warn user if no element has flexibility
             %if ~isfield(eprops,'flex') || cellfun(@isempty,{eprops(:).flex})
-            if ~sum(cellfun(@isempty,{eprops(:).flex}))
-                warning('No element seems to have the flex property. Simulation does not seem useful.')
+            if ~isfield(eprops,'flex') || sum(cellfun(@isempty,{eprops(:).flex}))
+                warr('No element seems to have the flex property. Simulation does not seem useful.')
             end
         end
 
@@ -948,11 +944,11 @@ function varargout = validateInput(varargin)
             
             if isfield(opt,'filename')
                 if isempty(opt.filename)
-                    warning('Filename cannot be empty. Filename spacar_file is used instead.');
+                    warr('Filename cannot be empty. Filename spacar_file is used instead.');
                 else
                     validateattributes(opt.filename,{'char'},{'vector'},'',            'filename property in opt');  
                     if length(opt.filename) > 19
-                        warning('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
+                        warr('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
                     end
                 end
             end
@@ -1013,11 +1009,22 @@ function err(msg,varargin)
     if nargin > 1
         errorstruct.message = sprintf(msg,varargin{:});
     else
-        errorstruct.message = msg;
+        errorstruct.message =sprintf(msg);
     end
     
     error(errorstruct)
     
+end
+
+function warr(msg,varargin)
+    %custom warning function to include sprintf syntax
+    warning('on','all')
+    if nargin > 1
+        warning(msg,varargin{:});
+    else
+        warning(sprintf(msg)); %#ok<SPWRN> \n not supported
+    end
+    warning('off','all')   
 end
 
 function ensure(cond,msg,varargin)
@@ -1050,10 +1057,10 @@ calcbuck = false;
 if (isfield(opt,'calcbuck') && opt.calcbuck == 1)
     calcbuck = true;
     if id_inputx
-        warning('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
+        warr('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
     end
     if ~id_inputf
-        warning('No external forces are prescribed. Buckling values are not calculated.');
+        warr('No external forces are prescribed. Buckling values are not calculated.');
         calcbuck = false;
     end
 end
@@ -1261,7 +1268,7 @@ tstp    = tstp-1;
 CMglob  =zeros(6,6);
 CMloc   =zeros(6,6);
 if (nargin < 3) || (nargin>4)
-    warning('complm() needs 3 or 4 input arguments');
+    warr('complm() needs 3 or 4 input arguments');
     return;
 end
 if nargin < 4, tstp=0; end
