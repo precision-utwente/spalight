@@ -26,10 +26,10 @@ function results = spacarlight(varargin)
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 %
-% Version 0.7
+% Version 0.71
 % 2-10-2017
 
-version = '0.7';
+version = '0.71';
 
 %% WARNINGS
 warning off backtrace
@@ -272,8 +272,8 @@ end
 
 
 %% STIFFNESS/INERTIA PROPS
-pr_stiff = sprintf('#STIFFNESS\t Ne\t\tEA\t\t\t\t\t   GJt\t\t\t   EIy\t\t\t   EIz\t\t\t\t   Shear Y\t\t   Shear Z');
-pr_mass = sprintf('#MASS\t\t Ne\t\t M/L\t\t  Jxx/L\t\t  Jyy/L\t\t  Jzz/L\t\t  Jyz/L');
+pr_stiff = sprintf('#STIFFNESS\t Ne\t\t\tEA\t\t\t\t\t\tGJt\t\t\t\tEIy\t\t\t\tEIz\t\t\t\tShear Y\t\t\tShear Z');
+pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\tJxx/L\t\t\tJyy/L\t\t\tJzz/L\t\t\tJyz/L');
 for i=1:size(eprops,2) %loop over each element property set
     
     %only write stiffness and mass values when deformations are flexible
@@ -299,7 +299,7 @@ for i=1:size(eprops,2) %loop over each element property set
             for k=1:size(E_list,2) %write mass/inertia values
                 El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                 if El>0
-                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%10f\t%10f\t%10f\t%10f\t%10f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
+                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%15.10f\t%15.10f\t%15.10f\t%15.10f\t%15.10f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                 end
             end
         end
@@ -445,7 +445,7 @@ for i=1:size(eprops,2) %loop over all element property sets
             pr_vis = sprintf('%s\nCROSSTYPE\t  RECT',pr_vis);
             pr_vis = sprintf('%s\nCROSSDIM\t  %6f\t%6f',pr_vis,eprops(i).dim(1),eprops(i).dim(2));
         case 'circ'
-            pr_vis = sprintf('%s\nCROSSTYPE\t  RCIRC',pr_vis);
+            pr_vis = sprintf('%s\nCROSSTYPE\t  CIRC',pr_vis);
             pr_vis = sprintf('%s\nCROSSDIM\t  %f',pr_vis,eprops(i).dim(1));
     end
     
