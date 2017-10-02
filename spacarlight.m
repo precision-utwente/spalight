@@ -26,10 +26,10 @@ function results = spacarlight(varargin)
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 %
-% Version 0.6
+% Version 0.7
 % 2-10-2017
 
-version = '0.6';
+version = '0.7';
 
 %% WARNINGS
 warning off backtrace
@@ -93,6 +93,7 @@ x_count     = size(nodes,1)*2+1;    %counter for node numbering
 e_count     = 1;                    %counter for element numbering
 X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
+
 %if no opt struct provided, create empty one
 if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 %set filename, even if not specified
@@ -116,50 +117,22 @@ ensure(exist('spacar','file') == 3,'spacar() is not in your path.');
 
 
 %% START CREATING DATFILE
-fileID = fopen([filename '.dat'],'w');
-fprintf(fileID,'#Dat-file generated with Spacar light version %s\n',version);
-fprintf(fileID,'#Date: %s\n\n\n',datetime);
+pr_I = sprintf('#Dat-file generated with Spacar light version %s\n#Date: %s',version,datetime);
 
 
 %% USERDEFINED NODES
-fprintf(fileID,'#NODES\n');
+pr_N = sprintf('#NODES\t Nn\t\t\tX\t\t\tY\t\t\tZ');
 %print all nodes provides by user
-fprintf(fileID,'#\t\t  N\t\t\tX\t\t\tY\t\t\tZ\n');
 for i=1:size(nodes,1)
-    fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#node %u\n',(i-1)*2+1,nodes(i,1),nodes(i,2),nodes(i,3),i);
+    pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#node %u',pr_N,(i-1)*2+1,nodes(i,1),nodes(i,2),nodes(i,3),i);
 end
-
-% 
-% %% INTERMEDIATE NODES
-% x_count_imnode = x_count;
-% for i=1:size(elements,1)
-%     for j=1:size(eprops,2)
-%         if sum(eprops(j).elems==i)>0
-%             N           = eprops(j).nbeams;    %number of beams per userdefined element
-%             N_p         = elements(i,1);            %p-node nodenumber
-%             N_q         = elements(i,2);            %q-node nodenumber
-%             X_list(i,1) = N_p;                      %store p-node in X_list
-%             if N>1
-%                 X_p = nodes(N_p,1:3);   %Location p-node
-%                 X_q = nodes(N_q,1:3);   %Location q-node
-%                 V   = X_q - X_p;        %Vector from p to q-node
-%                 for k = 1:N-1
-%                     X = X_p+V/N*k;              %intermediate node position
-%                     fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node\n',x_count_imnode,X(1),X(2),X(3));
-%                     X_list(i,k+1) = x_count_imnode;    %add intermediate node to X_list
-%                     x_count_imnode     = x_count_imnode+2;    %increase node counter by 2 (+1 for rotation node)
-%                 end
-%             end
-%         end
-%     end
-% end
 
 
 %% ELEMENTS
-fprintf(fileID,'\n\n#ELEMENTS\n');
-fprintf(fileID,'#\t\t  E\n');
+pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t Xq\t Rq\t\tOx\t\t\tOy\t\t\tOz');
+pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
 for i=1:size(elements,1)
-    fprintf(fileID,'#Element %2u\n',i);
+    pr_E = sprintf('%s\n#element\t%3u',pr_E,i);
     
     % get element property set corresponding to element i
     for j=1:size(eprops,2)
@@ -182,21 +155,20 @@ for i=1:size(elements,1)
                 for k = 1:N-1
                     
                     X = X_p+V/N*k;              %intermediate node position
-                    fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node\n',x_count,X(1),X(2),X(3));
+                    pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node',pr_N,x_count,X(1),X(2),X(3));
                     X_list(i,k+1) = x_count;    %add intermediate node to X_list
     
                     if k==1 %if the first beam, connect to p-node and first intermediate node
-                        fprintf(fileID,'BEAM\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u\n',e_count,(N_p-1)*2+1,(N_p-1)*2+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
+                        pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
                     else    %if not the first beam, connect to two intermediate nodes
-                        fprintf(fileID,'BEAM\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u\n',e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
+                        pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
                     end
                     
                     if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
-                        fprintf(fileID,'DYNE\t%3u\t',e_count);
+                        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
                         for m=1:length(Flex) %loop over all flexible deformation modes
-                            fprintf(fileID,'\t%3u',Flex(m));
+                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                         end
-                        fprintf(fileID,'\n');
                     end
                     
                     E_list(i,k) = e_count;      %add beam number to E_list
@@ -205,13 +177,13 @@ for i=1:size(elements,1)
                 end
                 
                 %for the last beam in element i, connect to last intermediate node and q-node
-                fprintf(fileID,'BEAM\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u\n',e_count,x_count-2,x_count-1,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3),k+1);
+                pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3),k+1);
                 
                 X_list(i,k+2) = N_q;        %add q-node to X_list
                 E_list(i,k+1) = e_count;    %add beam number to E_list
                 
             else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
-                fprintf(fileID,'BEAM\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u\n',e_count,(N_p-1)*2+1,(N_p-1)*2+2,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3));
+                pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3));
                 
                 X_list(i,2) = N_q;          %add q-node to X_list
                 E_list(i,1) = e_count;      %add beam number to E_list
@@ -219,12 +191,10 @@ for i=1:size(elements,1)
             
             %for the last beam only, add dyne and/or rlse
             if ((~exist('rls','var') || isempty(rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
-                fprintf(fileID,'DYNE\t%3u\t',e_count);
+                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
                 for m=1:length(Flex)    %loop over all flexible deformation modes
-                    fprintf(fileID,'\t%3u',Flex(m));
-                end
-                fprintf(fileID,'\n');
-                
+                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                end       
             else%if some rls are specified
                 %compensate size of rls if size is smaller then element list
                 if i>size(rls,2)
@@ -237,74 +207,72 @@ for i=1:size(elements,1)
                     for m=1:length(Flex)                    %loop over all flexible deformation modes
                         if ~(sum(rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
                             if ~dyn_added                   %only add string 'dyne' if it is not yet added
-                                fprintf(fileID,'DYNE\t%3u\t',e_count);
+                                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
                                 dyn_added = true;           %set 'dyne' identifier
                             end
-                            fprintf(fileID,'\t%3u',Flex(m));
+                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                         end
                     end
-                    if dyn_added; fprintf(fileID,'\n'); end
                 end
                 
                 % add rlse
                 rlse_added = false;                     %reset identifier to check if string 'rlse' is added
                 for m=1:length(rls(i).def)             %loop over all released deformation modes
                     if ~rlse_added                      %only add string 'rlse' if it is not yet added
-                        fprintf(fileID,'RLSE\t%3u\t',e_count);
+                        pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
                         rlse_added = true;
                     end
-                    fprintf(fileID,'\t%3u',rls(i).def(m));
+                    pr_D = sprintf('%s\t%3u',pr_D,rls(i).def(m));
                 end
-                if rlse_added; fprintf(fileID,'\n'); end
             end
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
             x_count     = x_count+2;    %increase node counter by 2 (+1 for rotation node)
         end
     end
-    fprintf(fileID,'\n\n');
 end
 
 
 %% NODE FIXES AND INPUTS
-fprintf(fileID,'\n#NODE FIXES AND INPUTS\n');
+pr_fix = sprintf('#FIXES\t Nn');
+pr_input = sprintf('#INPUT\t Nn\t\tdir');
 if size(nodes,1)<size(nprops,2)
     err('Node properties applied to non-existing nodes.')
 end
 for i=1:size(nodes,1)
     %fixes
-    
-    if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));    fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+1);
-        fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+2);   end
-    if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    fprintf(fileID,'FIX\t\t3%u  \n',(i-1)*2+1);   end
-    if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x));        fprintf(fileID,'FIX\t\t%3u\t\t1 \n',(i-1)*2+1);  end
-    if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y));        fprintf(fileID,'FIX\t\t%3u\t\t2 \n',(i-1)*2+1);  end
-    if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z));        fprintf(fileID,'FIX\t\t%3u\t\t3 \n',(i-1)*2+1);  end
-    if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien));    fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+2);   end
+    if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*2+1,(i-1)*2+2); end
+    if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    pr_fix = sprintf('%s\nFIX\t\t3%u',pr_fix,(i-1)*2+1);   end
+    if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*2+1);  end
+    if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*2+1);  end
+    if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*2+1);  end
+    if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien)); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+2);   end
     
     %input displacements
     if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
-            (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   fprintf(fileID,'INPUTX\t%3u\t\t1\n',(i-1)*2+1);id_inputx = true;    end
+            (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t1',pr_input,(i-1)*2+1);id_inputx = true;    end
     if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
-            (isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y)));   fprintf(fileID,'INPUTX\t%3u\t\t2\n',(i-1)*2+1);id_inputx = true;    end
+            (isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+1);id_inputx = true;    end
     if((isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z)) ||...
-            (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));   fprintf(fileID,'INPUTX\t%3u\t\t3\n',(i-1)*2+1);id_inputx = true;    end
+            (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+1);id_inputx = true;    end
     
     %input rotations
     id_inputr = 0; %identifier to count the number of input rotations
     if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
-            (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); fprintf(fileID,'INPUTX\t%3u\t\t4\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+            (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
-            (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); fprintf(fileID,'INPUTX\t%3u\t\t3\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+            (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
-            (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); fprintf(fileID,'INPUTX\t%3\t\t2\n',(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+            (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
         err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
     end
 end
-fprintf(fileID,'\n\nEND\nHALT\n\n');
+
 
 
 %% STIFFNESS/INERTIA PROPS
+pr_stiff = sprintf('#STIFFNESS\t Ne\t\tEA\t\t\t\t\t   GJt\t\t\t   EIy\t\t\t   EIz\t\t\t\t   Shear Y\t\t   Shear Z');
+pr_mass = sprintf('#MASS\t\t Ne\t\t M/L\t\t  Jxx/L\t\t  Jyy/L\t\t  Jzz/L\t\t  Jyz/L');
 for i=1:size(eprops,2) %loop over each element property set
     
     %only write stiffness and mass values when deformations are flexible
@@ -324,13 +292,13 @@ for i=1:size(eprops,2) %loop over each element property set
             for k=1:size(E_list,2)                                  %loop over all beams in the element
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
-                    fprintf(fileID,'ESTIFF      %u %f %f %f %f %f %f \n',El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
+                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20f\t%15f\t%15f\t%15f\t%15f\t%15f',pr_stiff,El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                 end
             end
             for k=1:size(E_list,2) %write mass/inertia values
                 El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                 if El>0
-                    fprintf(fileID,'EM      %u %f %f %f %f %f \n',El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
+                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%10f\t%10f\t%10f\t%10f\t%10f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                 end
             end
         end
@@ -340,56 +308,61 @@ end
 
 
 %% FORCES/MOMENTS/NODAL MASSES
-fprintf(fileID,'\n\n#FORCES/MOMENTS\n');
+pr_force =  sprintf('#FORCES\t\t Nn\t\tFx\t\t\tFy\t\t\tFz');
+pr_moment =  sprintf('#MOMENTS\t Nn\t\tMx\t\t\tMy\t\t\tMz');
+pr_dispr =  sprintf('#INPUTR\t\t Nn\t\tdir\t\tdr');
+pr_dispx =  sprintf('#INPUTX\t\t Nn\t\tdir\t\tdx');
+pr_nm =  sprintf('#MASS\t\t  Nn\tM,Ixx\t\tIxy\t\t\tIxz\t\t\tIyy\t\t\tIyz\t\t\tIzz');
 id_ini  = false; %check for initial loading or displacement
 id_add  = false; %check for aditional loading or displacement
 
 for i=1:size(nprops,2) %loop over all user defined nodes
     %forces
-    if(isfield(nprops(i),'force') && ~isempty(nprops(i).force));                    fprintf(fileID,'DELXF   %3u %6f %6f %6f  \n',(i-1)*2+1,nprops(i).force(1),nprops(i).force(2),nprops(i).force(3));                           id_add = true;  id_inputf=true; end
-    if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    fprintf(fileID,'XF      %3u %6f %6f %6f  \n',(i-1)*2+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
+    if(isfield(nprops(i),'force') && ~isempty(nprops(i).force));                    pr_force = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*2+1,nprops(i).force(1),nprops(i).force(2),nprops(i).force(3));                           id_add = true;  id_inputf=true; end
+    if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    pr_force = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*2+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
     
     %moments
     if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)) %#ok<*ALIGN>
         moments = nprops(i).moment;
-        fprintf(fileID,'DELXF   %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments(1),moments(2),moments(3));                                       id_add = true;  id_inputf=true; end
+        pr_moment = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f\t%6f',pr_moment,(i-1)*2+2,moments(1),moments(2),moments(3));                                       id_add = true;  id_inputf=true; end
     if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial))
         moments_i = nprops(i).moment_initial;
-        fprintf(fileID,'XF      %3u %6f %6f %6f %6f  \n',(i-1)*2+2,moments_i(1),moments_i(2),moments_i(3));                                 id_ini = true;  id_inputf=true; end
+        pr_moment = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f\t%6f',pr_moment,(i-1)*2+2,moments_i(1),moments_i(2),moments_i(3));                                 id_ini = true;  id_inputf=true; end
     
     %displacements
-    if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  fprintf(fileID,'DELINPX  %3u  1  %6f  \n',(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
-    if(isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y));                  fprintf(fileID,'DELINPX  %3u  2  %6f  \n',(i-1)*2+1,nprops(i).displ_y(1));                       id_add = true; end
-    if(isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z));                  fprintf(fileID,'DELINPX  %3u  3  %6f  \n',(i-1)*2+1,nprops(i).displ_z(1));                       id_add = true; end
-    if(isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x));  fprintf(fileID,'INPUTX   %3u  1  %6f  \n',(i-1)*2+1,nodes(i,1) + nprops(i).displ_initial_x(1));  id_ini = true; end
-    if(isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y));  fprintf(fileID,'INPUTX   %3u  2  %6f  \n',(i-1)*2+1,nodes(i,2) + nprops(i).displ_initial_y(1));  id_ini = true; end
-    if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  fprintf(fileID,'INPUTX   %3u  3  %6f  \n',(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
+    if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t1\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
+    if(isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_y(1));                       id_add = true; end
+    if(isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_z(1));                       id_add = true; end
+    if(isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t1\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,1) + nprops(i).displ_initial_x(1));  id_ini = true; end
+    if(isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,2) + nprops(i).displ_initial_y(1));  id_ini = true; end
+    if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
     
     %rotations
     if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([nprops(i).rot_x(1) 0 0]);
-        fprintf(fileID,'DELINPX     %3u     4   %6f  \n',(i-1)*2+2,rot(4)); id_add = true; end
+        pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); id_add = true; end
     if(isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y));                rot = eul2quat([0 nprops(i).rot_y(1) 0]);
-        fprintf(fileID,'DELINPX     %3u     3   %6f  \n',(i-1)*2+2,rot(3)); id_add = true; end
+        pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3)); id_add = true; end
     if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([0 0 nprops(i).rot_z(1)]);
-        fprintf(fileID,'DELINPX     %3u     2   %6f  \n',(i-1)*2+2,rot(2)); id_add = true; end
+        pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
     if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([nprops(i).rot_initial_x(1) 0 0]);
-        fprintf(fileID,'INPUTX     %3u     4   %6f  \n',(i-1)*2+2,rot(4));  id_ini = true; end
+        pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4));  id_ini = true; end
     if(isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y));rot = eul2quat([0 nprops(i).rot_initial_y(1) 0]);
-        fprintf(fileID,'INPUTX     %3u     3   %6f  \n',(i-1)*2+2,rot(3));  id_ini = true; end
+        pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));  id_ini = true; end
     if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([0 0 nprops(i).rot_initial_z(1)]);
-        fprintf(fileID,'INPUTX     %3u     2   %6f  \n',(i-1)*2+2,rot(2));  id_ini = true; end
+        pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true; end
     
     %nodal masses/inertia
-    if(isfield(nprops(i),'mass') && ~isempty(nprops(i).mass));                      fprintf(fileID,'XM      %3u %6f  \n',(i-1)*2+1,nprops(i).mass); end
-    if(isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia));                fprintf(fileID,'XM      %3u %6f %6f %6f %6f %6f %6f\n',(i-1)*2+2,nprops(i).mominertia(1),nprops(i).mominertia(2),nprops(i).mominertia(3),...
+    if(isfield(nprops(i),'mass') && ~isempty(nprops(i).mass));                      pr_nm = sprintf('%s\nXM\t\t\t%3u\t\t%6f',pr_nm,(i-1)*2+1,nprops(i).mass); end
+    if(isfield(nprops(i),'mominertia') && ~isempty(nprops(i).mominertia));          pr_nm = sprintf('%s\nXM\t\t\t%3u\t\t%6f\t%6f\t%6f\t%6f\t%6f\t%6f',pr_nm,(i-1)*2+2,nprops(i).mominertia(1),nprops(i).mominertia(2),nprops(i).mominertia(3),...
             nprops(i).mominertia(4),nprops(i).mominertia(5),nprops(i).mominertia(6)); end
 end
 
 
 %% ADITIONAL OPTIONS
 %GRAVITY
+pr_add = sprintf('#ADDITIONAL PROPERTIES');
 if (exist('opt','var') && isstruct(opt) && isfield(opt,'gravity') && ~isempty(opt.gravity))
-    fprintf(fileID,'\nGRAVITY  %6f %6f %6f',opt.gravity(1),opt.gravity(2),opt.gravity(3));
+    pr_add = sprintf('%s\n#\t\t\tGx\t\t\tGy\t\t\tGz\nGRAVITY\t\t%6f\t%6f\t%6f',pr_add,opt.gravity(1),opt.gravity(2),opt.gravity(3));
 end
 
 %ITERSTEP SETTINGS
@@ -399,10 +372,10 @@ if (exist('opt','var') && isstruct(opt) && isfield(opt,'loadsteps') && ~isempty(
 else
     steps = 9;
 end
-if      (id_ini && id_add);      fprintf(fileID,'\nITERSTEP 10 %u 0.0000005 1 3 %u',steps,steps);    %if initial and aditional loading/displacement
-elseif  (id_ini && ~id_add);     fprintf(fileID,'\nITERSTEP 10 1 0.0000005  1 1 %u',steps);    %if initial loading/displacement
-elseif  (~id_ini && id_add);     fprintf(fileID,'\nITERSTEP 10 %u 0.0000005 1 3 0',steps);     %if initial loading/displacement
-else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 0');  end %no loading/displacement
+if      (id_ini && id_add);      pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t%3u',pr_add,steps,steps);    %if initial and aditional loading/displacement
+elseif  (id_ini && ~id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t%3u',pr_add,steps);    %if initial loading/displacement
+elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
+else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %no loading/displacement
 
 % %TRANSFER FUNCTION INPUT/OUTPUT
 % if ((isfield(opt,'transfer_in') && ~isempty(opt.transfer_in)) ||  (isfield(opt,'transfer_out') && ~isempty(opt.transferout)))
@@ -449,61 +422,79 @@ else                             fprintf(fileID,'\nITERSTEP 10 1  0.0000005 1 1 
 %     end
 % end
 
-fprintf(fileID,'\n\nEND\nEND\n\n');
 
 
 %% VISUALIZATION
-fprintf(fileID,'\n\nVISUALIZATION');
+pr_vis = sprintf('VISUALIZATION');
 for i=1:size(eprops,2) %loop over all element property sets
     
     %CROSSECTIONAL PROPERTIES
-    fprintf(fileID,'\n\nBEAMPROPS ');
+    pr_vis = sprintf('%s\n\nBEAMPROPS',pr_vis);
     for j=1:length(eprops(i).elems) %loop over all elemenents in element set i
         for k=1:size(E_list,2)
             El = E_list(eprops(i).elems(j),k);
             if El>0
-                fprintf(fileID,' %u ',El);
+                pr_vis = sprintf('%s\t%3u',pr_vis,El);
             end
         end
     end
     
     switch eprops(i).cshape
         case 'rect'
-            fprintf(fileID,'\nCROSSTYPE  RECT');
-            fprintf(fileID,'\nCROSSDIM  %f  %f',eprops(i).dim(1),eprops(i).dim(2));
+            pr_vis = sprintf('%s\nCROSSTYPE\t  RECT',pr_vis);
+            pr_vis = sprintf('%s\nCROSSDIM\t  %6f\t%6f',pr_vis,eprops(i).dim(1),eprops(i).dim(2));
         case 'circ'
-            fprintf(fileID,'\nCROSSTYPE  CIRC');
-            fprintf(fileID,'\nCROSSDIM  %f ',eprops(i).dim(1));
+            pr_vis = sprintf('%s\nCROSSTYPE\t  RCIRC',pr_vis);
+            pr_vis = sprintf('%s\nCROSSDIM\t  %f',pr_vis,eprops(i).dim(1));
     end
     
     
     %COLOR
     if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
-        fprintf(fileID,'\nGRAPHICS ');
+        pr_vis = sprintf('%s\n\nGRAPHICS',pr_vis);
         for j=1:length(eprops(i).elems)
             for k=1:size(E_list,2)
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
-                    fprintf(fileID,' %u ',El);
+                    pr_vis = sprintf('%s\t%3u',pr_vis,El);
                 end
             end
         end
-        fprintf(fileID,'\nFACECOLOR  %f %f %f ',eprops(i).color(1),eprops(i).color(2),eprops(i).color(3));
+        pr_vis = sprintf('%s\nFACECOLOR\t  %6f %6f %6f',pr_vis,eprops(i).color(1),eprops(i).color(2),eprops(i).color(3));
     end
     
     %VISIBILITY
     if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide) && eprops(i).hide==1)
-        fprintf(fileID,'\nDONOTDRAW ');
+        pr_vis = sprintf('%s\n\nDONOTDRAW',pr_vis);
         for j=1:length(eprops(i).elems)
             for k=1:size(E_list,2)
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
-                    fprintf(fileID,' %u ',El);
+                    pr_vis = sprintf('%s\t%u',pr_vis,El);
                 end
             end
         end
     end
 end
+
+fileID = fopen([filename '.dat'],'w');
+print_dat(fileID,'%s\n\n\n\n',pr_I);
+print_dat(fileID,'%s\n\n\n\n',pr_N);
+print_dat(fileID,'%s\n\n\n\n',pr_E);
+print_dat(fileID,'%s\n\n\n\n',pr_D);
+print_dat(fileID,'%s\n\n\n\n',pr_fix);
+print_dat(fileID,'%s\n\n\n',pr_input);
+fprintf(fileID,'\nEND\nHALT\n\n\n');
+print_dat(fileID,'%s\n\n\n\n',pr_stiff);
+print_dat(fileID,'%s\n\n\n\n',pr_mass);
+print_dat(fileID,'%s\n\n\n\n',pr_force);
+print_dat(fileID,'%s\n\n\n\n',pr_moment);
+print_dat(fileID,'%s\n\n\n\n',pr_dispr);
+print_dat(fileID,'%s\n\n\n\n',pr_dispx);
+print_dat(fileID,'%s\n\n\n\n',pr_nm);
+print_dat(fileID,'%s\n\n\n\n',pr_add);
+fprintf(fileID,'END\nEND\n\n\n\n');
+print_dat(fileID,'%s',pr_vis);
 fclose(fileID); %datfile finished!
 
 
@@ -511,7 +502,7 @@ fclose(fileID); %datfile finished!
 if ~(silent)
     try
         warning('off','all')
-        spacar(0,filename)
+        [~] = spacar(0,filename);
         warning('on','all')
     catch
         err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
@@ -601,7 +592,7 @@ end
 %% SIMULATE STATICS
 try
     warning('off','all')
-    spacar(-10,filename)
+    [~] = spacar(-10,filename);
     warning('on','all')
     if ~(silent)
         spavisual(filename)
@@ -691,7 +682,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     %CHECK NPROPS INPUT VARIABLE
     if exist('nprops','var')
         allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-            'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_rx','rot_initial_ry','rot_initial_rz'};
+            'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z'};
         supplied_nprops = fieldnames(nprops);
         unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
         if any(unknown_nprops_i)
@@ -1044,6 +1035,12 @@ end
 
 function showInput(varargin)
 disp('Showing input geometry');
+end
+
+function print_dat(fileID,formatSpec,string)
+    if ~isempty(regexp(string,'\n','once'))
+        fprintf(fileID,formatSpec,string);
+    end
 end
 
 function err(msg,varargin)
