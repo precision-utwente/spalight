@@ -49,7 +49,7 @@
     emod
     smod
     dens
-    type
+    cshape
     dim
     orien
     nbeams
