@@ -39,6 +39,7 @@ Thumbs.db
 # MATLAB temporary #
 ####################
 *.m~
+*.asv
 
 # Folders #
 ###########
@@ -51,4 +52,3 @@ txt/
 *.sbm
 *.log
 *.dat
-test.m
