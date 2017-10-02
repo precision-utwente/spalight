@@ -270,16 +270,13 @@ fprintf(fileID,'\n#NODE FIXES AND INPUTS\n');
 if size(nodes,1)<size(nprops,2)
     err('Node properties applied to non-existing nodes.')
 end
-for i=1:size(nodes,1)
-    %fixes
-    
-    if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));    fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+1);
-        fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+2);   end
+for i=1:size(nprops,2)
+    if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));            fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+1);   fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+2);   end
     if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    fprintf(fileID,'FIX\t\t3%u  \n',(i-1)*2+1);   end
     if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x));        fprintf(fileID,'FIX\t\t%3u\t\t1 \n',(i-1)*2+1);  end
     if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y));        fprintf(fileID,'FIX\t\t%3u\t\t2 \n',(i-1)*2+1);  end
     if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z));        fprintf(fileID,'FIX\t\t%3u\t\t3 \n',(i-1)*2+1);  end
-    if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien));    fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+2);   end
+    if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien));    fprintf(fileID,'FIX\t\t%3u  \n',(i-1)*2+2);  end
     
     %input displacements
     if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
