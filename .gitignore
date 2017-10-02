@@ -40,6 +40,8 @@ Thumbs.db
 ####################
 *.m~
 *.asv
+test.m
+test2.m
 
 # Folders #
 ###########
