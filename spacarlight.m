@@ -110,9 +110,9 @@ end
 
 
 %% CHECK EXISTENCE OF REQUIRED FUNCTIONS
-if exist('spavisual','file')   ~=2;   err('spavisual() is not in your path.');                                         end
-if exist('stressbeam','file')  ~=2;   err('stressbeam() is not in your path (typically part of spavisual package).');  end
-if exist('spacar','file')      ~=3;   err('spacar() is not in your path.');                                            end
+ensure((exist('spavisual','file') == 2 || exist('spavisual','file') == 6),'spavisual() is not in your path.');
+ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'stressbeam() is not in your path (typically part of spavisual package).');
+ensure(exist('spacar','file') == 3,'spacar() is not in your path.');
 
 
 %% START CREATING DATFILE
@@ -129,30 +129,30 @@ for i=1:size(nodes,1)
     fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#node %u\n',(i-1)*2+1,nodes(i,1),nodes(i,2),nodes(i,3),i);
 end
 
-
-%% INTERMEDIATE NODES
-x_count_imnode = x_count;
-for i=1:size(elements,1)
-    for j=1:size(eprops,2)
-        if sum(eprops(j).elems==i)>0
-            N           = eprops(j).nbeams;    %number of beams per userdefined element
-            N_p         = elements(i,1);            %p-node nodenumber
-            N_q         = elements(i,2);            %q-node nodenumber
-            X_list(i,1) = N_p;                      %store p-node in X_list
-            if N>1
-                X_p = nodes(N_p,1:3);   %Location p-node
-                X_q = nodes(N_q,1:3);   %Location q-node
-                V   = X_q - X_p;        %Vector from p to q-node
-                for k = 1:N-1
-                    X = X_p+V/N*k;              %intermediate node position
-                    fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node\n',x_count_imnode,X(1),X(2),X(3));
-                    X_list(i,k+1) = x_count_imnode;    %add intermediate node to X_list
-                    x_count_imnode     = x_count_imnode+2;    %increase node counter by 2 (+1 for rotation node)
-                end
-            end
-        end
-    end
-end
+% 
+% %% INTERMEDIATE NODES
+% x_count_imnode = x_count;
+% for i=1:size(elements,1)
+%     for j=1:size(eprops,2)
+%         if sum(eprops(j).elems==i)>0
+%             N           = eprops(j).nbeams;    %number of beams per userdefined element
+%             N_p         = elements(i,1);            %p-node nodenumber
+%             N_q         = elements(i,2);            %q-node nodenumber
+%             X_list(i,1) = N_p;                      %store p-node in X_list
+%             if N>1
+%                 X_p = nodes(N_p,1:3);   %Location p-node
+%                 X_q = nodes(N_q,1:3);   %Location q-node
+%                 V   = X_q - X_p;        %Vector from p to q-node
+%                 for k = 1:N-1
+%                     X = X_p+V/N*k;              %intermediate node position
+%                     fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node\n',x_count_imnode,X(1),X(2),X(3));
+%                     X_list(i,k+1) = x_count_imnode;    %add intermediate node to X_list
+%                     x_count_imnode     = x_count_imnode+2;    %increase node counter by 2 (+1 for rotation node)
+%                 end
+%             end
+%         end
+%     end
+% end
 
 
 %% ELEMENTS
@@ -174,10 +174,17 @@ for i=1:size(elements,1)
             X_list(i,1) = N_p;                      %store p-node in X_list
             
             if N>1 %if more then 1 beam
+                X_p = nodes(N_p,1:3);   %Location p-node
+                X_q = nodes(N_q,1:3);   %Location q-node
+                V   = X_q - X_p;        %Vector from p to q-node
                 
                 %create additional intermediate nodes
                 for k = 1:N-1
                     
+                    X = X_p+V/N*k;              %intermediate node position
+                    fprintf(fileID,'X\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node\n',x_count,X(1),X(2),X(3));
+                    X_list(i,k+1) = x_count;    %add intermediate node to X_list
+    
                     if k==1 %if the first beam, connect to p-node and first intermediate node
                         fprintf(fileID,'BEAM\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u\n',e_count,(N_p-1)*2+1,(N_p-1)*2+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
                     else    %if not the first beam, connect to two intermediate nodes
@@ -251,6 +258,7 @@ for i=1:size(elements,1)
                 if rlse_added; fprintf(fileID,'\n'); end
             end
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
+            x_count     = x_count+2;    %increase node counter by 2 (+1 for rotation node)
         end
     end
     fprintf(fileID,'\n\n');
