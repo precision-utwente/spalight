@@ -26,10 +26,10 @@ function results = spacarlight(varargin)
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 %
-% Version 0.71
+% Version 0.72
 % 2-10-2017
 
-version = '0.71';
+version = '0.72';
 
 %% WARNINGS
 warning off backtrace
@@ -133,103 +133,113 @@ end
 pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t Xq\t Rq\t\tOx\t\t\tOy\t\t\tOz');
 pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
 for i=1:size(elements,1)
-    pr_E = sprintf('%s\n#element\t%3u',pr_E,i);
-    
+    pr_E = sprintf('%s\n#element %u',pr_E,i);
+
+    N_p         = elements(i,1);            %p-node nodenumber
+    N_q         = elements(i,2);            %q-node nodenumber
+    X_list(i,1) = N_p;                      %store p-node in X_list
+
     % get element property set corresponding to element i
+    i_set = 0;
     for j=1:size(eprops,2)
-        if sum(eprops(j).elems==i)>0 %element i is in property set j
+        if any(eprops(j).elems==i)
+            %element i is in property set i_set%
+            i_set = j;
             
-            %element information
+            %get element information
             N           = eprops(j).nbeams;    %number of beams per userdefined element
             Orien       = eprops(j).orien;      %orientation local y-vector
             Flex        = eprops(j).flex;       %flexibility of this element
-            N_p         = elements(i,1);            %p-node nodenumber
-            N_q         = elements(i,2);            %q-node nodenumber
-            X_list(i,1) = N_p;                      %store p-node in X_list
-            
-            if N>1 %if more then 1 beam
-                X_p = nodes(N_p,1:3);   %Location p-node
-                X_q = nodes(N_q,1:3);   %Location q-node
-                V   = X_q - X_p;        %Vector from p to q-node
-                
-                %create additional intermediate nodes
-                for k = 1:N-1
-                    
-                    X = X_p+V/N*k;              %intermediate node position
-                    pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node',pr_N,x_count,X(1),X(2),X(3));
-                    X_list(i,k+1) = x_count;    %add intermediate node to X_list
-    
-                    if k==1 %if the first beam, connect to p-node and first intermediate node
-                        pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
-                    else    %if not the first beam, connect to two intermediate nodes
-                        pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
-                    end
-                    
-                    if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
-                        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                        for m=1:length(Flex) %loop over all flexible deformation modes
-                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                        end
-                    end
-                    
-                    E_list(i,k) = e_count;      %add beam number to E_list
-                    e_count     = e_count+1;    %increase beam counter by 1
-                    x_count     = x_count+2;    %increase node counter by 2 (+1 for rotation node)
-                end
-                
-                %for the last beam in element i, connect to last intermediate node and q-node
-                pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3),k+1);
-                
-                X_list(i,k+2) = N_q;        %add q-node to X_list
-                E_list(i,k+1) = e_count;    %add beam number to E_list
-                
-            else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
-                pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3));
-                
-                X_list(i,2) = N_q;          %add q-node to X_list
-                E_list(i,1) = e_count;      %add beam number to E_list
-            end
-            
-            %for the last beam only, add dyne and/or rlse
-            if ((~exist('rls','var') || isempty(rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
-                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                for m=1:length(Flex)    %loop over all flexible deformation modes
-                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                end       
-            else%if some rls are specified
-                %compensate size of rls if size is smaller then element list
-                if i>size(rls,2)
-                    rls(i).def = [];
-                end
-                
-                % add dyne
-                if ~isempty(Flex)                           %if some flexibility is specified
-                    dyn_added = false;                      %reset identifier to check if string 'dyne' is added
-                    for m=1:length(Flex)                    %loop over all flexible deformation modes
-                        if ~(sum(rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
-                            if ~dyn_added                   %only add string 'dyne' if it is not yet added
-                                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                                dyn_added = true;           %set 'dyne' identifier
-                            end
-                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                        end
-                    end
-                end
-                
-                % add rlse
-                rlse_added = false;                     %reset identifier to check if string 'rlse' is added
-                for m=1:length(rls(i).def)             %loop over all released deformation modes
-                    if ~rlse_added                      %only add string 'rlse' if it is not yet added
-                        pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
-                        rlse_added = true;
-                    end
-                    pr_D = sprintf('%s\t%3u',pr_D,rls(i).def(m));
-                end
-            end
-            e_count = e_count+1; %increase beam counter by 1 for last beam in the element
-            x_count     = x_count+2;    %increase node counter by 2 (+1 for rotation node)
         end
     end
+    if i_set == 0 %if element does not exist in any element set
+        N = 1;
+        Orien = [0 1 0];
+        Flex = [];
+    end
+    
+    if N>1 %if more than 1 beam
+        X_p = nodes(N_p,1:3);   %Location p-node
+        X_q = nodes(N_q,1:3);   %Location q-node
+        V   = X_q - X_p;        %Vector from p to q-node
+
+        %create additional intermediate nodes
+        for k = 1:N-1
+
+            X = X_p+V/N*k;              %intermediate node position
+            pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node',pr_N,x_count,X(1),X(2),X(3));
+            X_list(i,k+1) = x_count;    %add intermediate node to X_list
+
+            if k==1 %if the first beam, connect to p-node and first intermediate node
+                pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
+            else    %if not the first beam, connect to two intermediate nodes
+                pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
+            end
+
+            if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
+                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                for m=1:length(Flex) %loop over all flexible deformation modes
+                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                end
+            end
+
+            E_list(i,k) = e_count;      %add beam number to E_list
+            e_count     = e_count+1;    %increase beam counter by 1
+            x_count     = x_count+2;    %increase node counter by 2 (+1 for rotation node)
+        end
+
+        %for the last beam in element i, connect to last intermediate node and q-node
+        pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3),k+1);
+
+        X_list(i,k+2) = N_q;        %add q-node to X_list
+        E_list(i,k+1) = e_count;    %add beam number to E_list
+
+    else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
+        pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3));
+
+        X_list(i,2) = N_q;          %add q-node to X_list
+        E_list(i,1) = e_count;      %add beam number to E_list
+    end
+
+    %for the last beam only, add dyne and/or rlse
+    if ((~exist('rls','var') || isempty(rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
+        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+        for m=1:length(Flex)    %loop over all flexible deformation modes
+            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+        end       
+    else%if some rls are specified
+        %compensate size of rls if size is smaller than element list
+        if i>size(rls,2)
+            rls(i).def = [];
+        end
+
+        % add dyne
+        if ~isempty(Flex)                           %if some flexibility is specified
+            dyn_added = false;                      %reset identifier to check if string 'dyne' is added
+            for m=1:length(Flex)                    %loop over all flexible deformation modes
+                if ~(sum(rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
+                    if ~dyn_added                   %only add string 'dyne' if it is not yet added
+                        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                        dyn_added = true;           %set 'dyne' identifier
+                    end
+                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                end
+            end
+        end
+
+        % add rlse
+        rlse_added = false;                    %reset identifier to check if string 'rlse' is added
+        for m=1:length(rls(i).def)             %loop over all released deformation modes
+            if ~rlse_added                     %only add string 'rlse' if it is not yet added
+                pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
+                rlse_added = true;
+            end
+            pr_D = sprintf('%s\t%3u',pr_D,rls(i).def(m));
+        end
+    end
+
+    e_count = e_count+1; %increase beam counter by 1 for last beam in the element
+    x_count = x_count+2; %increase node counter by 2 (+1 for rotation node)
 end
 
 
@@ -441,15 +451,16 @@ for i=1:size(eprops,2) %loop over all element property sets
         end
     end
     
-    switch eprops(i).cshape
-        case 'rect'
-            pr_vis = sprintf('%s\nCROSSTYPE\t  RECT',pr_vis);
-            pr_vis = sprintf('%s\nCROSSDIM\t  %6f\t%6f',pr_vis,eprops(i).dim(1),eprops(i).dim(2));
-        case 'circ'
-            pr_vis = sprintf('%s\nCROSSTYPE\t  CIRC',pr_vis);
-            pr_vis = sprintf('%s\nCROSSDIM\t  %f',pr_vis,eprops(i).dim(1));
+    if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
+        switch eprops(i).cshape
+            case 'rect'
+                pr_vis = sprintf('%s\nCROSSTYPE\t  RECT',pr_vis);
+                pr_vis = sprintf('%s\nCROSSDIM\t  %6f\t%6f',pr_vis,eprops(i).dim(1),eprops(i).dim(2));
+            case 'circ'
+                pr_vis = sprintf('%s\nCROSSTYPE\t  CIRC',pr_vis);
+                pr_vis = sprintf('%s\nCROSSDIM\t  %f',pr_vis,eprops(i).dim(1));
+        end
     end
-    
     
     %COLOR
     if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
@@ -849,18 +860,26 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 %validate other properties that are specified
                 if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));     validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i)); end
                 if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod));     validateattributes(eprops(i).smod,{'double'},{'scalar'},'',   sprintf('smod property in eprops(%u)',i)); end
-                if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens));     validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i)); end
-                if (isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));       validateattributes(eprops(i).dim,{'double'},{'vector'},'',    sprintf('dim property in eprops(%u)',i));  end
+                if (isfield(eprops(i),'dim') && ~isempty(eprops(i).dim))
+                    validateattributes(eprops(i).dim,{'double'},{'vector'},'',sprintf('dim property in eprops(%u)',i));  
+                    if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
+                        warr('Property eprops(%u).dim is redundant without the cshape property.',i)
+                    end
+                end
+                
                 if (isfield(eprops(i),'color') && ~isempty(eprops(i).color));   validateattributes(eprops(i).color,{'double'},{'vector','numel',3},'',sprintf('color property in eprops(%u)',i)); end
                 if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide));     validateattributes(eprops(i).hide,{'logical'},{'scalar'},'',sprintf('hide property in eprops(%u)',i)); end
-                
                 if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
                     validateattributes(eprops(i).cshape,{'char'},{'nonempty'},'',sprintf('cshape property in eprops(%u)',i));
                     if ~any(strcmp(eprops(i).cshape,{'rect','circ'})), err('Element cshape should be either rect or circ.'); end
                     switch eprops(i).cshape
                         case 'rect'
+                            if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));  err('Property dim is not defined in eprops(%u)',i); end
                             validateattributes(eprops(i).dim,{'double'},{'vector','numel',2},'',sprintf('dim property in eprops(%u)',i));
+                            if ~(isfield(eprops(i),'orien') && ~isempty(eprops(i).orien));  err('Property orien is not defined in eprops(%u)',i); end
+                            validateattributes(eprops(i).orien,{'double'},{'vector','numel',3},'',sprintf('orien property in eprops(%u)',i));
                         case 'circ'
+                            if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));  err('Property dim is not defined in eprops(%u)',i); end
                             validateattributes(eprops(i).dim,{'double'},{'vector','numel',1},'',sprintf('dim property in eprops(%u)',i));
                     end
                 end
@@ -871,9 +890,8 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     eprops(i).nbeams = 1;
                 end
                 
+                %start orien checks. Note: this comes *after* the dependency of cshape=rect on orien is ensured
                 if (isfield(eprops(i),'orien') && ~isempty(eprops(i).orien))
-                    validateattributes(eprops(i).orien,{'double'},{'vector','numel',3},'',sprintf('orien property in eprops(%u)',i));
-                    
                     for j=1:length(eprops(i).elems)
                         xp = nodes(elements(eprops(i).elems(j),1),:);
                         xq = nodes(elements(eprops(i).elems(j),2),:);
@@ -897,7 +915,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                             warr('Note that local y-axis of element %i might be different than expected, because orien property is not normal to element axis.',eprops(i).elems(j));
                         end
                     end
-                else
+                else %dealing with circular cs here (because orien is required for rectangular cs)
                     %check if default works
                     orien_def = [0 1 0];
                     for j=1:length(eprops(i).elems)
@@ -919,24 +937,31 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     eprops(i).orien = orien_def; %default setting
                 end
                 
-                %check for mandatory fields when flex
+                %check for mandatory fields when dens field is present
+                if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens))
+                    validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i));
+                    
+                    %dens requires cshape
+                    if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
+                        err('Property cshape is not defined in eprops(%u)',i);
+                    end
+                end
+                
+                %check for mandatory fields when flex field is present
                 if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
                     validateattributes(eprops(i).flex,{'double'},{'vector','positive'},'',sprintf('flex property in eprops(%u)',i));
                     
-                    %Check if values for flex are valid
+                    %check if values for flex are valid
                     validateattributes(eprops(i).flex,{'double'},{'vector'},'',  sprintf('flex property in eprops(%u)',i));
                     if any(((eprops(i).flex==1)+(eprops(i).flex==2)+(eprops(i).flex==3)+(eprops(i).flex==4)+(eprops(i).flex==5)+(eprops(i).flex==6))==0)
                         err('Invalid deformation mode in eprops(%u).flex.',i)
                     end
                     
-                    %Check if field exist in structure
+                    %check if field exist in structure
+                    if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape)); err('Property cshape is not defined in eprops(%u)',i);     end
                     if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
                     if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); err('Property smod is not defined in eprops(%u)',i);     end
                     if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); err('Property dens is not defined in eprops(%u)',i);     end
-                    if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape)); err('Property cshape is not defined in eprops(%u)',i);     end
-                    if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));   err('Property dim is not defined in eprops(%u)',i);      end
-                    if ~(isfield(eprops(i),'orien') && ~isempty(eprops(i).orien));   err('Property orien is not defined in eprops(%u)',i);      end
-                    
                 else
                     eprops(i).flex = [];
                     if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warr('Property eprops(%u).emod is redundant without the flex property.',i);     end
@@ -960,7 +985,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
         %warn user if no element has flexibility
         %if ~isfield(eprops,'flex') || cellfun(@isempty,{eprops(:).flex})
         if ~(isfield(eprops,'flex') || sum(cellfun(@isempty,{eprops(:).flex})))
-            warr('No element seems to have the flex property. Simulation does not seem useful.')
+            warr('No element has the flex property. Simulation does not seem useful.')
         end
     end
     
