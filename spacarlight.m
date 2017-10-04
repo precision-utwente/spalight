@@ -85,6 +85,7 @@ switch nargin
         err('Expecting a maximum of 6 input arguments.');
 end
 
+
 %% INITIALIZE VARIABLES, SET DEFAULTS (DO NOT SET DEFAULTS IN VALIDATEINPUT())
 results     = [];
 id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
@@ -505,8 +506,13 @@ if ~(silent)
         warning('off','all')
         [~] = spacar(0,filename);
         warning('on','all')
-    catch
-        err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
+    catch msg
+        switch msg.message
+            case 'ERROR in subroutine PRPARE: Too many DOFs.'
+                 err('To many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
+            otherwise
+                err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
+        end
     end
     
     %CHECK CONSTRAINTS
@@ -1114,9 +1120,10 @@ end
 for i=t_list
     x       = getfrsbf([filename '.sbd'] ,'x', i);
     fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
-    M = getfrsbf([filename '.sbm'] ,'m0', i);
-    G = getfrsbf([filename '.sbm'] ,'g0', i);
-    K = getfrsbf([filename '.sbm'] ,'k0', i) + getfrsbf([filename '.sbm'] ,'n0', i) + G;
+    M0 = getfrsbf([filename '.sbm'] ,'m0', i);
+    G0 = getfrsbf([filename '.sbm'] ,'g0', i);
+    K0 = getfrsbf([filename '.sbm'] ,'k0', i);
+    K = K0 + getfrsbf([filename '.sbm'] ,'n0', i) + G0;
     %C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
     
     %NODE DEPENDENT RESULTS
@@ -1147,7 +1154,7 @@ for i=t_list
     end
     
     %EIGENFREQUENCIES
-    [~,D]   = eig(K(1:nddof,1:nddof),M(1:nddof,1:nddof));
+    [~,D]   = eig(K(1:nddof,1:nddof),M0(1:nddof,1:nddof));
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
@@ -1156,10 +1163,11 @@ for i=t_list
     
     %BUCKLING
     if calcbuck
-        [~,loadmult] = eig(-K,G);
+        [~,loadmult] = eig(-K0,G0);
         results.step(i).buck = sort(abs(diag(loadmult))); %per loadstep
         results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
     end
+               
     
     %MAXIMUM STRESS
     [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
