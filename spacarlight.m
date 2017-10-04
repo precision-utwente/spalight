@@ -26,10 +26,10 @@ function results = spacarlight(varargin)
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 %
-% Version 0.72
+% Version 0.73
 % 2-10-2017
 
-version = '0.72';
+version = '0.73';
 
 %% WARNINGS
 warning off backtrace
@@ -572,7 +572,9 @@ if ~(silent)
             listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
         end
         
-        %Reshape rls suggestions according to user defined elements
+        %reshape rls suggestions according to user defined elements,
+        %since spacar might return a lot more release options for each actual beam element
+        %(and spacar light hides subdivided elements from the user)
         OC_el= [];
         OC_defs = [];
         for i=1:size(E_list,1)
@@ -581,9 +583,13 @@ if ~(silent)
                 list = [list; sort(listData(find(listData(:,1)==E_list(i,j)),2))]; %#ok<FNDSB>
             end
             red_list=[];
-            for j=1:6
-                if (sum(list==j)>0 && sum(rls(i).def==j)==0)
-                    red_list(end+1) = j;
+            for j=1:6 %if one of the modes ..
+                if (sum(list==j)>0) % .. is in overconstrained list ..
+                    % .. and is not in rls
+                    if size(rls,2)==0 || (size(rls,2)>0 && sum(rls(i).def==j)==0)
+                        % .. then add to reduction list
+                        red_list(end+1) = j;
+                    end
                 end
             end
             if ~isempty(red_list)
