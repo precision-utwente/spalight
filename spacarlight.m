@@ -1165,19 +1165,19 @@ for i=t_list
             continue;
         end
         %store results per loadstep, using "step" field
-        results.step(i).node(j).x           = x(lnp((j-1)*2+1,1:3));
-        results.step(i).node(j).rx_eulzyx   = quat2eulang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).rx_axang    = quat2axang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).rx_quat     = x(lnp((j-1)*2+2,1:4));
+        results.step(i).node(j).p           = x(lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).r_eulzyx    = quat2eulang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).r_axang     = quat2axang(x(lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).r_quat      = x(lnp((j-1)*2+2,1:4));
         results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3));
         results.step(i).node(j).Mreac       = fxtot(lnp((j-1)*2+2,2:4))/2;
         [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
         
         %also store results for all loadsteps combined
-        results.node(j).x(1:3,i)             = results.step(i).node(j).x;
-        results.node(j).rx_eulzyx(1:3,i)     = results.step(i).node(j).rx_eulzyx;
-        results.node(j).rx_axang(1:4,i)      = results.step(i).node(j).rx_axang;
-        results.node(j).rx_quat(1:4,i)       = results.step(i).node(j).rx_quat;
+        results.node(j).p(1:3,i)             = results.step(i).node(j).p;
+        results.node(j).r_eulzyx(1:3,i)      = results.step(i).node(j).r_eulzyx;
+        results.node(j).r_axang(1:4,i)       = results.step(i).node(j).r_axang;
+        results.node(j).r_quat(1:4,i)        = results.step(i).node(j).r_quat;
         results.node(j).Freac(1:3,i)         = results.step(i).node(j).Freac;
         results.node(j).Mreac(1:3,i)         = results.step(i).node(j).Mreac;
         results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
@@ -1199,14 +1199,11 @@ for i=t_list
         results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
     end
                
-    
     %MAXIMUM STRESS
     [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
     results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
     results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
-    
-    %  results.step(i).bode_data =  getss('spacarfile',i);
 end
 
 
