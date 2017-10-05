@@ -34,12 +34,11 @@ version = '0.7';
 %% WARNINGS
 warning off backtrace
 
-%% Do not allow running this function as a script
-ensure(size(dbstack,1)>1,'Call spacarlight() from a script instead.')
-
 %% CHECK FOR INCOMPLETE INPUT
 %Temporary disable support for less then 4 input arguments (geometry visualization is not yet completed)
-if nargin<4
+if nargin==0
+    err('No input was provided.');
+elseif nargin<4 
     err('At least four input arguments are required.');
 end
 
@@ -69,9 +68,11 @@ switch nargin
         return
     case 4
         [nodes,elements,nprops,eprops] = validateInput(varargin{:});
+        rls = []; opt = [];
         % attempt simulation
     case 5
         [nodes,elements,nprops,eprops,rls] = validateInput(varargin{:});
+        opt = [];
         % attempt simulation
     case 6
         [nodes,elements,nprops,eprops,rls,opt] = validateInput(varargin{:});
@@ -241,7 +242,7 @@ end
 for i=1:size(nodes,1)
     %fixes
     if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*2+1,(i-1)*2+2); end
-    if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    pr_fix = sprintf('%s\nFIX\t\t3%u',pr_fix,(i-1)*2+1);   end
+    if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    pr_fix = sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+1);   end
     if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*2+1);  end
     if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*2+1);  end
     if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*2+1);  end
@@ -575,7 +576,7 @@ if ~(silent)
         end
         
         results.overconstraints = [OC_el OC_defs];
-        warr('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in results.overconstraints in the workspace and the table below.\n')
+        warr('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in the table below.\n')
         fprintf('Number of overconstraints: %u\n\n',nover);
         disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
             'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
