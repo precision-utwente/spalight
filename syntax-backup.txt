@@ -1,0 +1,160 @@
+====== SPACAR Light syntax ======
+
+===== Overview =====
+
+In the MATLAB environment, a SPACAR Light simulation is performed with the ''spacarlight()'' command. The command requires at least five input arguments (a sixth is optional). If fewer are supplied, warnings and a visualization can appear to help in completing the input. The results of a successful simulation are returned in a structure (the first and only output argument).
+
+Typical usage: 
+<code matlab>
+out = spacarlight(nodes, elements, nprops, eprops, rls, opt); %default use
+out = spacarlight(nodes, elements, nprops, eprops, rls);      %use without optional input arguments
+</code>
+
+Input arguments:
+  - ''nodes'': node positions 
+  - ''elements'': element connectivity 
+  - ''nprops'': node properties
+  - ''eprops'': element properties
+  - ''rls'': releases 
+  - ''opt'': optional input 
+
+Output argument:
+  - ''out'': simulation results
+
+===== Input Arguments =====
+
+==== 1. Node positions ====
+
+''nodes'' is an n<sub>n</sub>×3 matrix for //defining the positions of the nodes//. Each row represents a node (there are n<sub>n</sub> nodes). The row number determines the number a node gets. The first column contains the ''x''-coordinate of the node position, the second column the ''y''-coordinate, and the third column the ''z''-coordinate.
+
+==== 2. Element connectivity ====
+
+''elements'' is an n<sub>e</sub>×2 matrix for //defining elements//. Each row represents an element (there are n<sub>e</sub> elements). The row number determines the number an element gets. Each element connects two nodes. The first column contains the number of the node that the element is connected to on //one// side, the second column the node number that the element is connected to on the //other// side.
+
+==== 3. Node properties ====
+
+''nprops'' is a structure array for //assigning properties to nodes//, such as boundary conditions, applied loads, and inertia. The usage is ''nprops(i).field = value;'' to assign property ''field'' with value ''value'' to node ''i''. The following list contains an overview of all possible fields.
+
+**Boundary conditions:**
+^ Field ^ Value ^ Description ^
+| ''fix'' | ''true'' | Fix both the position and orientation of the node. |
+| ''fix_pos'' | ''true'' | Fix the position of the node. |
+| ''fix_orien'' | ''true'' | Fix the orientation of the node. |
+| ''fix_x'' | ''true'' | Fix only the ''x''-position of the node. |
+| ''fix_y'' | ''true'' | Fix only the ''y''-position of the node. |
+| ''fix_z'' | ''true'' | Fix only the ''z''-position of the node. |
+
+**Inertia:**
+^ Field ^ Value ^ Description ^
+| ''mass'' | double | Point mass (in unit kg) assigned to node. |
+| ''mominertia'' | 1x6 vector | Moment of inertia (in unit kgm<sup>2</sup>) applied to node (''[I<sub>xx</sub> I<sub>xy</sub> I<sub>xz</sub> I<sub>yy</sub> I<sub>yz</sub> I<sub>zz</sub>]''). |
+
+**Prescribed input displacement or rotation:**
+^ Field ^ Value ^ Description ^
+| ''displ_x'' | double | Prescribed displacement (in unit m) in ''x''-direction. Value is the target ''x''-coordinate of the node position (in global frame).  |
+| ''displ_y'' | double | Prescribed displacement (in unit m) in ''y''-direction. Value is the target ''y''-coordinate of the node position (in global frame). |
+| ''displ_z'' | double | Prescribed displacement (in unit m) in ''z''-direction. Value is the target ''z''-coordinate of the node position (in global frame). |
+| ''displ_initial_x'' | double | Prescribed initial<sup>*</sup> displacement (in unit m) in ''x''-direction. Value is the target ''x''-coordinate of the node position (in global frame).  |
+| ''displ_initial_y'' | double | Prescribed initial<sup>*</sup> displacement (in unit m) in ''y''-direction. Value is the target ''y''-coordinate of the node position (in global frame). |
+| ''displ_initial_z'' | double | Prescribed initial<sup>*</sup> displacement (in unit m) in ''z''-direction. Value is the target ''z''-coordinate of the node position (in global frame). |
+| ''rot_x'' | double | Prescribed rotation (in rad) about the ''x''-axis. Value is the target node orientation about the ''x''-axis. |
+| ''rot_y'' | double | Prescribed rotation (in rad) about the ''y''-axis. Value is the target node orientation about the ''y''-axis. |
+| ''rot_z'' | double | Prescribed rotation (in rad) about the ''z''-axis. Value is the target node orientation about the ''z''-axis. |
+| ''rot_initial_x'' | double | Prescribed initial<sup>*</sup> rotation (in rad) about the ''x''-axis. Value is the target node orientation about the ''x''-axis. |
+| ''rot_initial_y'' | double | Prescribed initial<sup>*</sup> rotation (in rad) about the ''y''-axis. Value is the target node orientation about the ''y''-axis. |
+| ''rot_initial_z'' | double | Prescribed initial<sup>*</sup> rotation (in rad) about the ''z''-axis. Value is the target node orientation about the ''z''-axis. |
+
+**Applied loads:**
+^ Field ^ Value ^ Description ^
+| ''force'' | 1x3 vector | Force applied to node. Values represent the force components (in unit N) in the ''x''-, ''y''-, and ''z''-direction. |
+| ''force_initial'' | 1x3 vector | Initial<sup>*</sup> force applied to node. Values represent the force components (in unit N) in the ''x''-, ''y''-, and ''z''-direction. |
+| ''moment'' | 1x3 vector | Moment applied to node. Values represent the moment components (in unit Nm) about the ''x''-, ''y''-, and ''z''-axes. |
+| ''moment_initial'' | 1x3 vector | Initial<sup>*</sup> moment applied to node. Values represent the moment components (in unit Nm) about the ''x''-, ''y''-, and ''z''-axes. |
+
+***) Regarding the //initial// forces, moments, displacements and rotations:**
+
+Normal use is to apply a load using the ''force'' or ''moment'' property. In simulation, this load value is applied in linearly increasing steps, starting from zero and reaching the user-specified value at the last step. The default number of steps that are used is 10; it can be changed with the ''opt.loadsteps'' property. The simulation results are returned per load step.
+
+The initial loads (''force_initial'' and ''moment_initial'') are applied at full value in a single load step. When both an initial load and a 'normal' load are specified, the initial load is applied first (in a single step). Then, the 'normal' load is applied in linearly increasing steps. (The output results would contain 11 steps: step 1 is the initial load, steps 2-11 the 'normal' load, unless ''opt.loadsteps'' was used to change the number of load steps.)
+
+The same holds for prescribing //normal// motion with ''displ_{x,y,z}'' or ''rot_{x,y,z}'', and for //initial// motion with ''displ_initial_{x,y,z}'' or ''rot_initial_{x,y,z}''.
+==== 4. Element properties ====
+
+''eprops'' is a structure array for //assigning properties to elements//, such as dimensions, material constants, flexibility, and visual appearance. Properties are created in sets, such that the same set of properties can be assigned to multiple elements.
+
+The usage is ''eprops(i).field = value;'' to assign property ''field'' with value ''value'' to set ''i''. The following list contains an overview of all possible fields.
+
+^ Field ^ Value ^ Description ^ 
+| ''elems'' (required) | 1×n vector | Numbers of elements to which the properties apply.| 
+| ''flex'' | 1×n vector| Flexibility. Values represent beam deformation modes that are to be considered flexible (**1**: elongation, **2**: torsion: **3** and **4**: out-of-plane bending, **5** and **6**: in-plane bending). For example: ''[2 5 6]'' allows flexibility in torsion and in-plane bending.|
+| ''nbeams'' | integer | Number of beam elements used in the simulation. If omitted, the default value 1 is used. |
+
+**Material constants**:
+^ Field ^ Value ^ Description ^ 
+| ''emod''<sup>*1</sup> | double | Young's modulus (in unit Pa). |
+| ''smod''<sup>*1</sup> | double | Shear modulus (in unit Pa). | 
+| ''dens''<sup>*1</sup> | double | Density (in unit kg/m<sup>3</sup>). |
+
+**Geometry and dimensions**:
+^ Field ^ Value ^ Description ^ 
+| ''cshape''<sup>*1,2</sup> | '''rect''' | Rectangular cross-sectional shape. Requires ''dim'' and ''orien'' field. |
+| ::: | '''circ''' | Circular cross-sectional shape. Requires ''dim'' field. |
+| ''dim'' | 1x2 vector | For ''cshape='rect''': width and thickness (in unit m) of cross-section. |
+| ::: | double | For ''cshape='circ''': diameter (in unit m) of cross-section. |
+| ''orien'' | 1x3 vector| Orientation of the cross-section. Values represent a vector in the 'width-direction' of the element. Can be omitted for ''cshape = 'circ' ''. |
+
+**Visual appearance** (these properties only affect the visualization, not the simulation):
+^ Field ^ Value ^ Description ^ 
+| ''color'' | 1x3 vector|Color of element in rgb values between 0 and 1 (e.g. ''[1 0 0]'' for red). |
+| ''hide'' | ''true'' | Hide element in visualization (note that it is still included in the simulation!). |
+
+*1: These properties are required when flexibility (''flex'') is enabled.
+
+*2: These properties are required when a density value (''dens'') is provided.
+==== 5. Releases ====
+
+''rls'' is a structure array for //assigning 'released' deformation modes//. The usage is ''rls(i).def = value;'' to assign the released deformations modes ''value'' to element ''i''. More specifically:
+
+^ Field ^ Value ^ Description ^ 
+| ''def'' | 1×n vector| Deformation modes that are to be considered released (**1**: elongation, **2**: torsion: **3** and **4**: out-of-plane bending, **5** and **6**: in-plane bending). For example: ''rls(1).def = [2 5 6]'' releases torsion and in-plane bending deformations of element 1.|
+
+==== 6. Optional ====
+
+''opt'' is a structure array for //specifying optional input//. The usage is ''opt.field = value;'' to assign value ''value'' to property ''field'' . The following list contains an overview of all possible fields.
+
+^ Field ^ Value ^ Description ^ 
+| ''filename'' | string | Filename of the data files involved in the SPACAR simulation. If omitted, filenname 'spacar_file' is used. |
+| ''silent'' | ''true'' | Activation of 'silent' mode of SPACAR Light. In the silent mode, the input arguments (''nodes'', ''elements'', ''nprops'', ''eprops'', ''rls'') are not validated and not checked for errors (improving speed). Also, visualization after simulation is turned off. This feature can be useful when e.g. running a lot of SPACAR Light simulations in an optimization or iteration loop. |
+| ''calcbuck'' | ''true'' | Calculation of buckling behavior. Multipliers with respect to the combined applied load are returned. Input displacements cannot be used with this option. It is recommended to only apply a single force or moment to the system. Note that the loads ''nprops(i).force'' and ''nprops(i).moment'' are applied in (linearly increasing) steps: they only reach the user-specified value at the last step. The multipliers are calculated with respect to the current load at each of these steps. |
+| ''gravity'' | 1x3 vector | Loads due to gravity. Values represent the components of the gravitational acceleration in ''x''-, ''y''-, and ''z''-direction (in unit m/s<sup>2</sup>). For example: ''[0 0 -9.81]''. |
+| ''loadsteps'' | integer | Number of load steps used in the simulation and visualization. If not specified, the default number of 10 load steps is used. For creating smooth plots and visualizations, you may want to increase this number. For optimization purposes, you may want to reduce this number to increase computational speed. For well-conditioned problems, a single load step is still feasible. For ill-conditioned problems (involving large loads, large prescribed displacements, or buckling ), a larger number of load steps is required for the simulation to converge. |
+===== Output Arguments =====
+
+''out'' is a structure array that contains the simulation results. Most result fields are dependent on the load step. For convenience, the ''out'' structure provides the same load step-dependent data in two ways:
+  -the values of a //single// result field for //all// load steps combined
+  -the values of //all// result fields for only a //single// load step 
+Both ways are detailed below.
+
+**1. Data for //all// load steps combined**
+
+In the fields of the ''out'' structure (unless otherwise noted), each //column// contains data for a certain load step. The following list describes what those columns represent. (The total number of load steps is n<sub>s</sub>.)
+
+^ Field ^^ Value ^ Description of column representation ^ 
+| ''stressmax'' || 1×n<sub>s</sub> vector | Maximum stress in the system (in unit Pa). |
+| ''freq'' || n<sub>ndof</sub>×n<sub>s</sub> matrix| Natural frequencies of the system (in unit Hz). Values are sorted from low to high. |
+| ''buck'' || n<sub>ndof</sub>×n<sub>s</sub> matrix| Buckling load multipliers of the system. Values are sorted from low to high. Note: load multipliers are only calculated if ''opt.calcbuck = true''.|
+| ''node(i)'' || structure | Results for node ''i''. Subfields are given directly below: |
+| | ''.x'' | 1xn<sub>s</sub> vector| Position of node ''i''. Values represent the ''x''-, ''y''- and ''z''-coordinates (in unit m). |
+| | ''.rx_eulzyx'' | 3×n<sub>s</sub> matrix| Rotation of node ''i'' in [[https://en.wikipedia.org/wiki/Rotation_formalisms_in_three_dimensions#Euler_rotations|Euler angles]]. Values represent successive rotation (in radians) about the ''z'', ''y'', ''x'' axes. |
+| | ''.rx_axang'' | 4×n<sub>s</sub> matrix| Rotation of node ''i'' in [[https://en.wikipedia.org/wiki/Rotation_formalisms_in_three_dimensions#Euler_axis_and_angle_.28rotation_vector.29|axis-angle representation]]. The first value represents the rotation angle (in radians) and the second to fourth values the normalized axis of rotation. |
+| | ''.rx_quat'' | 4×n<sub>s</sub> matrix| Rotation of node ''i'' in [[https://en.wikipedia.org/wiki/Rotation_formalisms_in_three_dimensions#Quaternions|quaternions]]. |
+| | ''.Freac'' | 3×n<sub>s</sub> matrix| Reaction forces at node ''i''. Values represent the vector components of the reaction force (in unit N) in ''x''-, ''y''-, and ''z''-direction. Reaction forces only exist for nodes that have fixed boundary conditions or prescribed motion.|
+| | ''.Mreac'' | 3×n<sub>s</sub> matrix| Reaction moments at node ''i''. Values represent the vector components of the reaction moment (in unit Nm) in ''x''-, ''y''-, and ''z''-direction. Reaction moments only exist for nodes that have fixed boundary conditions or prescribed motion. |
+| | ''.CMglob'' | 6x6×n<sub>s</sub> matrix| Compliance matrix of node ''i'' in global frame (fixed frame). This is an array of three dimensions. The load step varies along the third dimension. |
+| | ''.CMloc'' | 6x6×n<sub>s</sub> matrix| Compliance matrix of node ''i'' in local frame (co-rotational with node). This is an array of three dimensions. The load step varies along the third dimension. |
+
+**2. Data for a //single// load step**
+
+All of the above fields can also be found as subfields of ''out.step(i)''. As subfields of ''step(i)'', they contain only the data for load step ''i''. For example:
+  * ''out.node(2).x'' is a 3×n<sub>s</sub> matrix that contains the position of node 2 //for all load steps//
+  * ''out.step(3).node(2).x'' is a 3×1 vector that contains the position of node 2 //for load step 3 only//
