@@ -1,5 +1,3 @@
-addpath ~/mlib/sp17ex/
-
 % EXAMPLE SCRIPT TO RUN SPACAR_LIGHT
 clear
 clc
