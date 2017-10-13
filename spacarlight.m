@@ -501,12 +501,20 @@ fclose(fileID); %datfile finished!
 
 %% SIMULATE CONSTRAINTS
 if ~(silent)
-    try
+    try %try to run spacar in silent mode
         warning('off','all')
         [~] = spacar(0,filename);
         warning('on','all')
     catch
-        err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
+        try %retry to run spacar in non-silent mode for old spacar versions
+            warning('off','all')
+            spacar(0,filename);
+            warning('on','all')
+            warning('You are using an old version of spacar')
+            old_version = true;
+        catch
+            err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
+        end
     end
     
     %CHECK CONSTRAINTS
@@ -591,7 +599,7 @@ if ~(silent)
 end
 
 %% SIMULATE STATICS
-try
+try %run spacar in silent mode
     warning('off','all')
     [~] = spacar(-10,filename);
     warning('on','all')
@@ -600,10 +608,23 @@ try
     end
     disp('Spacar simulation succeeded.')
 catch
-    if steps<9
-        warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
-    else
-        warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
+    try %retry to run spacar in non-silent mode for old spacar versions
+        warning('off','all')
+        spacar(-10,filename);
+        warning('on','all')
+        if ~(silent)
+            spavisual(filename)
+        end
+        disp('Spacar simulation succeeded.')
+        if ~exist('old_version','var')
+            warning('You are using an old version of spacar')
+        end
+    catch
+        if steps<9
+            warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
+        else
+            warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
+        end
     end
 end
 try
