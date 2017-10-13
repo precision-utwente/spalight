@@ -275,7 +275,7 @@ for i=1:size(nprops,2)
     if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
             (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
-            (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+            (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
     if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
         err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
     end
@@ -516,7 +516,7 @@ fclose(fileID); %datfile finished!
 if ~(silent)
     try
         warning('off','all')
-        [~] = spacar(0,filename);
+        [~] = spacar(-0,filename);
         warning('on','all')
     catch msg
         switch msg.message
@@ -706,8 +706,8 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK NPROPS INPUT VARIABLE
     if exist('nprops','var')
-        allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-            'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z'};
+        allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+            'displ_initial_x','displ_initial_y','displ_initial_z'};
         supplied_nprops = fieldnames(nprops);
         unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
         if any(unknown_nprops_i)
