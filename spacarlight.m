@@ -119,7 +119,7 @@ ensure(exist('spacar','file') == 3,'spacar() is not in your path.');
 
 
 %% START CREATING DATFILE
-pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s',version,datetime);
+pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s',version,datestr(datetime));
 
 
 %% USERDEFINED NODES
