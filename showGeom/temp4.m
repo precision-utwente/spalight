@@ -7,7 +7,7 @@ function temp4
     fh = figure;
     hold on
 
-    ph = plot3([0 1],[0 1],[0 1]);
+    plot3([0 1],[0 1],[0 1]);
 
     set(gcf,'Position',[19   285   560   420])
     set(gca,'view',[9.2000   23.6000])
