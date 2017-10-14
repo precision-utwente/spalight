@@ -26,10 +26,9 @@ function results = spacarlight(varargin)
 % Constrained warping is included by means of an effective torsional
 % stiffness increase.
 %
-% Version 0.76
+% Version 1.0
 % 13-10-2017
-
-version = '0.76';
+version = '1.0';
 
 %% WARNINGS
 warning off backtrace
@@ -38,7 +37,7 @@ warning off backtrace
 %Temporary disable support for less then 4 input arguments (geometry visualization is not yet completed)
 if nargin==0
     err('No input was provided.');
-elseif nargin<4 
+elseif nargin<4
     err('At least four input arguments are required.');
 end
 
@@ -68,20 +67,16 @@ switch nargin
         return
     case 4
         [nodes,elements,nprops,eprops] = validateInput(varargin{:});
-        rls = []; opt = [];
+        opt.rls = [];
+        opt.autosolve = true;
         % attempt simulation
     case 5
-        [nodes,elements,nprops,eprops,rls] = validateInput(varargin{:});
-        opt = [];
-        % attempt simulation
-    case 6
-        [nodes,elements,nprops,eprops,rls,opt] = validateInput(varargin{:});
+        [nodes,elements,nprops,eprops,opt] = validateInput(varargin{:});
         if isfield(opt,'showinputonly') && opt.showinputonly == true
             showInput(nodes,elements,nprops,eprops);
             results = [];
             return
         end
-        % attempt simulation
     otherwise
         err('Expecting a maximum of 6 input arguments.');
 end
@@ -89,26 +84,17 @@ end
 
 %% INITIALIZE VARIABLES, SET DEFAULTS (DO NOT SET DEFAULTS IN VALIDATEINPUT())
 results     = [];
-id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
-id_inputf   = false;                %identifier to check for external load
-x_count     = size(nodes,1)*2+1;    %counter for node numbering
-e_count     = 1;                    %counter for element numbering
-X_list      = [];                   %list with node numbers
-E_list      = [];                   %list with element numbers
 
 %if no opt struct provided, create empty one
 if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
+opt.version = version; %store spacarlight version in opt structure
 %set filename, even if not specified
-if isfield(opt,'filename') && ~isempty(opt.filename)
-    filename = opt.filename;
-else
-    filename = 'spacar_file';
+if ~(isfield(opt,'filename') && ~isempty(opt.filename))
+    opt.filename = 'spacar_file';
 end
 %determine whether silent mode
-if isfield(opt,'silent') && opt.silent == 1
-    silent = 1;
-else
-    silent = 0;
+if ~(isfield(opt,'silent') && opt.silent == 1)
+    opt.silent = false;
 end
 
 
@@ -117,9 +103,290 @@ ensure((exist('spavisual','file') == 2 || exist('spavisual','file') == 6),'spavi
 ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'stressbeam() is not in your path (typically part of spavisual package).');
 ensure(exist('spacar','file') == 3,'spacar() is not in your path.');
 
+%% BUILD DATFILE
+[~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
+
+%% SIMULATE CONSTRAINTS
+try %try to run spacar in silent mode
+    warning('off','all')
+    [~] = spacar(-0,opt.filename);
+    warning('on','all')
+catch
+    try %retry to run spacar in non-silent mode for old spacar versions
+        warning('off','all')
+        spacar(0,opt.filename);
+        warning('on','all')
+        warning('You are using an old version of spacar')
+        old_version = true; %#ok<NASGU> Track if old version to prevent duplicate warning at mode 10 simulation
+    catch msg
+        switch msg.message
+            case 'ERROR in subroutine PRPARE: Too many DOFs.'
+                err('To many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
+            otherwise
+                err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
+        end
+    end
+end
+
+%% CHECK CONSTRAINTS
+
+%load data
+sbd     = [opt.filename '.sbd'];
+nep     = getfrsbf(sbd,'nep');
+nxp     = getfrsbf(sbd,'nxp');
+nddof   = getfrsbf(sbd,'nddof');
+le      = getfrsbf(sbd,'le');
+BigD    = getfrsbf(sbd,'bigd',1);
+Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
+IDlist = 1:size(Dcc,1);
+[ U, s, V ] = svd(Dcc);
+s       = diag(s);
+
+%if no degrees of freedom
+if nddof == 0
+    warn('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
+    return;
+end
+
+%if empty s
+if isempty(s) %%% TO BE DONE: s can be empty. What does this mean? => no calculable nodes? no freedom?
+    return
+end
+
+% calcualate number of over/under constraints
+nsing = length(find(s<sqrt(eps)*s(1))); %number of near zero singular values
+if length(U)>length(V)
+    nover  = length(U)-length(V)+nsing;
+    nunder = nsing;
+elseif length(U)<length(V)
+    nover  = nsing;
+    nunder = length(V)-length(U)+nsing;
+else
+    nover  = nsing;
+    nunder = nsing;
+end
+
+
+if nunder>0 %underconstrained
+    warn('System is underconstrained. Check element connectivity, boundary conditions and releases.')
+    return
+elseif nover>0 %overconstrained
+    
+    if ~opt.autosolve %Do not autosolve, but calculate overconstraints
+        
+        %part of U matrix coresponding to all overconstraints
+        overconstraint = U(:,end-nover+1:end); 
+        %select part of U matrix corresponding to first overconstraint
+        oc = overconstraint(:,1); 
+        [oc_sort,order] = sort(oc.^2,1,'descend');
+        % select only part that explains 99% (or more) of singular vector's length
+        idx = find(cumsum(oc_sort)>sqrt(1-1e-6),1,'first');
+        idx = order(1:idx);
+        sel = (1:numel(oc))';
+        %overconstrained deformation modes
+        sel = sel(idx);    
+        
+        %create a list with [1] element number,[2] deformation mode and [3] oc value
+        listData = zeros(numel(sel),3);
+        listData(:,3) = oc(idx);
+        for i=1:size(listData,1)
+            [elnr,defpar] = find(le==sel(i));
+            listData(i,1:2) = [elnr, defpar];
+        end
+        
+        %reshape rls suggestions according to user defined elements,
+        %since spacar might return a lot more release options for each actual beam element
+        %(and spacar light hides subdivided elements from the user)
+        OC_el= [];
+        OC_defs = [];
+        rls = [];
+        
+        for k=1:size(E_list,1) %kth spacarlight element
+            list = [];
+            for j=1:size(E_list,2)
+                list = [list; sort(listData(find(listData(:,1)==E_list(k,j)),2))]; %#ok<FNDSB>
+            end %deformations of all beams in kth element
+            
+            red_list=[]; %reduce deformations to release each deformation once at most
+            for j=1:6 %loop over deformation modes
+                if (sum(list==j)>0) % .. if it is in overconstrained list ..
+                    % .. and is not in rls
+                    if size(rls,2)==0 || (size(rls,2)>0 && sum(rls(k).def==j)==0)
+                        % .. then add to reduction list
+                        red_list(end+1) = j;
+                    end
+                end
+            end
+            %store deformations of kth element (red_list) in collection of
+            %defs en els 
+            if ~isempty(red_list)
+                OC_defs(end+1,1:length(red_list)) = red_list;
+                OC_el(end+1,1) = i;
+            end
+        end
+        
+        results.overconstraints = [OC_el OC_defs];
+        warn('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in the table below.\n')
+        fprintf('Number of overconstraints: %u\n\n',nover);
+        disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
+            'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
+        return
+        
+    else %autosolve overconstrains
+        %create empty rlse matrix used internally for autosolver
+        rlse = zeros(size(E_list,1),6);
+        %number of initial overconstraints
+        n = nover; 
+        
+        for dummy = 1:n %solve for n overconstraints, loop counter is not required (dummy)
+            %redo SVD analyses (has to be redone after each resolved overconstrain)
+            [ U, ~, ~ ] = svd(Dcc);
+            
+            %part of U matrix coresponding to all overconstraints
+            overconstraint = U(:,end-nover+1:end);
+            %select part of U matrix corresponding to first overconstraint
+            oc = overconstraint(:,1);
+            [oc_sort,order] = sort(oc.^2,1,'descend');
+            % select only part that explains 99% (or more) of singular vector's length
+            idx = find(cumsum(oc_sort)>sqrt(1-1e-6),1,'first');
+            idx = order(1:idx);
+            sel = (1:numel(oc))';
+            %overconstrained deformation modes
+            sel = sel(idx);
+            
+            loop = true; %loop untill proper solve for overconstrained is obtained
+            j = 1;       %start with deformation mode with highest singular value
+            while loop
+                if j>length(sel) %unsolvable, all deformations modes have been attempted, probably rigid body release required
+                    warn('Overconstraints could not be solved automatically, partial release information is provided in the output')
+                    fprintf('Number of overconstraints left: %u\n\n',nover);
+                    disp( table((1:size(rlse,1))',rlse(:,1),rlse(:,2),rlse(:,3),rlse(:,4),rlse(:,5),rlse(:,6),'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}))
+                    results.rls = restruct_rlse(rlse);
+                    return
+                end
+                
+                %Select deformation to be test for release
+                def_id = sel(j);
+                def = IDlist(def_id); 
+                %After each release, Dcc matrix is 
+                %reduced in size, causing shifting 
+                %of deformation modes.
+                %i.e., if deformation mode 2 is
+                %released, deformation 3 shifts to
+                %position 2, deformation 4 to 3,
+                %etc.
+                %The IDlist variable tracks and
+                %compensates for this shift
+                
+                %create a list with [1] element number,[2] deformation mode and [3] oc value
+                listData = zeros(numel(sel),3); 
+                listData(:,3) = oc(idx);
+                for i=1:size(listData,1)
+                    [elnr,defpar] = find(le==def);
+                    listData(i,1:2) = [elnr, defpar];
+                end
+                
+                
+                for k=1:size(E_list,1) %kth spacar light element
+                    list = [];
+                    for i=1:size(E_list,2)
+                        list = [list; sort(listData(find(listData(:,1)==E_list(k,i)),2))]; %#ok<FNDSB>
+                    end %overconstrained deformations of all beams in kth element
+                   
+                    red_list=[]; %reduce deformations to release each deformation once at most
+                    for i=1:6 %loop over all deformation modes
+                        if (sum(list==i)>0)% .. if it is in overconstrained list ..
+                    % .. and is not in rls
+                            if size(rlse,2)==0 || (size(rlse,2)>0 && rlse(k,i)==0)  %and is not yet in rls
+                                % .. then add to the reduced deformation list
+                                red_list(end+1) = i;
+                            end
+                        end
+                    end
+
+                    %Check if kth spacar light element is flexible
+                    for i=1:size(eprops,2) %loop over all element property sets to check flexibility
+                        if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex) && any(eprops(i).elems==k)); %if kth element is flexible
+                            for m = 1:length(red_list) %loop over each overconstrained deformation
+                                if rlse(k,red_list(m)) == 0 %if this deformation is not yet released
+                                    IDlist(def_id) = []; %update IDlist for deformation tracking
+                                    Dcc(def_id,:) = []; %reduce Dcc matrix to remove this overconstrained
+                                    rlse(k,red_list(m)) = 1; %store release informatino in rlse matrix ()
+                                    nover = nover-1; %reduce number of overconstraints
+                                    loop = false; %terminate while loop and redo from line 235
+                                    break 
+                                end
+                            end
+                            break
+                        end
+                    end
+                end
+                j=j+1;
+            end
+        end
+        %release information is in matrix form (rlse), it has to be restructured
+        %for ouput in structure
+        opt.rls = restruct_rlse(rlse);
+    end
+end
+
+
+
+
+%% RE-BUILD DATFILE
+[id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
+
+%% SIMULATE STATICS
+try %run spacar in silent mode
+    warning('off','all')
+    [~] = spacar(-10,opt.filename);
+    warning('on','all')
+    if ~(silent)
+        spavisual(opt.filename)
+    end
+    disp('Spacar simulation succeeded.')
+catch
+    try %retry to run spacar in non-silent mode for old spacar versions
+        warning('off','all')
+        spacar(-10,opt.filename);
+        warning('on','all')
+        if ~(opt.silent)
+            spavisual(opt.filename)
+        end
+        disp('Spacar simulation succeeded.')
+        if ~exist('old_version','var')
+            warning('You are using an old version of spacar')
+        end
+    catch
+        warn('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
+    end
+end
+try
+    %get results
+    results = calc_results(opt.filename, E_list, id_inputf, id_inputx, nodes, eprops, opt);
+catch
+    err('A problem occurred processing simulation results.')
+end
+
+%% WARNINGS
+warning backtrace on
+
+% END OF SPACAR_LIGHT
+end
+
+
+function [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt)
+
+%initialize values
+id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
+id_inputf   = false;                %identifier to check for external load
+x_count     = size(nodes,1)*2+1;    %counter for node numbering
+e_count     = 1;                    %counter for element numbering
+X_list      = [];                   %list with node numbers
+E_list      = [];                   %list with element numbers
 
 %% START CREATING DATFILE
-pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s',version,datestr(datetime));
+pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s',opt.version,datestr(datetime));
 
 
 %% USERDEFINED NODES
@@ -135,11 +402,11 @@ pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t Xq\t Rq\t\tOx\t\t\tOy\t\t\tOz');
 pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
 for i=1:size(elements,1)
     pr_E = sprintf('%s\n#element %u',pr_E,i);
-
+    
     N_p         = elements(i,1);            %p-node nodenumber
     N_q         = elements(i,2);            %q-node nodenumber
     X_list(i,1) = N_p;                      %store p-node in X_list
-
+    
     % get element property set corresponding to element i
     i_set = 0;
     for j=1:size(eprops,2)
@@ -163,62 +430,62 @@ for i=1:size(elements,1)
         X_p = nodes(N_p,1:3);   %Location p-node
         X_q = nodes(N_q,1:3);   %Location q-node
         V   = X_q - X_p;        %Vector from p to q-node
-
+        
         %create additional intermediate nodes
         for k = 1:N-1
-
+            
             X = X_p+V/N*k;              %intermediate node position
             pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node',pr_N,x_count,X(1),X(2),X(3));
             X_list(i,k+1) = x_count;    %add intermediate node to X_list
-
+            
             if k==1 %if the first beam, connect to p-node and first intermediate node
                 pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
             else    %if not the first beam, connect to two intermediate nodes
                 pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
             end
-
+            
             if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
                 pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
                 for m=1:length(Flex) %loop over all flexible deformation modes
                     pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                 end
             end
-
+            
             E_list(i,k) = e_count;      %add beam number to E_list
             e_count     = e_count+1;    %increase beam counter by 1
             x_count     = x_count+2;    %increase node counter by 2 (+1 for rotation node)
         end
-
+        
         %for the last beam in element i, connect to last intermediate node and q-node
         pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3),k+1);
-
+        
         X_list(i,k+2) = N_q;        %add q-node to X_list
         E_list(i,k+1) = e_count;    %add beam number to E_list
-
+        
     else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
         pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*2+1,(N_p-1)*2+2,(N_q-1)*2+1,(N_q-1)*2+2,Orien(1),Orien(2),Orien(3));
-
+        
         X_list(i,2) = N_q;          %add q-node to X_list
         E_list(i,1) = e_count;      %add beam number to E_list
     end
-
+    
     %for the last beam only, add dyne and/or rlse
-    if ((~exist('rls','var') || isempty(rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
+    if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
         pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
         for m=1:length(Flex)    %loop over all flexible deformation modes
             pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-        end       
+        end
     else%if some rls are specified
         %compensate size of rls if size is smaller than element list
-        if i>size(rls,2)
-            rls(i).def = [];
+        if i>size(opt.rls,2)
+            opt.rls(i).def = [];
         end
-
+        
         % add dyne
         if ~isempty(Flex)                           %if some flexibility is specified
             dyn_added = false;                      %reset identifier to check if string 'dyne' is added
             for m=1:length(Flex)                    %loop over all flexible deformation modes
-                if ~(sum(rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
+                if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
                     if ~dyn_added                   %only add string 'dyne' if it is not yet added
                         pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
                         dyn_added = true;           %set 'dyne' identifier
@@ -227,18 +494,18 @@ for i=1:size(elements,1)
                 end
             end
         end
-
+        
         % add rlse
         rlse_added = false;                    %reset identifier to check if string 'rlse' is added
-        for m=1:length(rls(i).def)             %loop over all released deformation modes
+        for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
             if ~rlse_added                     %only add string 'rlse' if it is not yet added
                 pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
                 rlse_added = true;
             end
-            pr_D = sprintf('%s\t%3u',pr_D,rls(i).def(m));
+            pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
         end
     end
-
+    
     e_count = e_count+1; %increase beam counter by 1 for last beam in the element
     x_count = x_count+2; %increase node counter by 2 (+1 for rotation node)
 end
@@ -284,14 +551,15 @@ end
 
 
 %% STIFFNESS/INERTIA PROPS
-pr_stiff = sprintf('#STIFFNESS\t Ne\t\t\tEA\t\t\t\t\t\tGJt\t\t\t\tEIy\t\t\t\tEIz\t\t\t\tShear Y\t\t\tShear Z');
-pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\tJxx/L\t\t\tJyy/L\t\t\tJzz/L\t\t\tJyz/L');
+pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z');
+pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t\tJzz/L\t\t\t\t\tJyz/L');
 for i=1:size(eprops,2) %loop over each element property set
     
     %only write stiffness and mass values when deformations are flexible
     if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
         stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
         inertia = calc_inertia(eprops(i));     %calculate mass properties
+        
         for j=1:length(eprops(i).elems)                        %loop over all elemenents in element property set
             switch eprops(i).cshape
                 case 'rect'
@@ -305,13 +573,13 @@ for i=1:size(eprops,2) %loop over each element property set
             for k=1:size(E_list,2)                                  %loop over all beams in the element
                 El = E_list(eprops(i).elems(j),k);
                 if El>0
-                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20f\t%15f\t%15f\t%15f\t%15f\t%15f',pr_stiff,El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
+                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                 end
             end
             for k=1:size(E_list,2) %write mass/inertia values
                 El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                 if El>0
-                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%15.10f\t%15.10f\t%15.10f\t%15.10f\t%15.10f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
+                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                 end
             end
         end
@@ -491,7 +759,7 @@ for i=1:size(eprops,2) %loop over all element property sets
     end
 end
 
-fileID = fopen([filename '.dat'],'w');
+fileID = fopen([opt.filename '.dat'],'w');
 print_dat(fileID,'%s\n\n\n\n',pr_I);
 print_dat(fileID,'%s\n\n\n\n',pr_N);
 print_dat(fileID,'%s\n\n\n\n',pr_E);
@@ -510,159 +778,8 @@ print_dat(fileID,'%s\n\n\n\n',pr_add);
 fprintf(fileID,'END\nEND\n\n\n\n');
 print_dat(fileID,'%s',pr_vis);
 fclose(fileID); %datfile finished!
-
-
-%% SIMULATE CONSTRAINTS
-if ~(silent)
-    try %try to run spacar in silent mode
-        warning('off','all')
-        [~] = spacar(-0,filename);
-        warning('on','all')
- catch
-        try %retry to run spacar in non-silent mode for old spacar versions
-            warning('off','all')
-            spacar(0,filename);
-            warning('on','all')
-            warning('You are using an old version of spacar')
-            old_version = true; %#ok<NASGU>
-     catch msg
-        switch msg.message
-            case 'ERROR in subroutine PRPARE: Too many DOFs.'
-                 err('To many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
-            otherwise
-                err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file for more information.');
-        end
-        end
-    end
-    
-    %CHECK CONSTRAINTS
-    sbd     = [filename '.sbd'];
-    nep     = getfrsbf(sbd,'nep');
-    nxp     = getfrsbf(sbd,'nxp');
-    nddof   = getfrsbf(sbd,'nddof');
-    le      = getfrsbf(sbd,'le');
-    BigD    = getfrsbf(sbd,'bigd',1);
-    Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
-    [ U, s, V ] = svd(Dcc);
-    s       = diag(s);
-    
-    if isempty(s) %%% TO BE DONE: s can be empty. What does this mean? => no calculable nodes? no freedom?
-        return
-    end
-    
-    nsing = length(find(s<sqrt(eps)*s(1))); %number of near zero singular values
-    if length(U)>length(V)
-        nover  = length(U)-length(V)+nsing;
-        nunder = nsing;
-    elseif length(U)<length(V)
-        nover  = nsing;
-        nunder = length(V)-length(U)+nsing;
-    else
-        nover  = nsing;
-        nunder = nsing;
-    end
-    
-    if nunder>0 %underconstrained
-        warn('System is underconstrained. Check element connectivity, boundary conditions and releases.')
-        return
-    elseif nover>0 %overconstrained
-        overconstraint = U(:,end-nover+1:end);
-        oc = overconstraint(:,1);
-        [oc_sort,order] = sort(oc.^2,1,'descend');
-        idx = find(cumsum(oc_sort)>sqrt(0.99),1,'first');% select only part that explains 99% (or more) of singular vector's length
-        idx = order(1:idx);
-        sel = (1:numel(oc))';
-        sel = sel(idx);
-        
-        listData = zeros(numel(sel),3);
-        listData(:,3) = oc(idx);
-        for i=1:size(listData,1)
-            [elnr,defpar] = find(le==sel(i));
-            listData(i,1:2) = [elnr, defpar]; %put overconstrained element numbers and deformations in listData
-        end
-        
-        %reshape rls suggestions according to user defined elements,
-        %since spacar might return a lot more release options for each actual beam element
-        %(and spacar light hides subdivided elements from the user)
-        OC_el= [];
-        OC_defs = [];
-        for i=1:size(E_list,1)
-            list = [];
-            for j=1:size(E_list,2)
-                list = [list; sort(listData(find(listData(:,1)==E_list(i,j)),2))]; %#ok<FNDSB>
-            end
-            red_list=[];
-            for j=1:6 %if one of the modes ..
-                if (sum(list==j)>0) % .. is in overconstrained list ..
-                    % .. and is not in rls
-                    if size(rls,2)==0 || (size(rls,2)>0 && sum(rls(i).def==j)==0)
-                        % .. then add to reduction list
-                        red_list(end+1) = j;
-                    end
-                end
-            end
-            if ~isempty(red_list)
-                OC_defs(end+1,1:length(red_list)) = red_list;
-                OC_el(end+1,1) = i;
-            end
-        end
-        
-        results.overconstraints = [OC_el OC_defs];
-        warn('System is overconstrained; releases are required in order to run static simulation.\nA suggestion for possible releases is given in the table below.\n')
-        fprintf('Number of overconstraints: %u\n\n',nover);
-        disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
-            'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}));
-        return
-    end
-    
-    if nddof == 0
-        warn('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
-        return;
-    end
-    
 end
 
-%% SIMULATE STATICS
-try %run spacar in silent mode
-    warning('off','all')
-    [~] = spacar(-10,filename);
-    warning('on','all')
-    if ~(silent)
-        spavisual(filename)
-    end
-    disp('Spacar simulation succeeded.')
-catch
-    try %retry to run spacar in non-silent mode for old spacar versions
-        warning('off','all')
-        spacar(-10,filename);
-        warning('on','all')
-        if ~(silent)
-            spavisual(filename)
-        end
-        disp('Spacar simulation succeeded.')
-        if ~exist('old_version','var')
-            warning('You are using an old version of spacar')
-        end
-    catch
-        if steps<9
-            warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
-        else
-            warr('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads and other input data.')
-        end
-    end
-end
-try
-    %get results
-    results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, eprops, opt);
-catch
-    err('A problem occurred processing simulation results.')
-end
-
-%% WARNINGS
-warning backtrace on
-
-%% END OF SPACAR_LIGHT
-end
 
 function varargout = validateInput(varargin)
 %this function receives the user-supplied input and only returns
@@ -687,14 +804,7 @@ switch nargin
         elements = varargin{2};
         nprops = varargin{3};
         eprops = varargin{4};
-        rls = varargin{5};
-    case 6
-        nodes = varargin{1};
-        elements = varargin{2};
-        nprops = varargin{3};
-        eprops = varargin{4};
-        rls = varargin{5};
-        opt = varargin{6};
+        opt = varargin{5};
 end
 
 %DO NOT PERFORM CHECKS IN SILENT MODE
@@ -727,7 +837,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK NPROPS INPUT VARIABLE
     if exist('nprops','var')
-
+        
         allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
             'displ_initial_x','displ_initial_y','displ_initial_z'};
         supplied_nprops = fieldnames(nprops);
@@ -735,7 +845,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
         unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
         if any(unknown_nprops_i)
             err('Unknown nprops field %s',supplied_nprops{unknown_nprops_i});
-        end  
+        end
         
         validateattributes(nprops,{'struct'},{'nonempty'},'','nprops')
         
@@ -892,7 +1002,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));     validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i)); end
                 if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod));     validateattributes(eprops(i).smod,{'double'},{'scalar'},'',   sprintf('smod property in eprops(%u)',i)); end
                 if (isfield(eprops(i),'dim') && ~isempty(eprops(i).dim))
-                    validateattributes(eprops(i).dim,{'double'},{'vector'},'',sprintf('dim property in eprops(%u)',i));  
+                    validateattributes(eprops(i).dim,{'double'},{'vector'},'',sprintf('dim property in eprops(%u)',i));
                     if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
                         warn('Property eprops(%u).dim is redundant without the cshape property.',i)
                     end
@@ -1020,23 +1130,10 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
         end
     end
     
-    %CHECK RLS INPUT VARIABLE
-    if exist('rls','var') && ~isempty(rls)
-        ensure(all(ismember(fieldnames(rls),{'def'})),'Unknown field in rls; only def field is allowed.');
-        
-        for i=1:size(rls,2)
-            if ~isempty(rls(i).def)
-                validateattributes(rls(i).def,{'double'},{'vector'},'',   sprintf('def property in rls(%u)',i));
-                if any(((rls(i).def==1)+(rls(i).def==2)+(rls(i).def==3)+(rls(i).def==4)+(rls(i).def==5)+(rls(i).def==6))==0)
-                    err('Invalid deformation mode in rls(%u).',i)
-                end
-            end
-        end
-    end
     
     %CHECK OPTIONAL ARGUMENTS
     if (exist('opt','var') && ~isempty(opt))
-        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps'};
+        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls'};
         supplied_opts = fieldnames(opt);
         unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
         if any(unknown_opts_i)
@@ -1060,7 +1157,29 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
         if (isfield(opt,'gravity') && ~isempty(opt.gravity))
             validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
         
+        
+        %CHECK RLS INPUT VARIABLE
+        if (isfield(opt,'rls') && ~isempty(opt.rls))
+            ensure(all(ismember(fieldnames(opt.rls),{'def'})),'Unknown field in rls; only def field is allowed.');
+            
+            for i=1:size(opt.rls,2)
+                if ~isempty(opt.rls(i).def)
+                    validateattributes(opt.rls(i).def,{'double'},{'vector'},'',   sprintf('def property in rls(%u)',i));
+                    if any(((opt.rls(i).def==1)+(opt.rls(i).def==2)+(opt.rls(i).def==3)+(opt.rls(i).def==4)+(opt.rls(i).def==5)+(opt.rls(i).def==6))==0)
+                        err('Invalid deformation mode in rls(%u).',i)
+                    end
+                end
+            end
+            opt.autosolve = false; %rls information is provided
+        else
+            opt.autosolve = true; %rls information not provided
+            opt.rlse = [];
+        end
+    else %no opt information, so no rls information provided
+        opt.autosolve = true;
+        opt.rlse = [];
     end
+    
 end %END NOT-SILENT MODE BLOCK
 
 % assign output
@@ -1084,14 +1203,7 @@ switch nargin
         varargout{2} = elements;
         varargout{3} = nprops;
         varargout{4} = eprops;
-        varargout{5} = rls;
-    case 6
-        varargout{1} = nodes;
-        varargout{2} = elements;
-        varargout{3} = nprops;
-        varargout{4} = eprops;
-        varargout{5} = rls;
-        varargout{6} = opt;
+        varargout{5} = opt;
 end
 
 end
@@ -1101,9 +1213,9 @@ disp('Showing input geometry');
 end
 
 function print_dat(fileID,formatSpec,string)
-    if ~isempty(regexp(string,'\n','once'))
-        fprintf(fileID,formatSpec,string);
-    end
+if ~isempty(regexp(string,'\n','once'))
+    fprintf(fileID,formatSpec,string);
+end
 end
 
 function err(msg,varargin)
@@ -1223,7 +1335,7 @@ for i=t_list
         results.step(i).buck = sort(abs(diag(loadmult))); %per loadstep
         results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
     end
-               
+    
     %MAXIMUM STRESS
     [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
@@ -1461,5 +1573,13 @@ for i=1:size(E_list,1)
             end
         end
     end
+end
+end
+
+function rls = restruct_rlse(rlse)
+for i=1:size(rlse,1)
+    write = rlse(i,1:6).*[1 2 3 4 5 6];
+    write(write==0) = [];
+    rls(i).def = write;
 end
 end

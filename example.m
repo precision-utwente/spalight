@@ -12,7 +12,7 @@ clc
 nodes = [   0 0 0;      %node 1  
             0 0.1 0;    %node 2  
             0.1 0.1 0;  %node 3
-            0.1 0 0];   %node 4
+            0.1 0 0];
 
         
 %% ELEMENT CONNECTIVITY
@@ -20,7 +20,7 @@ nodes = [   0 0 0;      %node 1
 elements = [    1   3;  %element 1
                 2   3;  %element 2
                 2   4]; %element 3
-
+               
             
 %% NODE PROPERTIES  
 %Structure with index i corresponding to the node number and the opt arguments:
@@ -64,8 +64,7 @@ nprops(1).fix               = true;             %Fix node 1
 %node 3
 % nprops(3).force           = [0 1 0]; 
 % nprops(3).force_initial   = [0 0.2 0];
-nprops(3).moment_initial    = [0 0 0.01];       %Initial moment [Nm] around z-axis on node 3 
-nprops(3).moment            = [0 0 0.05];       %Moment [Nm] around z-axis on node 3
+nprops(3).moment            = [0 0 1e-12];       %Moment [Nm] around z-axis on node 3
 nprops(3).mass              = 10;               %Mass of node 3: 10kg
 nprops(3).mominertia        = [1 0 0 1 0 1];    %Inertia of node 3: Ixx = 1kgm^2, Iyy = 1kgm^2, Izz = 1kgm^2
 
@@ -101,10 +100,10 @@ eprops(1).emod     = 210E9;            %E-modulus
 eprops(1).smod     = 70E9;             %G-modulus
 eprops(1).dens     = 7800;             %Density
 eprops(1).cshape   = 'rect';           %Simulate leafspring with rectangular cross-section
-eprops(1).dim      = [50e-3 0.2e-3];     %Width: 50mm, tickness: 1mm
-eprops(1).orien    = [0 0 1];          %Width-direction of the leafspring in z-direction
-eprops(1).nbeams   = 4;                %4 beam elements to simulate leafspring
-eprops(1).flex     = [ 3 4 ];          %Model out-of-plane bending as flexible
+eprops(1).orien    = [0 0 1]
+eprops(1).dim      = [0.1e-3; 0.1e-3];     %Width: 50mm, tickness: 1mm
+eprops(1).nbeams   = 10;                %4 beam elements to simulate leafspring
+eprops(1).flex     = [1 2 3 4 5 6];          %Model out-of-plane bending as flexible
 eprops(1).color    = [0 1 0];          %Color: green
 
 %Property set 1
@@ -129,8 +128,8 @@ eprops(2).hide     = false;            %Body is visible, set to true to hide bod
 %
 %example:
 
-rls(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to prevent overconstraints. 
-%rls = [];                                  %Create empty Rlse variable to check for overconstraints
+%rls(1).def = [1 2 3 4 5 6];                %Set of releases in element 1 to prevent overconstraints. 
+rls = [];                                  %Create empty Rlse variable to check for overconstraints
 
 %% OPTIONAL
 %Structure with opt arguments:
@@ -152,7 +151,7 @@ opt.calcbuck    = false;             %Disable calcuation of load multipliers (de
 opt.gravity     = [0 0 -9.81];      %Gravitation in z-direction
 
 %% CALL SPACAR_LIGHT
-results = spacarlight(nodes, elements, nprops, eprops, rls, opt);
+results = spacarlight(nodes, elements, nprops, eprops);
 
 %simulation results are stored in RESULTS structure
 %
