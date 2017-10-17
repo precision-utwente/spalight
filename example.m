@@ -44,7 +44,7 @@ eprops(1).dens     = 7800;             %Density [kg/m^3]
 eprops(1).cshape   = 'rect';           %Rectangular cross-section
 eprops(1).dim      = [50e-3 0.2e-3];   %Width: 50 mm, thickness: 0.2 mm
 eprops(1).orien    = [0 0 1];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(1).nbeams   = 2;                %4 beam elements for simulating these elements
+eprops(1).nbeams   = 1;                %4 beam elements for simulating these elements
 eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
 eprops(1).color    = [0.8549    0.8588    0.8667];
 

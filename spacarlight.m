@@ -124,7 +124,7 @@ ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'str
 %% SIMULATE FOR CHECKING CONSTRAINTS
 try %try to run spacar in its silent mode
     warning('off','all')
-    [~] = spacar(-0,opt.filename);
+    [~] = spacar(0,opt.filename);
     warning('on','all')
 catch
     try %retry to run spacar in non-silent mode for old spacar versions
@@ -176,8 +176,12 @@ catch
         %apparently, spacar mode 10 did not succeed.
         %try to figure out what went wrong:
         
+        %%%%%%%%maybe use this only temporarily?%%%%%%%%%%%%
         %1) see if a bigD matrix is available and whether its singular:
         try
+            warning('off','all')
+            [~] = spacar(0,opt.filename);
+            warning('on','all')
             sbd     = [opt.filename '.sbd'];
             nep     = getfrsbf(sbd,'nep');
             nxp     = getfrsbf(sbd,'nxp');
@@ -187,6 +191,7 @@ catch
                 warn('System is probably not exact-constrained. Try setting releases (opt.rls) manually.')
             end
         end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
     end
 end
