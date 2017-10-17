@@ -1,6 +1,6 @@
 function results = spacarlight(varargin)
 % SPACARLIGHT(nodes, elements, nprops, eprops, opt)
-% runs spacar simulation with reduced set of input arguments. See
+% runs SPACAR simulations with simplified syntax. See
 % www.spacar.nl for more information.
 %
 % Created by: M. Nijenhuis and M. Naves
@@ -12,22 +12,22 @@ function results = spacarlight(varargin)
 % D.H. Wiersma (CWvalues)
 %
 % LIMITATIONS (note that the full Spacar version does allow these things)
+% - Type of analysis: only static analyses are supported;
 % - Boundary conditions: the orientation of a node can either be fixed or
-% free. It is not possible to create a pinned boundary condition about a certain axis.
+% free. It is not possible to create a pinned boundary condition about a certain axis;
+% - Prescribed motion: only displacements can be prescribed, no rotations.
 %
-% On each node only a single rotational input can be prescribed
 % Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 %
 % For certain desired simulations, the current feature set of
-% spacarlight() is too limited. In that case, the full version of Spacar
+% spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
 % NOTE
-% Constrained warping is included by means of an effective torsional
-% stiffness increase.
+% Constrained warping is accounted for by means of an effective torsional stiffness increase.
 %
 % Version 1.0
-% 13-10-2017
+% 17-10-2017
 version = '1.0';
 
 %% WARNINGS
@@ -148,7 +148,7 @@ end
 if ~exactconstr; return; end
 
 %% RE-BUILD DATFILE
-%appropratie releases should now be in opt.rls
+%appropriate releases should now be in opt.rls
 [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
 
 %% SIMULATE STATICS
@@ -173,10 +173,23 @@ catch
             warning('Old version of Spacar detected.')
         end
     catch
-        warn('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
+        %apparently, spacar mode 10 did not succeed.
+        %try to figure out what went wrong:
+        
+        %1) see if a bigD matrix is available and whether its singular:
+        try
+            sbd     = [opt.filename '.sbd'];
+            nep     = getfrsbf(sbd,'nep');
+            nxp     = getfrsbf(sbd,'nxp');
+            BigD    = getfrsbf(sbd,'bigd',1);
+            Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
+            if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
+                warn('System is probably not exact-constrained. Try setting releases (opt.rls) manually.')
+            end
+        end
+        err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
     end
 end
-
 try
     %get results
     results = calc_results(opt.filename, E_list, id_inputf, id_inputx, nodes, eprops, opt);
@@ -193,8 +206,7 @@ end
 
 function [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt)
 %returns E_list (amongst others): 
-% spalight element i is represented by spacar elements E_list(i,:)
-
+% spalight element i is represented by spacar beams E_list(i,:)
 
 %initialize values
 id_inputx   = false;                %identifier to check for prescribed input displacements/rotations
@@ -366,7 +378,6 @@ for i=1:size(nprops,2)
         err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
     end
 end
-
 
 
 %% STIFFNESS/INERTIA PROPS
@@ -601,7 +612,8 @@ end
 
 function [exactconstr, opt, results] = check_constraints(opt,E_list,eprops)
 results = []; %initialize in order to not fail the function varout check
-%this can become filled with a list of overconstraints or a list of partial release solutions
+%in some cases results structure will be filled by 
+%a list of overconstraints or a list of partial release solutions
 
 %load data
 sbd     = [opt.filename '.sbd'];
@@ -647,7 +659,7 @@ if nunder>0 %underconstrained
     return
 elseif nover>0 %overconstrained
     
-    if ~opt.autosolve %Do not autosolve, but calculate overconstraints
+    if ~opt.autosolve %do not autosolve, but calculate overconstraints
         
         %part of U matrix coresponding to all overconstraints
         overconstraint = U(:,end-nover+1:end); 
@@ -657,7 +669,7 @@ elseif nover>0 %overconstrained
         [oc_sorted,order] = sort(oc.^2,1,'descend');
         dofs_sorted = dofs(order);
         
-        % select only part that explains 99% (or more) of singular vector's length
+        %select only part that explains 99% (or more) of singular vector's length
         idx = find(cumsum(oc_sorted)>sqrt(1-1e-6),1,'first');
         %overconstrained dofs (all deformations)
         overconstr_dofs = dofs_sorted(1:idx); %=sel
@@ -828,7 +840,8 @@ end
 function varargout = validateInput(varargin)
 %this function receives the user-supplied input and only returns
 %that input when it turns out to be valid
-%** do not set defaults in this function, but in the 
+%**** do not set defaults in this function, **** 
+%**** but in the main file at the designated place ****%
 switch nargin
     case 1
         nodes = varargin{1};
@@ -1620,9 +1633,9 @@ end
 end
 
 function rls = restruct_rlse(rlse)
-for i=1:size(rlse,1)
-    write = rlse(i,1:6).*[1 2 3 4 5 6];
-    write(write==0) = [];
-    rls(i).def = write;
-end
+    for i=1:size(rlse,1)
+        write = rlse(i,1:6).*[1 2 3 4 5 6];
+        write(write==0) = [];
+        rls(i).def = write;
+    end
 end
