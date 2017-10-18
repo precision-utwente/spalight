@@ -398,13 +398,20 @@ end
 pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z');
 pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t\tJzz/L\t\t\t\t\tJyz/L');
 for i=1:size(eprops,2) %loop over each element property set
-    
-    %only write stiffness and mass values when deformations are flexible
-    if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
-        stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
-        inertia = calc_inertia(eprops(i));     %calculate mass properties
+    for j=1:length(eprops(i).elems) %loop over all elemenents in element property set
         
-        for j=1:length(eprops(i).elems)                        %loop over all elemenents in element property set
+        if (isfield(eprops(i),'dens') && isfield(eprops(i),'dens'))
+            inertia = calc_inertia(eprops(i));     %calculate mass properties
+            for k=1:size(E_list,2) %write mass/inertia values
+                El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
+                if El>0
+                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
+                end
+            end
+        end
+        %only write stiffness  when deformations are flexible
+        if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
+            stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
             switch eprops(i).cshape
                 case 'rect'
                     L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
@@ -420,15 +427,8 @@ for i=1:size(eprops,2) %loop over each element property set
                     pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                 end
             end
-            for k=1:size(E_list,2) %write mass/inertia values
-                El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
-                if El>0
-                    pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
-                end
-            end
         end
-    end
-    
+    end   
 end
 
 
