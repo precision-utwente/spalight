@@ -22,17 +22,17 @@ elements = [    1   3;  %element 1
             
 %% NODE PROPERTIES  
 %node 1
-nprops(1).fix               = true;             %Fix node 1
+nprops(1).fix               = true;         %Fix node 1
 
 %node 3
-% nprops(3).force           = [0 1 0]; 			%Force [N] in y-direction on node 3
-% nprops(3).force_initial   = [0 0.2 0];		%Initial force [N] in y-direction on node 3
-nprops(3).moment_initial    = [0 0 -0.025];       %Initial moment [Nm] around z-axis on node 3 
-nprops(3).moment            = [0 0 0.05];       %Moment [Nm] around z-axis on node 3
-nprops(3).mass              = 10;               %Mass [kg] of node 3
+% nprops(3).force           = [0 1 0];      %Force [N] in y-direction on node 3
+% nprops(3).force_initial   = [0 0.2 0];    %Initial force [N] in y-direction on node 3
+nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
+nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3
+nprops(3).mass              = 1;            %Mass [kg] of node 3
 
 %node 4
-nprops(4).fix               = true;             %Fix node 4
+nprops(4).fix               = true;         %Fix node 4
 
 
 %% ELEMENT PROPERTIES
