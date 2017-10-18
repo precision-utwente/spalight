@@ -41,6 +41,10 @@ elseif nargin<4
     err('At least four input arguments are required.');
 end
 
+%initialize here since the following switch can already abort further execution
+%and the results output needs to exist
+results = struct();
+
 switch nargin
     case 0
         err('No input was provided.');
@@ -49,21 +53,18 @@ switch nargin
         % validate only nodes
         [nodes] = validateInput(varargin{:});
         showInput(nodes);
-        results = [];
         return
     case 2
         warn('Incomplete input; no simulation is run.');
         % validate only nodes and elements
         [nodes,elements] = validateInput(varargin{:});
         showInput(nodes,elements);
-        results = [];
         return
     case 3
         warn('Incomplete input; no simulation is run.');
         % validate only nodes, elements and nprops
         [nodes,elements,nprops] = validateInput(varargin{:});
         showInput(nodes,elements,nprops);
-        results = [];
         return
     case 4
         % validate nodes, elements, nprops and eprops
@@ -74,7 +75,6 @@ switch nargin
         [nodes,elements,nprops,eprops,opt] = validateInput(varargin{:});
         if isfield(opt,'showinputonly') && opt.showinputonly == true
             showInput(nodes,elements,nprops,eprops);
-            results = [];
             return
         end
         % attempt simulation
@@ -91,7 +91,9 @@ end
 %if no opt struct provided, create empty one
 if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 
-opt.version = version; %store spacarlight version in opt structure
+%version number in opt (for further use in spacarlight) and in results (for output to user)
+opt.version = version;
+results.version = version;
 
 %set filename, even if not specified
 if ~(isfield(opt,'filename') && ~isempty(opt.filename))
@@ -145,8 +147,11 @@ end
 
 
 %% CHECK CONSTRAINTS
-[exactconstr, opt, results] = check_constraints(opt,E_list,eprops);
-if ~exactconstr; return; end
+[exactconstr, opt, overconstraints] = check_constraints(opt,E_list,eprops);
+if ~exactconstr
+    results.overconstraints = overconstraints;
+    return; 
+end
 
 %% RE-BUILD DATFILE
 %appropriate releases should now be in opt.rls
@@ -158,7 +163,7 @@ try %run spacar in its silent mode
     [~] = spacar(-10,opt.filename);
     warning('on','all')
     if ~(opt.silent)
-        spavisual(opt.filename)
+        results.fighandle = spavisual(opt.filename);
     end
     disp('Spacar simulation succeeded.')
 catch
@@ -167,7 +172,7 @@ catch
         spacar(-10,opt.filename);
         warning('on','all')
         if ~(opt.silent)
-            spavisual(opt.filename)
+            results.fighandle = spavisual(opt.filename);
         end
         disp('Spacar simulation succeeded.')
         if ~exist('old_version','var')
@@ -177,11 +182,10 @@ catch
         %apparently, spacar mode 10 did not succeed.
         %try to figure out what went wrong:
         
-        %%%%%%%%maybe use this only temporarily?%%%%%%%%%%%%
         %1) see if a bigD matrix is available and whether its singular:
         try %#ok<TRYNC>
             warning('off','all')
-            [~] = spacar(0,opt.filename);
+            [~] = spacar(0,opt.filename); %to get bigD
             warning('on','all')
             sbd     = [opt.filename '.sbd'];
             nep     = getfrsbf(sbd,'nep');
@@ -190,12 +194,15 @@ catch
             Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
             if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
                 warn('Overconstraints could not be solved automatically; Try setting releases (opt.rls) manually.')
+                %get the overconstraints in the system (without any autosolve attempt)
+                %so build dat file again without any release attempts, do mode 0, get overconstraints
                 if opt.autosolve
                     opt.autosolve = false;
                     opt.rls = [];
                     [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
                     [~] = spacar(0,opt.filename);
-                    [~, ~, results] = check_constraints(opt,E_list,eprops);
+                    [~, ~, overconstraints] = check_constraints(opt,E_list,eprops);
+                    results.overconstraints = overconstraints;
                 end
                 return
             end
@@ -206,7 +213,8 @@ catch
 end
 try
     %get results
-    results = calc_results(opt.filename, E_list, id_inputf, id_inputx, nodes, eprops, opt);
+    %note calc_results needs a results struct as input since it can already contain some fields
+    results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, results);
 catch
     err('A problem occurred processing simulation results.')
 end
@@ -230,8 +238,15 @@ e_count     = 1;                    %counter for element numbering
 X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
 
+%get username
+if ispc
+    username = getenv('username');
+elseif ismac
+    username = getenv('USER');
+end
+
 %% START CREATING DATFILE
-pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',opt.version,datestr(datetime),getenv('username'));
+pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',opt.version,datestr(datetime),username);
 
 
 %% USERDEFINED NODES
@@ -624,8 +639,8 @@ print_dat(fileID,'%s',pr_vis);
 fclose(fileID); %datfile finished!
 end
 
-function [exactconstr, opt, results] = check_constraints(opt,E_list,eprops)
-results = []; %initialize in order to not fail the function varout check
+function [exactconstr, opt, overconstraints] = check_constraints(opt,E_list,eprops)
+overconstraints = []; %initialize in order to not fail the function varout check
 %in some cases results structure will be filled by
 %a list of overconstraints or a list of partial release solutions
 
@@ -733,7 +748,7 @@ elseif nover>0 %overconstrained
             end
         end
         
-        results.overconstraints = [OC_el OC_defs];
+        overconstraints = [OC_el OC_defs];
         warn('System is overconstrained; releases are required in order to run a static simulation.\nA suggestion for possible releases is given in the table below.\n')
         fprintf('Number of overconstraints: %u\n\n',nover);
         disp(table(OC_el,sum((OC_defs==1),2),sum((OC_defs==2),2),sum((OC_defs==3),2),sum((OC_defs==4),2),sum((OC_defs==5),2),sum((OC_defs==6),2),...
@@ -776,7 +791,7 @@ elseif nover>0 %overconstrained
                     for v = 1:size(rlse,1)
                         rlsout(v,1:nnz(rlse(v,:))+1) = [v find(rlse(v,:)==1)];
                     end
-                    results.rls = rlsout;
+                    overconstraints = rlsout;
                     exactconstr = false;
                     return
                 end
@@ -798,7 +813,7 @@ elseif nover>0 %overconstrained
                 [elnr,defmode] = find(le==def);
                 
                 for k=1:size(E_list,1) %kth spacar light element
-                    if elnr==E_list(k,find(E_list(k,:)~=0,1,'last')); %if element number is in last beam of element k
+                    if elnr==E_list(k,find(E_list(k,:)~=0,1,'last')) %if element number is in last beam of element k
                         
                         %Check if kth spacar light element is flexible
                         for i=1:size(eprops,2) %loop over all element property sets to check flexibility
@@ -1304,7 +1319,8 @@ end
 end
 
 %% AUXILIARY FUNCTIONS
-function results = calc_results(filename, E_list, id_inputf, id_inputx, nodes, eprops, opt)
+function results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, results)
+filename = opt.filename;
 nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
 t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %list of timesteps
 lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
@@ -1312,7 +1328,6 @@ ln      = getfrsbf([filename,'.sbd'],'ln'); %lnp data
 
 if nddof == 0
     warn('No dynamic degrees of freedom.')
-    results = [];
     return
 end
 
