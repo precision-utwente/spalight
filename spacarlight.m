@@ -104,7 +104,7 @@ if ~(isfield(opt,'silent') && opt.silent == 1)
 end
 
 %determine whether to attempt autosolve
-if ~isfield(opt,'rls') 
+if ~isfield(opt,'rls')
     opt.autosolve = true;
     opt.rls = [];
 else
@@ -178,7 +178,7 @@ catch
         
         %%%%%%%%maybe use this only temporarily?%%%%%%%%%%%%
         %1) see if a bigD matrix is available and whether its singular:
-        try
+        try %#ok<TRYNC>
             warning('off','all')
             [~] = spacar(0,opt.filename);
             warning('on','all')
@@ -188,7 +188,15 @@ catch
             BigD    = getfrsbf(sbd,'bigd',1);
             Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
             if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
-                warn('System is probably not exact-constrained. Try setting releases (opt.rls) manually.')
+                warn('Overconstraints could not be solved automatically; Try setting releases (opt.rls) manually.')
+                if opt.autosolve
+                    opt.autosolve = false;
+                    opt.rls = [];
+                    [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
+                    [~] = spacar(0,opt.filename);
+                    [~, ~, results] = check_constraints(opt,E_list,eprops);
+                end
+                return
             end
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -210,7 +218,7 @@ end
 
 
 function [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt)
-%returns E_list (amongst others): 
+%returns E_list (amongst others):
 % spalight element i is represented by spacar beams E_list(i,:)
 
 %initialize values
@@ -491,7 +499,7 @@ end
 if      (id_ini && id_add);      pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t%3u',pr_add,steps,steps);    %if initial and aditional loading/displacement
 elseif  (id_ini && ~id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t%3u',pr_add,steps);    %if initial loading/displacement
 elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
-else;                            pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %no loading/displacement
+else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %no loading/displacement
 
 % %TRANSFER FUNCTION INPUT/OUTPUT
 % if ((isfield(opt,'transfer_in') && ~isempty(opt.transfer_in)) ||  (isfield(opt,'transfer_out') && ~isempty(opt.transferout)))
@@ -617,7 +625,7 @@ end
 
 function [exactconstr, opt, results] = check_constraints(opt,E_list,eprops)
 results = []; %initialize in order to not fail the function varout check
-%in some cases results structure will be filled by 
+%in some cases results structure will be filled by
 %a list of overconstraints or a list of partial release solutions
 
 %load data
@@ -667,7 +675,7 @@ elseif nover>0 %overconstrained
     if ~opt.autosolve %do not autosolve, but calculate overconstraints
         
         %part of U matrix coresponding to all overconstraints
-        overconstraint = U(:,end-nover+1:end); 
+        overconstraint = U(:,end-nover+1:end);
         %select part of U matrix corresponding to first overconstraint
         oc = overconstraint(:,1);
         dofs = (1:length(oc))';
@@ -679,7 +687,7 @@ elseif nover>0 %overconstrained
         %overconstrained dofs (all deformations)
         overconstr_dofs = dofs_sorted(1:idx); %=sel
         overconstr_singvec_part = oc_sorted(1:idx);
-
+        
         %create a list with [1] element number,[2] deformation mode and [3] oc value
         listData = zeros(numel(overconstr_dofs),3);
         listData(:,3) = overconstr_singvec_part;
@@ -699,7 +707,7 @@ elseif nover>0 %overconstrained
         for k=1:size(E_list,1) %kth spacarlight element
             list = [];
             for j=1:size(E_list,2) %loop over all spacar beams for kth spalight element
-                %find all occurences of spacar beams in listData, 
+                %find all occurences of spacar beams in listData,
                 %get corresponding deformation modes
                 list = [list; sort(listData(find(listData(:,1)==E_list(k,j)),2))]; %#ok<FNDSB>
             end
@@ -717,7 +725,7 @@ elseif nover>0 %overconstrained
                 end
             end
             %store deformations of kth element (red_list) in collection of
-            %defs en els 
+            %defs en els
             if ~isempty(red_list)
                 OC_defs(end+1,1:length(red_list)) = red_list;
                 OC_el(end+1,1) = k;
@@ -736,7 +744,7 @@ elseif nover>0 %overconstrained
         %create empty rlse matrix used internally for autosolver
         rlse = zeros(size(E_list,1),6);
         %number of initial overconstraints
-        n = nover; 
+        n = nover;
         
         for dummy = 1:n %solve for n overconstraints, loop counter is not required (dummy)
             %redo SVD analyses (has to be redone after each resolved overconstrain)
@@ -761,7 +769,7 @@ elseif nover>0 %overconstrained
                     warn('Overconstraints could not be solved automatically; partial release information is provided in the output.')
                     fprintf('Number of overconstraints left: %u\n\n',nover);
                     disp( table((1:size(rlse,1))',rlse(:,1),rlse(:,2),rlse(:,3),rlse(:,4),rlse(:,5),rlse(:,6),'VariableNames',{'Element' 'def_1' 'def_2 ' 'def_3' 'def_4' 'def_5' 'def_6'}))
-%                     results.rls = restruct_rlse(rlse);
+                    %                     results.rls = restruct_rlse(rlse);
                     %workspace output of //remaining// overconstraints in same style as
                     %//full// overconstraint workspace output
                     for v = 1:size(rlse,1)
@@ -774,9 +782,9 @@ elseif nover>0 %overconstrained
                 
                 %Select deformation to be test for release
                 def_id = sel(j);
-                def = IDlist(def_id); 
-                %After each release, Dcc matrix is 
-                %reduced in size, causing shifting 
+                def = IDlist(def_id);
+                %After each release, Dcc matrix is
+                %reduced in size, causing shifting
                 %of deformation modes.
                 %i.e., if deformation mode 2 is
                 %released, deformation 3 shifts to
@@ -786,7 +794,7 @@ elseif nover>0 %overconstrained
                 %compensates for this shift
                 
                 %create a list with [1] element number,[2] deformation mode and [3] oc value
-                listData = zeros(numel(sel),3); 
+                listData = zeros(numel(sel),3);
                 listData(:,3) = oc(idx);
                 for i=1:size(listData,1)
                     [elnr,defpar] = find(le==def);
@@ -799,18 +807,18 @@ elseif nover>0 %overconstrained
                     for i=1:size(E_list,2)
                         list = [list; sort(listData(find(listData(:,1)==E_list(k,i)),2))]; %#ok<FNDSB>
                     end %overconstrained deformations of all beams in kth element
-                   
+                    
                     red_list=[]; %reduce deformations to release each deformation once at most
                     for i=1:6 %loop over all deformation modes
                         if (sum(list==i)>0)% .. if it is in overconstrained list ..
-                    % .. and is not in rls
+                            % .. and is not in rls
                             if size(rlse,2)==0 || (size(rlse,2)>0 && rlse(k,i)==0)  %and is not yet in rls
                                 % .. then add to the reduced deformation list
                                 red_list(end+1) = i;
                             end
                         end
                     end
-
+                    
                     %Check if kth spacar light element is flexible
                     for i=1:size(eprops,2) %loop over all element property sets to check flexibility
                         if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex) && any(eprops(i).elems==k)) %if kth element is flexible
@@ -821,7 +829,7 @@ elseif nover>0 %overconstrained
                                     rlse(k,red_list(m)) = 1; %store release informatino in rlse matrix ()
                                     nover = nover-1; %reduce number of overconstraints
                                     loop = false; %terminate while loop and redo from line 235
-                                    break 
+                                    break
                                 end
                             end
                             break
@@ -845,7 +853,7 @@ end
 function varargout = validateInput(varargin)
 %this function receives the user-supplied input and only returns
 %that input when it turns out to be valid
-%**** do not set defaults in this function, **** 
+%**** do not set defaults in this function, ****
 %**** but in the main file at the designated place ****%
 switch nargin
     case 1
@@ -1638,9 +1646,9 @@ end
 end
 
 function rls = restruct_rlse(rlse)
-    for i=1:size(rlse,1)
-        write = rlse(i,1:6).*[1 2 3 4 5 6];
-        write(write==0) = [];
-        rls(i).def = write;
-    end
+for i=1:size(rlse,1)
+    write = rlse(i,1:6).*[1 2 3 4 5 6];
+    write(write==0) = [];
+    rls(i).def = write;
+end
 end
