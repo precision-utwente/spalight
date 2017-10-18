@@ -26,9 +26,9 @@ function results = spacarlight(varargin)
 % NOTE
 % Constrained warping is accounted for by means of an effective torsional stiffness increase.
 %
-% Version 1.0
+% Version 1.01
 % 17-10-2017
-version = '1.0';
+version = '1.01';
 
 %% WARNINGS
 warning off backtrace
@@ -132,7 +132,7 @@ catch
         spacar(0,opt.filename);
         warning('on','all')
         warning('Old version of Spacar detected.')
-        old_version = true; %#ok<NASGU> Track if old version to prevent duplicate warning at mode 10 simulation
+        old_version = true; %#ok<NASGU> %Track if old version to prevent duplicate warning at mode 10 simulation
     catch msg
         switch msg.message
             case 'ERROR in subroutine PRPARE: Too many DOFs.'
@@ -142,6 +142,7 @@ catch
         end
     end
 end
+
 
 %% CHECK CONSTRAINTS
 [exactconstr, opt, results] = check_constraints(opt,E_list,eprops);
@@ -230,7 +231,7 @@ X_list      = [];                   %list with node numbers
 E_list      = [];                   %list with element numbers
 
 %% START CREATING DATFILE
-pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s',opt.version,datestr(datetime));
+pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',opt.version,datestr(datetime),getenv('username'));
 
 
 %% USERDEFINED NODES
@@ -793,46 +794,23 @@ elseif nover>0 %overconstrained
                 %The IDlist variable tracks and
                 %compensates for this shift
                 
-                %create a list with [1] element number,[2] deformation mode and [3] oc value
-                listData = zeros(numel(sel),3);
-                listData(:,3) = oc(idx);
-                for i=1:size(listData,1)
-                    [elnr,defpar] = find(le==def);
-                    listData(i,1:2) = [elnr, defpar];
-                end
-                
+                %element number and deformation
+                [elnr,defmode] = find(le==def);
                 
                 for k=1:size(E_list,1) %kth spacar light element
-                    list = [];
-                    for i=1:size(E_list,2)
-                        list = [list; sort(listData(find(listData(:,1)==E_list(k,i)),2))]; %#ok<FNDSB>
-                    end %overconstrained deformations of all beams in kth element
-                    
-                    red_list=[]; %reduce deformations to release each deformation once at most
-                    for i=1:6 %loop over all deformation modes
-                        if (sum(list==i)>0)% .. if it is in overconstrained list ..
-                            % .. and is not in rls
-                            if size(rlse,2)==0 || (size(rlse,2)>0 && rlse(k,i)==0)  %and is not yet in rls
-                                % .. then add to the reduced deformation list
-                                red_list(end+1) = i;
-                            end
-                        end
-                    end
-                    
-                    %Check if kth spacar light element is flexible
-                    for i=1:size(eprops,2) %loop over all element property sets to check flexibility
-                        if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex) && any(eprops(i).elems==k)) %if kth element is flexible
-                            for m = 1:length(red_list) %loop over each overconstrained deformation
-                                if rlse(k,red_list(m)) == 0 %if this deformation is not yet released
+                    if elnr==E_list(k,find(E_list(k,:)~=0,1,'last')); %if element number is in last beam of element k
+                        
+                        %Check if kth spacar light element is flexible
+                        for i=1:size(eprops,2) %loop over all element property sets to check flexibility
+                            if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex) && any(eprops(i).elems==k)) %if kth element is flexible
+                                if rlse(k,defmode) == 0 %if this deformation is not yet released
                                     IDlist(def_id) = []; %update IDlist for deformation tracking
                                     Dcc(def_id,:) = []; %reduce Dcc matrix to remove this overconstrained
-                                    rlse(k,red_list(m)) = 1; %store release informatino in rlse matrix ()
+                                    rlse(k,defmode) = 1; %store release informatino in rlse matrix ()
                                     nover = nover-1; %reduce number of overconstraints
                                     loop = false; %terminate while loop and redo from line 235
-                                    break
                                 end
                             end
-                            break
                         end
                     end
                 end
