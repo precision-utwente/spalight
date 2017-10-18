@@ -415,7 +415,8 @@ pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t
 for i=1:size(eprops,2) %loop over each element property set
     for j=1:length(eprops(i).elems) %loop over all elemenents in element property set
         
-        if (isfield(eprops(i),'dens') && isfield(eprops(i),'dens'))
+        if (isfield(eprops(i),'dens') &&  ~isempty(eprops(i).dens))
+            save('test.mat')
             inertia = calc_inertia(eprops(i));     %calculate mass properties
             for k=1:size(E_list,2) %write mass/inertia values
                 El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
