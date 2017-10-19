@@ -29,7 +29,7 @@ nprops(1).fix               = true;         %Fix node 1
 % nprops(3).force_initial   = [0 0.2 0];    %Initial force [N] in y-direction on node 3
 nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
 nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3
-nprops(3).mass              = 1;            %Mass [kg] of node 3
+nprops(3).mass              = 0.1;            %Mass [kg] of node 3
 
 %node 4
 nprops(4).fix               = true;         %Fix node 4
