@@ -150,7 +150,7 @@ end
 [exactconstr, opt, overconstraints] = check_constraints(opt,E_list,eprops);
 if ~exactconstr
     results.overconstraints = overconstraints;
-    return; 
+    return;
 end
 
 %% RE-BUILD DATFILE
@@ -164,6 +164,9 @@ try %run spacar in its silent mode
     warning('on','all')
     if ~(opt.silent)
         results.fighandle = spavisual(opt.filename);
+        results.fighandle.Children.XLabel.String = 'x';
+        results.fighandle.Children.YLabel.String = 'y';
+        results.fighandle.Children.ZLabel.String = 'z';
     end
     disp('Spacar simulation succeeded.')
 catch
@@ -173,6 +176,9 @@ catch
         warning('on','all')
         if ~(opt.silent)
             results.fighandle = spavisual(opt.filename);
+            results.fighandle.Children.XLabel.String = 'x';
+            results.fighandle.Children.YLabel.String = 'y';
+            results.fighandle.Children.ZLabel.String = 'z';
         end
         disp('Spacar simulation succeeded.')
         if ~exist('old_version','var')
@@ -443,7 +449,7 @@ for i=1:size(eprops,2) %loop over each element property set
                 end
             end
         end
-    end   
+    end
 end
 
 
@@ -1214,6 +1220,8 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 if length(opt.filename) > 19
                     warn('Filename too long: maximum of 20 characters. Filename spacar_file is used instead.');
                     opt.filename = [];
+                elseif any(isspace(opt.filename))
+                    err('No white-space is allowed in filename');
                 end
             end
         end
@@ -1515,7 +1523,9 @@ function eul = quat2eulang(q)
 %conversion from quaternions to Euler angles (radians)
 %rotation sequence is ZYX (following quat2eul from Robotics System Toolbox)
 
-q = normc(q(:)); %normalize
+%q = normc(q(:)); %normalize !requires specific toolboxes for matlab version 2017
+%versions
+q = q./norm(q);
 
 %extra check
 test = -2*(q(2)*q(4)-q(1)*q(3));
