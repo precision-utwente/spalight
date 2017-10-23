@@ -575,20 +575,24 @@ else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000
 
 %% VISUALIZATION
 pr_vis = sprintf('VISUALIZATION');
+
+%initial configuration color
+ini_color = [0 0 0];
+pr_vis = sprintf('%s\n\nINITIAL\nCOLOR\t\t%.2f\t%.2f\t%.2f',pr_vis,ini_color(1),ini_color(2),ini_color(3));
+
 for i=1:size(eprops,2) %loop over all element property sets
-    
-    %CROSSECTIONAL PROPERTIES
-    pr_vis = sprintf('%s\n\nBEAMPROPS',pr_vis);
-    for j=1:length(eprops(i).elems) %loop over all elemenents in element set i
-        for k=1:size(E_list,2)
-            El = E_list(eprops(i).elems(j),k);
-            if El>0
-                pr_vis = sprintf('%s\t%3u',pr_vis,El);
-            end
-        end
-    end
-    
+    %CROSSECTIONAL DIMENSIONS
     if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
+        pr_vis = sprintf('%s\n\nBEAMPROPS',pr_vis);
+        for j=1:length(eprops(i).elems) %loop over all elements in element set i
+            for k=1:size(E_list,2)
+                El = E_list(eprops(i).elems(j),k);
+                if El>0
+                    pr_vis = sprintf('%s\t%3u',pr_vis,El);
+                end
+            end
+        end    
+        
         switch eprops(i).cshape
             case 'rect'
                 pr_vis = sprintf('%s\nCROSSTYPE\t  RECT',pr_vis);
@@ -598,7 +602,7 @@ for i=1:size(eprops,2) %loop over all element property sets
                 pr_vis = sprintf('%s\nCROSSDIM\t  %f',pr_vis,eprops(i).dim(1));
         end
     end
-    
+
     %COLOR
     %validateInput should make sure that the eprops.color field always exists for each set
     pr_vis = sprintf('%s\n\nGRAPHICS',pr_vis);
@@ -612,7 +616,11 @@ for i=1:size(eprops,2) %loop over all element property sets
     end
     pr_vis = sprintf('%s\nFACECOLOR\t  %3f %3f %3f',pr_vis,eprops(i).color(1),eprops(i).color(2),eprops(i).color(3));
     
-    %VISIBILITY
+    if isfield(eprops(i),'opacity') && ~isempty(eprops(i).opacity)
+        pr_vis = sprintf('%s\nOPACITY\t%.2f',pr_vis,eprops(i).opacity);
+    end
+    
+    %HIDE
     if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide) && eprops(i).hide==1)
         pr_vis = sprintf('%s\n\nDONOTDRAW',pr_vis);
         for j=1:length(eprops(i).elems)
@@ -625,6 +633,23 @@ for i=1:size(eprops,2) %loop over all element property sets
         end
     end
 end
+
+%in case an element is not in a set, (still) give it a color
+element_without_set = [];
+no_set_color = [206 109 116]/255;
+for i=1:size(elements,1)
+    if isempty(find(arrayfun(@(x) ismember(i,x.elems),eprops),1))
+        element_without_set(end+1) = i;
+    end
+end
+if any(element_without_set)
+    pr_vis = sprintf('%s\n\nGRAPHICS',pr_vis);
+    for i=1:length(element_without_set)
+        pr_vis = sprintf('%s\t%i',pr_vis,E_list(element_without_set(i),1));
+    end
+    pr_vis = sprintf('%s\nFACECOLOR\t  %3f %3f %3f',pr_vis,no_set_color(1),no_set_color(2),no_set_color(3)); 
+end
+
 
 fileID = fopen([opt.filename '.dat'],'w');
 print_dat(fileID,'%s\n\n\n\n',pr_I);
@@ -1029,37 +1054,37 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK EPROPS INPUT VARIABLE
     if exist('eprops','var')
-        allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide'};
+        allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity'};
         supplied_eprops = fieldnames(eprops);
         unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
         if any(unknown_eprops_i)
             err('Unknown eprops field %s.',supplied_eprops{unknown_eprops_i});
         end
         
+        ignoresets = []; %sets without elems property (e.g. empty sets) are removed after the for loop
+        %note: this means that set numbers might have changed after this deletion!
         el_nr_doubles_check = []; %filling this with user defined element numbers (with .elems) to check for doubles and missing elements
         for i=1:size(eprops,2)
-            
-            %the only mandatory field is elems
+            %check for elems field, the only mandatory field
             if ~(isfield(eprops(i),'elems') && ~isempty(eprops(i).elems))
                 warn('Property elems is not defined in eprops(%u); ignoring eprops(%i).',i,i);
-                eprops(i) = []; %note, this deletes the current property set from the list
+                ignoresets(end+1) = i;
             else
-                %%%%%%%%%%%%
-                %elems exists, so validate elems
+                %elems exists (checked by previous for loop), so validate elems
                 validateattributes(eprops(i).elems,{'double'},{'vector'},'',sprintf('elems property in eprops(%u)',i));
                 validateattributes(eprops(i).elems,{'double'},{'positive'},'',sprintf('elems property in eprops(%u)',i));
-                
+
                 %check if elems for set i are unique
                 if length(unique(eprops(i).elems)) < length(eprops(i).elems)
                     err('Property elems of eprops(%i) contains non-unique element numbers.',i)
                 end
-                
+
                 %check if elems only contains defined elements
                 undef_el_index = ~ismember(eprops(i).elems,1:size(elements,1));
                 if any(undef_el_index)
                     err('eprops(%i).elems contains undefined element number(s).',i)
                 end
-                
+
                 %check if elements in elems are not already defined previously
                 double_el_index = ismember(eprops(i).elems,el_nr_doubles_check);
                 if any(double_el_index)
@@ -1068,7 +1093,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 el_nr_doubles_check = [el_nr_doubles_check; eprops(i).elems(:)];
                 %end validation of elems
                 %%%%%%%%%%%
-                
+
                 %%%%%%%%%%%%%%%
                 %validate other properties that are specified
                 if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));     validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i)); end
@@ -1084,8 +1109,14 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 %approach: color can be specified in various ways; 
                 %always convert to rgb values between 0-1
                 colorset = struct(...
-                    'name',{'red','green','blue'},...
-                    'value',{[1 0 0],[0 1 0],[0 0 1]});
+                    'name',{'blue','grey','darkblue','darkgrey','green','darkgreen'},...
+                    'value',{   [162 195 214]/255,...
+                                [198 198 198]/255,...
+                                [0 124 176]/255,...
+                                [112 112 112]/255,...
+                                [128 194 143]/255,...
+                                [90 137 101]/255});
+
                 if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
                     if isfloat(eprops(i).color) %also returns true for "integers" like 2 or 2.0
                         %check for integer, or 3-vec, and validate
@@ -1117,8 +1148,10 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     %(using the -1 and +1 because modulo otherwise returns 0's)
                     eprops(i).color = colorset(ii).value;
                 end
-                
+
                 if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide));     validateattributes(eprops(i).hide,{'logical'},{'scalar'},'',sprintf('hide property in eprops(%u)',i)); end
+                if (isfield(eprops(i),'opacity') && ~isempty(eprops(i).opacity)); validateattributes(eprops(i).opacity,{'double'},{'scalar','>',0,'<',1},'',   sprintf('opacity property in eprops(%u)',i)); end
+                
                 if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
                     validateattributes(eprops(i).cshape,{'char'},{'nonempty'},'',sprintf('cshape property in eprops(%u)',i));
                     if ~any(strcmp(eprops(i).cshape,{'rect','circ'})), err('Element cshape should be either rect or circ.'); end
@@ -1135,78 +1168,32 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                             ensure(eprops(i).dim>=1e-4,sprintf('eprops(%i).dim value should be at least 1e-4 m.',i))
                     end
                 end
-                
+
                 if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
                     validateattributes(eprops(i).nbeams,{'double'},{'scalar','>=',1},'',sprintf('nbeams property in eprops(%u)',i));
                     ensure(mod(eprops(i).nbeams,1)==0,'Property eprops(%i).nbeams should be a positive integer.',i);
                 end
-                
-                %start orien checks. Note: this comes *after* the dependency of cshape=rect on orien is ensured
-%                 if (isfield(eprops(i),'orien') && ~isempty(eprops(i).orien))
-%                     for j=1:length(eprops(i).elems)
-%                         xp = nodes(elements(eprops(i).elems(j),1),:);
-%                         xq = nodes(elements(eprops(i).elems(j),2),:);
-%                         
-%                         %check if supplied local y vector works
-%                         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                         %this directly from SPACAR 2015 source:
-%                         ex = xq(:) - xp(:);
-%                         ex = ex/norm(ex);
-%                         ey_input = eprops(i).orien;
-%                         ey = ey_input(:)/norm(ey_input);
-%                         ex_proj = dot(ey,ex);
-%                         noemer = sqrt(1-ex_proj^2);
-%                         if noemer < 1e-5
-%                             err('Orien property of element %i does not work, because (almost) parallel to element axis.',eprops(i).elems(j))
-%                         end
-%                         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                         
-%                         %check if normal to local x axis (else warn)
-%                         if dot(ex,ey) > 1e-3
-%                             warn('Note that local y-axis of element %i might be different than expected, because orien property is not normal to element axis.',eprops(i).elems(j));
-%                         end
-%                     end
-%                 else %dealing with circular cs here (because orien is required for rectangular cs)
-%                     %check if default works
-%                     orien_def = [0 1 0];
-%                     for j=1:length(eprops(i).elems)
-%                         xp = nodes(elements(eprops(i).elems(j),1),:);
-%                         xq = nodes(elements(eprops(i).elems(j),2),:);
-%                         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                         %this directly from SPACAR 2015 source:
-%                         ex = xq - xp;
-%                         ex = ex/norm(ex);
-%                         ey_input = orien_def;
-%                         ey = ey_input(:)/norm(ey_input);
-%                         ex_proj = dot(ey,ex);
-%                         noemer = sqrt(1-ex_proj^2);
-%                         if noemer < 1e-5
-%                             err('No orien property specified for element %i. Default value [0 1 0] does not work, because (almost) parallel to element axis.',eprops(i).elems(j))
-%                         end
-%                         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                     end
-%                 end
-                
+
                 %check for mandatory fields when dens field is present
                 if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens))
                     validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i));
-                    
+
                     %dens requires cshape
                     if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
                         err('Property cshape is not defined in eprops(%u)',i);
                     end
                 end
-                
+
                 %check for mandatory fields when flex field is present
                 if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
                     validateattributes(eprops(i).flex,{'double'},{'vector','positive'},'',sprintf('flex property in eprops(%u)',i));
-                    
+
                     %check if values for flex are valid
                     validateattributes(eprops(i).flex,{'double'},{'vector'},'',  sprintf('flex property in eprops(%u)',i));
                     if any(((eprops(i).flex==1)+(eprops(i).flex==2)+(eprops(i).flex==3)+(eprops(i).flex==4)+(eprops(i).flex==5)+(eprops(i).flex==6))==0)
                         err('Invalid deformation mode in eprops(%u).flex.',i)
                     end
-                    
+
                     %check if field exist in structure
                     if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape)); err('Property cshape is not defined in eprops(%u)',i);     end
                     if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
@@ -1217,9 +1204,14 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
                     if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warn('Property eprops(%u).smod is redundant without the flex property.',i);     end
                 end
-                
-            end
+            end    
         end
+        
+        %delete sets without the elems property (warning has already been issued)
+        if any(ignoresets)
+            eprops(ignoresets)=[];
+        end
+        
         %warn user if elements are defined without adding properties to them
         el_without_prop_index = ~ismember(1:size(elements,1),el_nr_doubles_check);
         if any(el_without_prop_index)
