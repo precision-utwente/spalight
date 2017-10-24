@@ -1461,7 +1461,11 @@ for i=t_list
     end
     
     %EIGENFREQUENCIES
-    [~,D]   = eig(K(1:nddof,1:nddof),M0(1:nddof,1:nddof));
+    if nddof>10
+        [~,D]   = eigs(K(1:nddof,1:nddof),M0(1:nddof,1:nddof),'sm');   
+    else
+        [~,D]   = eig(K(1:nddof,1:nddof),M0(1:nddof,1:nddof));
+    end
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
