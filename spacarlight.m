@@ -26,9 +26,9 @@ function results = spacarlight(varargin)
 % NOTE
 % Constrained warping is accounted for by means of an effective torsional stiffness increase.
 %
-% Version 1.1
-% 23-10-2017
-version = '1.1';
+% Version 1.11
+% 26-10-2017
+version = '1.11';
 
 %% WARNINGS
 warning off backtrace
@@ -530,7 +530,7 @@ end
 if      (id_ini && id_add);      pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t%3u',pr_add,steps,steps);    %if initial and aditional loading/displacement
 elseif  (id_ini && ~id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t%3u',pr_add,steps);    %if initial loading/displacement
 elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
-else;                            pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %no loading/displacement
+else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %no loading/displacement
 
 % %TRANSFER FUNCTION INPUT/OUTPUT
 % if ((isfield(opt,'transfer_in') && ~isempty(opt.transfer_in)) ||  (isfield(opt,'transfer_out') && ~isempty(opt.transferout)))
