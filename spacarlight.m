@@ -1462,7 +1462,7 @@ for i=t_list
     
     %EIGENFREQUENCIES
     if nddof>10
-        [~,D]   = eigs(K(1:nddof,1:nddof),M0(1:nddof,1:nddof),'sm');   
+        [~,D]   = eigs(K(1:nddof,1:nddof),M0(1:nddof,1:nddof),10,'sm'); 
     else
         [~,D]   = eig(K(1:nddof,1:nddof),M0(1:nddof,1:nddof));
     end
@@ -1470,7 +1470,7 @@ for i=t_list
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
     results.step(i).freq = sqrt(d)*1/(2*pi); %per loadstep
-    results.freq(1:nddof,i) = results.step(i).freq; %for all loadsteps
+    results.freq(1:length(d),i) = results.step(i).freq; %for all loadsteps
     
     %BUCKLING
     if calcbuck
