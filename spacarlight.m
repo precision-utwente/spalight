@@ -1481,7 +1481,8 @@ for i=t_list
     
     %MAXIMUM STRESS
     [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
-    [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,[],propcrossect);
+    opt_stress.exterior = true; %only calculate exterior stresses (not possible for circ cross-section)
+    [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,opt_stress,propcrossect);
     results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
     results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
 end
