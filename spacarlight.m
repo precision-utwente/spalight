@@ -1499,12 +1499,12 @@ G       = eprops.smod;
 v       = E/(2*G) - 1;
 switch lower(type)
     case 'rect'
-        t   = dim(1);
-        w   = dim(2);
+        w   = dim(1);
+        t   = dim(2); 
         A   = t*w;
         It 	= calc_torsStiff(t,w);
-        Iy  = (1/12)*t*w^3;
-        Iz  = (1/12)*w*t^3;
+        Iy  = (1/12)*t^3*w;
+        Iz  = (1/12)*t*w^3;
         k   = 10*(1+v)/(12+11*v);
     case 'circ'
         d   = dim(1);
@@ -1548,12 +1548,12 @@ type    = eprops.cshape;
 dim     = eprops.dim;
 rho     = eprops.dens;
 switch lower(type)
-    case 'rect'
-        t   = dim(1);
-        w   = dim(2);
+    case 'rect' 
+        w   = dim(1);
+        t   = dim(2);
         A   = t*w;
-        Iy  = 1/12 * t*w^3;
-        Iz  = 1/12 * w*t^3;
+        Iy  = 1/12 * t^3*w;
+        Iz  = 1/12 * t*w^3;
     case 'circ'
         d   = dim(1);
         A   = (pi/4)*d^2;
