@@ -26,9 +26,9 @@ function results = spacarlight(varargin)
 % NOTE
 % Constrained warping is accounted for by means of an effective torsional stiffness increase.
 %
-% Version 1.12
-% 26-10-2017
-version = '1.12';
+% Version 1.13
+% 16-11-2017
+version = '1.13';
 
 %% WARNINGS
 warning off backtrace
