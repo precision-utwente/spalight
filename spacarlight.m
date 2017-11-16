@@ -105,6 +105,14 @@ if ~(isfield(opt,'silent') && opt.silent == 1)
     opt.silent = false;
 end
 
+%determine whether silent mode
+if ~(isfield(opt,'mode'))
+    opt.mode = 10;
+end
+if opt.mode==3
+   opt.filename = [opt.filename '_3'];
+end
+
 %determine whether to attempt autosolve
 if ~isfield(opt,'rls')
     opt.autosolve = true;
@@ -160,7 +168,7 @@ end
 %% SIMULATE STATICS
 try %run spacar in its silent mode
     warning('off','all')
-    [~] = spacar(-10,opt.filename);
+    [~] = spacar(-opt.mode,opt.filename);
     warning('on','all')
     if ~(opt.silent)
         results.fighandle = spavisual(opt.filename);
@@ -172,7 +180,7 @@ try %run spacar in its silent mode
 catch
     try %retry to run spacar in non-silent mode for old spacar versions
         warning('off','all')
-        spacar(-10,opt.filename);
+        spacar(-opt.mode,opt.filename);
         warning('on','all')
         if ~(opt.silent)
             results.fighandle = spavisual(opt.filename);
@@ -254,6 +262,9 @@ end
 %% START CREATING DATFILE
 pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',opt.version,datestr(datetime),username);
 
+if opt.mode==3
+    pr_I = sprintf('%s \n%s',pr_I,'OUTLEVEL 0 1');
+end
 
 %% USERDEFINED NODES
 pr_N = sprintf('#NODES\t Nn\t\t\tX\t\t\tY\t\t\tZ');
@@ -266,12 +277,13 @@ end
 %% ELEMENTS
 pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t Xq\t Rq\t\tOx\t\t\tOy\t\t\tOz');
 pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
+
 for i=1:size(elements,1)
     pr_E = sprintf('%s\n#element %u',pr_E,i);
     
     N_p         = elements(i,1);            %p-node nodenumber
     N_q         = elements(i,2);            %q-node nodenumber
-    X_list(i,1) = N_p;                      %store p-node in X_list
+    X_list(i,1) = N_p;                      %#ok<*AGROW> %store p-node in X_list
     
     % get element property set corresponding to element i
     i_set = 0;
@@ -292,7 +304,7 @@ for i=1:size(elements,1)
             else
                 Orien = [0 1 0];
             end
-                
+            
         end
     end
     if i_set == 0 %defaults for if element does not exist in any element set
@@ -403,23 +415,25 @@ for i=1:size(nprops,2)
     if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien)); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+2);   end
     
     %input displacements
-    if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
-            (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t1',pr_input,(i-1)*2+1);id_inputx = true;    end
-    if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
-            (isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+1);id_inputx = true;    end
-    if((isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z)) ||...
-            (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+1);id_inputx = true;    end
-    
-    %input rotations
-    id_inputr = 0; %identifier to count the number of input rotations
-    if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
-            (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
-    if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
-            (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
-    if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
-            (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
-    if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
-        err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
+    if opt.mode~=3
+        if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
+                (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t1',pr_input,(i-1)*2+1);id_inputx = true;    end
+        if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
+                (isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+1);id_inputx = true;    end
+        if((isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z)) ||...
+                (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+1);id_inputx = true;    end
+        
+        %input rotations
+        id_inputr = 0; %identifier to count the number of input rotations
+        if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
+                (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+        if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
+                (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+        if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
+                (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+        if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
+            err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
+        end
     end
 end
 
@@ -597,7 +611,7 @@ for i=1:size(eprops,2) %loop over all element property sets
                     pr_vis = sprintf('%s\t%3u',pr_vis,El);
                 end
             end
-        end    
+        end
         
         switch eprops(i).cshape
             case 'rect'
@@ -608,7 +622,7 @@ for i=1:size(eprops,2) %loop over all element property sets
                 pr_vis = sprintf('%s\nCROSSDIM\t  %f',pr_vis,eprops(i).dim(1));
         end
     end
-
+    
     %COLOR
     %validateInput should make sure that the eprops.color field always exists for each set
     pr_vis = sprintf('%s\n\nGRAPHICS',pr_vis);
@@ -653,7 +667,7 @@ if any(element_without_set)
     for i=1:length(element_without_set)
         pr_vis = sprintf('%s\t%i',pr_vis,E_list(element_without_set(i),1));
     end
-    pr_vis = sprintf('%s\nFACECOLOR\t  %3f %3f %3f',pr_vis,no_set_color(1),no_set_color(2),no_set_color(3)); 
+    pr_vis = sprintf('%s\nFACECOLOR\t  %3f %3f %3f',pr_vis,no_set_color(1),no_set_color(2),no_set_color(3));
 end
 
 
@@ -930,7 +944,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
         %check if unique pairs node numbers (independent of p/q order)
         ensure(size(unique(sort(elements,2),'rows'),1)==size(elements,1),'Multiple elements seem connected between the same node pair.')
         
-        ensure(all(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5),'Element length seems smaller than 0.00001.')
+        ensure_idelret(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5,'length seems smaller than 0.00001.')
         
         maxlength = max(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
         minlength = min(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
@@ -1079,18 +1093,18 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 %elems exists (checked by previous for loop), so validate elems
                 validateattributes(eprops(i).elems,{'double'},{'vector'},'',sprintf('elems property in eprops(%u)',i));
                 validateattributes(eprops(i).elems,{'double'},{'positive'},'',sprintf('elems property in eprops(%u)',i));
-
+                
                 %check if elems for set i are unique
                 if length(unique(eprops(i).elems)) < length(eprops(i).elems)
                     err('Property elems of eprops(%i) contains non-unique element numbers.',i)
                 end
-
+                
                 %check if elems only contains defined elements
                 undef_el_index = ~ismember(eprops(i).elems,1:size(elements,1));
                 if any(undef_el_index)
                     err('eprops(%i).elems contains undefined element number(s).',i)
                 end
-
+                
                 %check if elements in elems are not already defined previously
                 double_el_index = ismember(eprops(i).elems,el_nr_doubles_check);
                 if any(double_el_index)
@@ -1099,7 +1113,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 el_nr_doubles_check = [el_nr_doubles_check; eprops(i).elems(:)];
                 %end validation of elems
                 %%%%%%%%%%%
-
+                
                 %%%%%%%%%%%%%%%
                 %validate other properties that are specified
                 if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));     validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i)); end
@@ -1112,17 +1126,17 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 end
                 
                 %color field
-                %approach: color can be specified in various ways; 
+                %approach: color can be specified in various ways;
                 %always convert to rgb values between 0-1
                 colorset = struct(...
                     'name',{'blue','grey','darkblue','darkgrey','green','darkgreen'},...
                     'value',{   [162 195 214]/255,...
-                                [198 198 198]/255,...
-                                [0 124 176]/255,...
-                                [112 112 112]/255,...
-                                [128 194 143]/255,...
-                                [90 137 101]/255});
-
+                    [198 198 198]/255,...
+                    [0 124 176]/255,...
+                    [112 112 112]/255,...
+                    [128 194 143]/255,...
+                    [90 137 101]/255});
+                
                 if (isfield(eprops(i),'color') && ~isempty(eprops(i).color))
                     if isfloat(eprops(i).color) %also returns true for "integers" like 2 or 2.0
                         %check for integer, or 3-vec, and validate
@@ -1145,7 +1159,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                         ci = arrayfun(@(x) strcmp(x.name,eprops(i).color),colorset);
                         ensure(any(ci),'Pre-defined color with name eprops(%i).color does not exist.',i);
                         eprops(i).color = colorset(ci).value;
-                    else 
+                    else
                         err('Property eprops(%i).color should be a string, an integer, or a 1x3 vector.',i);
                     end
                 else
@@ -1154,7 +1168,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     %(using the -1 and +1 because modulo otherwise returns 0's)
                     eprops(i).color = colorset(ii).value;
                 end
-
+                
                 if (isfield(eprops(i),'hide') && ~isempty(eprops(i).hide));     validateattributes(eprops(i).hide,{'logical'},{'scalar'},'',sprintf('hide property in eprops(%u)',i)); end
                 if (isfield(eprops(i),'opacity') && ~isempty(eprops(i).opacity)); validateattributes(eprops(i).opacity,{'double'},{'scalar','>',0,'<',1},'',   sprintf('opacity property in eprops(%u)',i)); end
                 
@@ -1174,32 +1188,32 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                             ensure(eprops(i).dim>=1e-4,sprintf('eprops(%i).dim value should be at least 1e-4 m.',i))
                     end
                 end
-
+                
                 if (isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams))
                     validateattributes(eprops(i).nbeams,{'double'},{'scalar','>=',1},'',sprintf('nbeams property in eprops(%u)',i));
                     ensure(mod(eprops(i).nbeams,1)==0,'Property eprops(%i).nbeams should be a positive integer.',i);
                 end
-
+                
                 %check for mandatory fields when dens field is present
                 if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens))
                     validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i));
-
+                    
                     %dens requires cshape
                     if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
                         err('Property cshape is not defined in eprops(%u)',i);
                     end
                 end
-
+                
                 %check for mandatory fields when flex field is present
                 if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex))
                     validateattributes(eprops(i).flex,{'double'},{'vector','positive'},'',sprintf('flex property in eprops(%u)',i));
-
+                    
                     %check if values for flex are valid
                     validateattributes(eprops(i).flex,{'double'},{'vector'},'',  sprintf('flex property in eprops(%u)',i));
                     if any(((eprops(i).flex==1)+(eprops(i).flex==2)+(eprops(i).flex==3)+(eprops(i).flex==4)+(eprops(i).flex==5)+(eprops(i).flex==6))==0)
                         err('Invalid deformation mode in eprops(%u).flex.',i)
                     end
-
+                    
                     %check if field exist in structure
                     if ~(isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape)); err('Property cshape is not defined in eprops(%u)',i);     end
                     if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
@@ -1210,7 +1224,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
                     if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warn('Property eprops(%u).smod is redundant without the flex property.',i);     end
                 end
-            end    
+            end
         end
         
         %delete sets without the elems property (warning has already been issued)
@@ -1274,7 +1288,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK OPTIONAL ARGUMENTS
     if (exist('opt','var') && ~isempty(opt))
-        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls'};
+        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode'};
         supplied_opts = fieldnames(opt);
         unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
         if any(unknown_opts_i)
@@ -1395,6 +1409,23 @@ end
 %if assert succeeded, do nothing
 end
 
+function ensure_idelret(cond,msg,varargin)
+%custom assert function to hide the backtrace stuff in command window   
+try
+    %execute assert, but hide output
+    assert(any(cond));
+catch
+    idx = find(cond==0);
+    nums = 'Element';
+    for i=1:length(idx)
+        nums = sprintf('%s %u',nums,idx(i));
+    end
+    %if assert failed, throw error
+    err([nums ' ' msg],varargin{:});
+end
+%if assert succeeded, do nothing
+end
+
 %% AUXILIARY FUNCTIONS
 function results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, results)
 filename = opt.filename;
@@ -1424,30 +1455,54 @@ if (isfield(opt,'calcbuck') && opt.calcbuck == 1)
 end
 
 %PROCESS RESULTS PER LOADSTEP
+x       = getfrsbf([filename '.sbd'] ,'x');
+fxtot   = getfrsbf([filename '.sbd'] ,'fxt');
+M0_data = getfrsbf([filename '.sbm'] ,'m0');
+G0_data = getfrsbf([filename '.sbm'] ,'g0');
+K0_data = getfrsbf([filename '.sbm'] ,'k0');
+N0_data = getfrsbf([filename '.sbm'] ,'n0');
+nk = sqrt(size(K0_data,2));%number of elementen in K,M,G,N matrix if t_list > 1
+
+if length(t_list)==1 %#ok<*BDSCI>
+    x = x';
+    fxtot = fxtot';
+end
+
+%K = K0 + getfrsbf([filename '.sbm'] ,'n0', i) + G0;
+%C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
+
+%NODE DEPENDENT RESULTS
 for i=t_list
-    x       = getfrsbf([filename '.sbd'] ,'x', i);
-    fxtot   = getfrsbf([filename '.sbd'] ,'fxt',i);
-    M0 = getfrsbf([filename '.sbm'] ,'m0', i);
-    G0 = getfrsbf([filename '.sbm'] ,'g0', i);
-    K0 = getfrsbf([filename '.sbm'] ,'k0', i);
-    K = K0 + getfrsbf([filename '.sbm'] ,'n0', i) + G0;
-    %C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
-    
-    %NODE DEPENDENT RESULTS
     for j=1:size(nodes,1)
+        
+        %RESTRUCT DATA
+        if length(t_list) > 1
+        K0 = reshape(K0_data(i,:),nk,[]);
+        N0 = reshape(N0_data(i,:),nk,[]);
+        G0 = reshape(G0_data(i,:),nk,[]);
+        M0 = reshape(M0_data(i,:),nk,[]);
+        else
+          K0 =K0_data;
+          N0 = N0_data;
+          G0 = G0_data;
+          M0 = M0_data;
+        end
+        
         if ~ismember((j-1)*2+1,ln) %if node not connected to an element
             results.step(i).node(j).x = nodes(j,1:3);
             results.node(j).x(1:3,i) = results.step(i).node(j);
             continue;
         end
         %store results per loadstep, using "step" field
-        results.step(i).node(j).p           = x(lnp((j-1)*2+1,1:3));
-        results.step(i).node(j).r_eulzyx    = quat2eulang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).r_axang     = quat2axang(x(lnp((j-1)*2+2,1:4)));
-        results.step(i).node(j).r_quat      = x(lnp((j-1)*2+2,1:4));
-        results.step(i).node(j).Freac       = fxtot(lnp((j-1)*2+1,1:3));
-        results.step(i).node(j).Mreac       = fxtot(lnp((j-1)*2+2,2:4))/2;
-        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); %#ok<*AGROW>
+        results.step(i).node(j).p           = x(i,lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).r_eulzyx    = quat2eulang(x(i,lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).r_axang     = quat2axang(x(i,lnp((j-1)*2+2,1:4)));
+        results.step(i).node(j).r_quat      = x(i,lnp((j-1)*2+2,1:4));
+        results.step(i).node(j).Freac       = fxtot(i,lnp((j-1)*2+1,1:3));
+        results.step(i).node(j).Mreac       = fxtot(i,lnp((j-1)*2+2,2:4))/2;
+        %compliance matrix can be computed for all timesteps at once with
+        %complmt, but requires seperate loop
+        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); 
         
         %also store results for all loadsteps combined
         results.node(j).p(1:3,i)             = results.step(i).node(j).p;
@@ -1461,10 +1516,11 @@ for i=t_list
     end
     
     %EIGENFREQUENCIES
+    
     if nddof>10
-        [~,D]   = eigs(K(1:nddof,1:nddof),M0(1:nddof,1:nddof),10,'sm'); 
+        [~,D]   = eigs(K0+N0+G0,M0,10,'sm');
     else
-        [~,D]   = eig(K(1:nddof,1:nddof),M0(1:nddof,1:nddof));
+        [~,D]   = eig(K0+N0+G0,M0);
     end
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
@@ -1485,7 +1541,10 @@ for i=t_list
     [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,opt_stress,propcrossect);
     results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
     results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
+    
 end
+
+
 
 
 end
@@ -1500,7 +1559,7 @@ v       = E/(2*G) - 1;
 switch lower(type)
     case 'rect'
         w   = dim(1);
-        t   = dim(2); 
+        t   = dim(2);
         A   = t*w;
         It 	= calc_torsStiff(t,w);
         Iy  = (1/12)*t^3*w;
@@ -1548,7 +1607,7 @@ type    = eprops.cshape;
 dim     = eprops.dim;
 rho     = eprops.dens;
 switch lower(type)
-    case 'rect' 
+    case 'rect'
         w   = dim(1);
         t   = dim(2);
         A   = t*w;
