@@ -4,7 +4,7 @@
 clear
 clc
 % addpath('spacar')		%Specify location of spacar folder, if not current
-
+addpath ~/mlib/sp17ex/
 %% NODE POSITIONS
 %           x y z
 nodes = [   0 0 0;      %node 1  
@@ -63,6 +63,7 @@ eprops(2).color    = 'darkblue';
 %% OPTIONAL ARGUMENTS
 opt.filename    = 'crosshinge';     %Filename
 % opt.calcbuck    = true;           %Enable calculation of load multipliers
+% opt.showinputonly = true;         %Only visualize the elements and nodes that were defined (not running any simulation)
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 
 
