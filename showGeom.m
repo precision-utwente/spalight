@@ -320,7 +320,7 @@ function [normalvec, mech_dim, normalvec2] = getPlane(no)
     
     %TO DO: check - at least three points required
     %points relative to centroid (average value)
-    no_c = no - mean(no,1);
+    no_c = no - repmat(mean(no,1),size(no,1), 1);
     
     %covariance components (excluding symmetries)
     xx = sum(no_c(:,1).^2);
