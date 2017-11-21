@@ -108,9 +108,10 @@ end
 %determine whether silent mode
 if ~(isfield(opt,'mode'))
     opt.mode = 10;
-end
-if opt.mode==3
-   opt.filename = [opt.filename '_3'];
+elseif opt.mode==3
+    opt.filename = [opt.filename '_3'];
+else
+    err('Unsupported simulation mode, use opt.mode = 10 or 3 instead.')
 end
 
 %determine whether to attempt autosolve
@@ -129,7 +130,7 @@ ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'str
 
 
 %% BUILD DATFILE
-[~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
+[~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,0);
 
 %% SIMULATE FOR CHECKING CONSTRAINTS
 try %try to run spacar in its silent mode
@@ -163,7 +164,7 @@ end
 
 %% RE-BUILD DATFILE
 %appropriate releases should now be in opt.rls
-[id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
+[id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
 
 %% SIMULATE STATICS
 try %run spacar in its silent mode
@@ -240,7 +241,7 @@ warning backtrace on
 end
 
 
-function [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt)
+function [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
 %returns E_list (amongst others):
 % spalight element i is represented by spacar beams E_list(i,:)
 
@@ -262,7 +263,7 @@ end
 %% START CREATING DATFILE
 pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',opt.version,datestr(datetime),username);
 
-if opt.mode==3
+if mode==3
     pr_I = sprintf('%s \n%s',pr_I,'OUTLEVEL 0 1');
 end
 
@@ -331,10 +332,12 @@ for i=1:size(elements,1)
                 pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
             end
             
-            if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
-                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                for m=1:length(Flex) %loop over all flexible deformation modes
-                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+            if mode~=0
+                if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
+                    pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                    for m=1:length(Flex) %loop over all flexible deformation modes
+                        pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                    end
                 end
             end
             
@@ -357,39 +360,42 @@ for i=1:size(elements,1)
     end
     
     %for the last beam only, add dyne and/or rlse
-    if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
-        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-        for m=1:length(Flex)    %loop over all flexible deformation modes
-            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-        end
-    else%if some rls are specified
-        %compensate size of rls if size is smaller than element list
-        if i>size(opt.rls,2)
-            opt.rls(i).def = [];
-        end
-        
-        % add dyne
-        if ~isempty(Flex)                           %if some flexibility is specified
-            dyn_added = false;                      %reset identifier to check if string 'dyne' is added
-            for m=1:length(Flex)                    %loop over all flexible deformation modes
-                if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
-                    if ~dyn_added                   %only add string 'dyne' if it is not yet added
-                        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                        dyn_added = true;           %set 'dyne' identifier
+    if mode~=0
+        if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
+            pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+            for m=1:length(Flex)    %loop over all flexible deformation modes
+                pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+            end
+        else%if some rls are specified
+            %compensate size of rls if size is smaller than element list
+            if i>size(opt.rls,2)
+                opt.rls(i).def = [];
+            end
+            
+            % add dyne
+            if ~isempty(Flex)                           %if some flexibility is specified
+                dyn_added = false;                      %reset identifier to check if string 'dyne' is added
+                for m=1:length(Flex)                    %loop over all flexible deformation modes
+                    if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
+                        if ~dyn_added                   %only add string 'dyne' if it is not yet added
+                            pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                            dyn_added = true;           %set 'dyne' identifier
+                        end
+                        pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                     end
-                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                 end
             end
-        end
-        
-        % add rlse
-        rlse_added = false;                    %reset identifier to check if string 'rlse' is added
-        for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
-            if ~rlse_added                     %only add string 'rlse' if it is not yet added
-                pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
-                rlse_added = true;
+            
+            
+            % add rlse
+            rlse_added = false;                    %reset identifier to check if string 'rlse' is added
+            for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
+                if ~rlse_added                     %only add string 'rlse' if it is not yet added
+                    pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
+                    rlse_added = true;
+                end
+                pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
             end
-            pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
         end
     end
     
@@ -415,7 +421,7 @@ for i=1:size(nprops,2)
     if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien)); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+2);   end
     
     %input displacements
-    if opt.mode~=3
+    if mode~=3
         if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
                 (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t1',pr_input,(i-1)*2+1);id_inputx = true;    end
         if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
@@ -701,7 +707,7 @@ overconstraints = []; %initialize in order to not fail the function varout check
 sbd     = [opt.filename '.sbd'];
 nep     = getfrsbf(sbd,'nep');
 nxp     = getfrsbf(sbd,'nxp');
-nddof   = getfrsbf(sbd,'nddof');
+%nddof   = getfrsbf(sbd,'nddof');
 le      = getfrsbf(sbd,'le');
 BigD    = getfrsbf(sbd,'bigd',1);
 Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
@@ -710,11 +716,11 @@ IDlist = 1:size(Dcc,1);
 s       = diag(s);
 
 %if no degrees of freedom
-if nddof == 0
-    warn('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
-    exactconstr = false; %(false here so that main function will not proceed but abort instead)
-    return
-end
+%if nddof == 0
+%    warn('The system has no degrees of freedom (so no Spacar simulation will be performed). Check eprops.flex and rls.')
+%    exactconstr = false; %(false here so that main function will not proceed but abort instead)
+%    return
+%end
 
 %if empty s
 if isempty(s) %%% TO BE DONE: s can be empty. What does this mean? => no calculable nodes? no freedom?
@@ -1410,7 +1416,7 @@ end
 end
 
 function ensure_idelret(cond,msg,varargin)
-%custom assert function to hide the backtrace stuff in command window   
+%custom assert function to hide the backtrace stuff in command window
 try
     %execute assert, but hide output
     assert(any(cond));
@@ -1477,15 +1483,15 @@ for i=t_list
         
         %RESTRUCT DATA
         if length(t_list) > 1
-        K0 = reshape(K0_data(i,:),nk,[]);
-        N0 = reshape(N0_data(i,:),nk,[]);
-        G0 = reshape(G0_data(i,:),nk,[]);
-        M0 = reshape(M0_data(i,:),nk,[]);
+            K0 = reshape(K0_data(i,:),nk,[]);
+            N0 = reshape(N0_data(i,:),nk,[]);
+            G0 = reshape(G0_data(i,:),nk,[]);
+            M0 = reshape(M0_data(i,:),nk,[]);
         else
-          K0 =K0_data;
-          N0 = N0_data;
-          G0 = G0_data;
-          M0 = M0_data;
+            K0 =K0_data;
+            N0 = N0_data;
+            G0 = G0_data;
+            M0 = M0_data;
         end
         
         if ~ismember((j-1)*2+1,ln) %if node not connected to an element
@@ -1502,7 +1508,7 @@ for i=t_list
         results.step(i).node(j).Mreac       = fxtot(i,lnp((j-1)*2+2,2:4))/2;
         %compliance matrix can be computed for all timesteps at once with
         %complmt, but requires seperate loop
-        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i); 
+        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i);
         
         %also store results for all loadsteps combined
         results.node(j).p(1:3,i)             = results.step(i).node(j).p;
