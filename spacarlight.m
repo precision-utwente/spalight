@@ -52,19 +52,16 @@ switch nargin
         warn('Incomplete input; no simulation is run.');
         % validate only nodes
         [nodes] = validateInput(varargin{:});
-        showInput(nodes);
         return
     case 2
         warn('Incomplete input; no simulation is run.');
         % validate only nodes and elements
         [nodes,elements] = validateInput(varargin{:});
-        showInput(nodes,elements);
         return
     case 3
         warn('Incomplete input; no simulation is run.');
         % validate only nodes, elements and nprops
         [nodes,elements,nprops] = validateInput(varargin{:});
-        showInput(nodes,elements,nprops);
         return
     case 4
         % validate nodes, elements, nprops and eprops
@@ -74,7 +71,7 @@ switch nargin
         % validate all
         [nodes,elements,nprops,eprops,opt] = validateInput(varargin{:});
         if isfield(opt,'showinputonly') && opt.showinputonly == true
-            showInput(nodes,elements,nprops,eprops);
+            showGeom(nodes,elements,[]);
             return
         end
         % attempt simulation
@@ -1363,10 +1360,6 @@ switch nargin
         varargout{5} = opt;
 end
 
-end
-
-function showInput(varargin)
-disp('Showing input geometry');
 end
 
 function print_dat(fileID,formatSpec,string)
