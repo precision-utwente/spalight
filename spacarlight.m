@@ -463,7 +463,13 @@ for i=1:size(eprops,2) %loop over each element property set
                 case 'rect'
                     L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
                         - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
-                    cw  = cw_values(L,eprops(i));                      %calculate constrained warping values
+                    if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw))
+                        if eprops(i).cw == 1
+                            cw  = cw_values(L,eprops(i));%calculate constrained warping values
+                        else
+                            cw = 1; 
+                        end
+                    end
                 case 'circ'
                     cw = 1;
             end
