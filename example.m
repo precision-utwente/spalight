@@ -4,7 +4,7 @@
 clear
 clc
 % addpath('spacar')		%Specify location of spacar folder, if not current
-addpath ~/mlib/sp17ex/
+
 %% NODE POSITIONS
 %           x y z
 nodes = [   0 0 0;      %node 1  
@@ -48,6 +48,7 @@ eprops(1).nbeams   = 1;                %4 beam elements for simulating these ele
 eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
 eprops(1).color    = 'grey';
 eprops(1).opacity  = 0.7;
+eprops(1).cw       = true;
 
 %Property set 2
 eprops(2).elems    = 2;                %Add this set of properties to element 2

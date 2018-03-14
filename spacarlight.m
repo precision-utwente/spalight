@@ -23,9 +23,6 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% NOTE
-% Constrained warping is accounted for by means of an effective torsional stiffness increase.
-%
 % Version 1.13
 % 16-11-2017
 version = '1.13';
@@ -469,6 +466,8 @@ for i=1:size(eprops,2) %loop over each element property set
                         else
                             cw = 1; 
                         end
+                    else
+                        cw = 1;
                     end
                 case 'circ'
                     cw = 1;
@@ -1083,7 +1082,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK EPROPS INPUT VARIABLE
     if exist('eprops','var')
-        allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity'};
+        allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw'};
         supplied_eprops = fieldnames(eprops);
         unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
         if any(unknown_eprops_i)
@@ -1203,6 +1202,8 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     ensure(mod(eprops(i).nbeams,1)==0,'Property eprops(%i).nbeams should be a positive integer.',i);
                 end
                 
+                if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw));     validateattributes(eprops(i).cw,{'logical'},{'scalar'},'',sprintf('cw property in eprops(%u)',i)); end
+                
                 %check for mandatory fields when dens field is present
                 if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens))
                     validateattributes(eprops(i).dens,{'double'},{'scalar'},'',   sprintf('dens property in eprops(%u)',i));
@@ -1232,6 +1233,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     eprops(i).flex = [];
                     if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
                     if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warn('Property eprops(%u).smod is redundant without the flex property.',i);     end
+                    if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw)); warn('Property eprops(%u).cw is redundant without the flex property.',i);           end
                 end
             end
         end
