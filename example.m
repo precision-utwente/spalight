@@ -48,7 +48,7 @@ eprops(1).nbeams   = 1;                %4 beam elements for simulating these ele
 eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
 eprops(1).color    = 'grey';
 eprops(1).opacity  = 0.7;
-eprops(1).cw       = true;
+eprops(1).cw       = true;             %Constrain warping at nodes
 
 %Property set 2
 eprops(2).elems    = 2;                %Add this set of properties to element 2
@@ -64,7 +64,7 @@ eprops(2).color    = 'darkblue';
 %% OPTIONAL ARGUMENTS
 opt.filename    = 'crosshinge';     %Filename
 % opt.calcbuck    = true;           %Enable calculation of load multipliers
-% opt.showinputonly = true;         %Only visualize the elements and nodes that were defined (not running any simulation)
+opt.showinputonly = false;          %Only visualize the elements and nodes that were defined (not running any simulation)
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 
 

@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.13
-% 16-11-2017
-version = '1.13';
+% Version 1.14
+% 19-03-2018
+version = '1.14';
 
 %% WARNINGS
 warning off backtrace
@@ -48,17 +48,17 @@ switch nargin
     case 1
         warn('Incomplete input; no simulation is run.');
         % validate only nodes
-        [nodes] = validateInput(varargin{:});
+        [nodes] = validateInput(varargin{:}); %#ok<NASGU>
         return
     case 2
         warn('Incomplete input; no simulation is run.');
         % validate only nodes and elements
-        [nodes,elements] = validateInput(varargin{:});
+        [nodes,elements] = validateInput(varargin{:}); %#ok<ASGLU>
         return
     case 3
         warn('Incomplete input; no simulation is run.');
         % validate only nodes, elements and nprops
-        [nodes,elements,nprops] = validateInput(varargin{:});
+        [nodes,elements,nprops] = validateInput(varargin{:}); %#ok<ASGLU>
         return
     case 4
         % validate nodes, elements, nprops and eprops
@@ -460,14 +460,20 @@ for i=1:size(eprops,2) %loop over each element property set
                 case 'rect'
                     L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
                         - nodes(elements(eprops(i).elems(j),1),:));    %calculate flexure length for constrained warping values
+                    
+                    [cw_value, aspect] = cw_values(L,eprops(i));%calculate constrained warping values
+                    
                     if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw))
                         if eprops(i).cw == 1
-                            cw  = cw_values(L,eprops(i));%calculate constrained warping values
+                            cw = cw_value;
                         else
                             cw = 1; 
                         end
                     else
                         cw = 1;
+                        if aspect < 3 && mode ~= 0
+                            warn('Aspect ratio of element %i is < 3; consider (constrained) warping.',eprops(i).elems(j));
+                        end
                     end
                 case 'circ'
                     cw = 1;
@@ -552,7 +558,7 @@ end
 if      (id_ini && id_add);      pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t%3u',pr_add,steps,steps);    %if initial and aditional loading/displacement
 elseif  (id_ini && ~id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t%3u',pr_add,steps);    %if initial loading/displacement
 elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
-else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %no loading/displacement
+else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %#ok<SEPEX> %no loading/displacement
 
 % %TRANSFER FUNCTION INPUT/OUTPUT
 % if ((isfield(opt,'transfer_in') && ~isempty(opt.transfer_in)) ||  (isfield(opt,'transfer_out') && ~isempty(opt.transferout)))
@@ -1679,13 +1685,13 @@ if ~isreal(eul), eul = real(eul); end
 
 end
 
-function cw= cw_values(L,eprops)
-w = eprops.dim(2);
+function [cw, aspect] = cw_values(L,eprops)
+w = eprops.dim(1);
 E = eprops.emod;
 G = eprops.smod;
 v = E/(2*G) - 1;
 
-aspect  = L/w;        %- aspect ratio of flexure
+aspect  = L/w;       %- aspect ratio of flexure
 c       = sqrt(24/(1+v));
 cw      = (aspect*c/(aspect*c-2*tanh(aspect*c/2)));
 end
