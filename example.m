@@ -30,6 +30,8 @@ nprops(1).fix               = true;         %Fix node 1
 nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
 nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3
 nprops(3).mass              = 0.1;            %Mass [kg] of node 3
+nprops(3).transfer_in       = {'force_x','force_y','force_z'};
+nprops(3).transfer_out      = {'displ_x'};
 
 %node 4
 nprops(4).fix               = true;         %Fix node 4
@@ -66,8 +68,8 @@ opt.filename    = 'crosshinge';     %Filename
 % opt.calcbuck    = true;           %Enable calculation of load multipliers
 opt.showinputonly = false;          %Only visualize the elements and nodes that were defined (not running any simulation)
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
-
-
+opt.transfer     = [false; 0];
+opt.silent      = true;
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);
 
