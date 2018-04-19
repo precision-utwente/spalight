@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.14
-% 19-03-2018
-version = '1.14';
+% Version 1.15
+% 19-04-2018
+version = '1.15';
 
 %% WARNINGS
 warning off backtrace
@@ -100,7 +100,9 @@ if ~(isfield(opt,'silent') && opt.silent == 1)
 end
 
 %determine whether silent mode
-if ~(isfield(opt,'mode'))
+if (isfield(opt,'transfer') && opt.transfer{1})
+    opt.mode = 9;
+elseif ~(isfield(opt,'mode'))
     opt.mode = 10;
 elseif opt.mode==3
     opt.filename = [opt.filename '_3'];
@@ -401,6 +403,7 @@ end
 %% NODE FIXES AND INPUTS
 pr_fix = sprintf('#FIXES\t Nn');
 pr_input = sprintf('#INPUT\t Nn\t\tdir');
+
 if size(nodes,1)<size(nprops,2)
     err('Node properties applied to non-existing nodes.')
 end
@@ -415,7 +418,7 @@ for i=1:size(nprops,2)
     if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien)); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+2);   end
     
     %input displacements
-    if mode~=3
+    if (mode~=3 && mode~=9)
         if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
                 (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t1',pr_input,(i-1)*2+1);id_inputx = true;    end
         if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
@@ -433,7 +436,7 @@ for i=1:size(nprops,2)
                 (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
         if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
             err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
-        end
+        end        
     end
 end
 
@@ -495,44 +498,86 @@ pr_force =  sprintf('#FORCES\t\t Nn\t\tFx\t\t\tFy\t\t\tFz');
 pr_moment =  sprintf('#MOMENTS\t Nn\t\tMx\t\t\tMy\t\t\tMz');
 pr_dispr =  sprintf('#INPUTR\t\t Nn\t\tdir\t\tdr');
 pr_dispx =  sprintf('#INPUTX\t\t Nn\t\tdir\t\tdx');
+pr_transfer_in = sprintf('#TRANSFER IN\t  Index \tnode \tdir');
+pr_transfer_out = sprintf('#TRANSFER OUT\t  Index \tnode \tdir');
+tf_input_count = 1;
+tf_output_count = 1;
 pr_nm =  sprintf('#MASS\t\t  Nn\tM,Ixx\t\tIxy\t\t\tIxz\t\t\tIyy\t\t\tIyz\t\t\tIzz');
 id_ini  = false; %check for initial loading or displacement
 id_add  = false; %check for aditional loading or displacement
 
 for i=1:size(nprops,2) %loop over all user defined nodes
-    %forces
-    if(isfield(nprops(i),'force') && ~isempty(nprops(i).force));                    pr_force = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*2+1,nprops(i).force(1),nprops(i).force(2),nprops(i).force(3));                           id_add = true;  id_inputf=true; end
-    if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    pr_force = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*2+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
-    
-    %moments
-    if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)) %#ok<*ALIGN>
-        moments = nprops(i).moment;
-        pr_moment = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f\t%6f',pr_moment,(i-1)*2+2,moments(1),moments(2),moments(3));                                       id_add = true;  id_inputf=true; end
-    if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial))
-        moments_i = nprops(i).moment_initial;
-        pr_moment = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f\t%6f',pr_moment,(i-1)*2+2,moments_i(1),moments_i(2),moments_i(3));                                 id_ini = true;  id_inputf=true; end
-    
-    %displacements
-    if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t1\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
-    if(isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_y(1));                       id_add = true; end
-    if(isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_z(1));                       id_add = true; end
-    if(isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t1\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,1) + nprops(i).displ_initial_x(1));  id_ini = true; end
-    if(isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,2) + nprops(i).displ_initial_y(1));  id_ini = true; end
-    if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
-    
-    %rotations
-    if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([nprops(i).rot_x(1) 0 0]);
-        pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); id_add = true; end
-    if(isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y));                rot = eul2quat([0 nprops(i).rot_y(1) 0]);
-        pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3)); id_add = true; end
-    if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([0 0 nprops(i).rot_z(1)]);
-        pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
-    if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([nprops(i).rot_initial_x(1) 0 0]);
-        pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4));  id_ini = true; end
-    if(isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y));rot = eul2quat([0 nprops(i).rot_initial_y(1) 0]);
-        pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));  id_ini = true; end
-    if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([0 0 nprops(i).rot_initial_z(1)]);
-        pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true; end
+    if mode~=9;
+        %forces
+        if(isfield(nprops(i),'force') && ~isempty(nprops(i).force));                    pr_force = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*2+1,nprops(i).force(1),nprops(i).force(2),nprops(i).force(3));                           id_add = true;  id_inputf=true; end
+        if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    pr_force = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*2+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
+        
+        %moments
+        if(isfield(nprops(i),'moment') && ~isempty(nprops(i).moment)) %#ok<*ALIGN>
+            moments = nprops(i).moment;
+            pr_moment = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f\t%6f',pr_moment,(i-1)*2+2,moments(1),moments(2),moments(3));                                       id_add = true;  id_inputf=true; end
+        if(isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial))
+            moments_i = nprops(i).moment_initial;
+            pr_moment = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f\t%6f',pr_moment,(i-1)*2+2,moments_i(1),moments_i(2),moments_i(3));                                 id_ini = true;  id_inputf=true; end
+        
+        %displacements
+        if(isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t1\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_x(1));                       id_add = true; end
+        if(isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_y(1));                       id_add = true; end
+        if(isfield(nprops(i),'displ_z') && ~isempty(nprops(i).displ_z));                  pr_dispx = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nprops(i).displ_z(1));                       id_add = true; end
+        if(isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t1\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,1) + nprops(i).displ_initial_x(1));  id_ini = true; end
+        if(isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,2) + nprops(i).displ_initial_y(1));  id_ini = true; end
+        if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
+        
+        %rotations
+        if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([nprops(i).rot_x(1) 0 0]);
+            pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); id_add = true; end
+        if(isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y));                rot = eul2quat([0 nprops(i).rot_y(1) 0]);
+            pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3)); id_add = true; end
+        if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([0 0 nprops(i).rot_z(1)]);
+            pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
+        if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([nprops(i).rot_initial_x(1) 0 0]);
+            pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4));  id_ini = true; end
+        if(isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y));rot = eul2quat([0 nprops(i).rot_initial_y(1) 0]);
+            pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));  id_ini = true; end
+        if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([0 0 nprops(i).rot_initial_z(1)]);
+            pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true; end
+    else
+        if (isfield(nprops(i),'transfer_in') && ~isempty(nprops(i).transfer_in))
+            for j=1:length(nprops(i).transfer_in)
+                switch nprops(i).transfer_in{j}
+                    case 'force_x'
+                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,1);
+                    case 'force_y'
+                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,2);
+                    case 'force_z'
+                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,3);
+                end
+                tf_input_count = tf_input_count+1;
+            end 
+        end
+        
+        if (isfield(nprops(i),'transfer_out') && ~isempty(nprops(i).transfer_out))
+            for j=1:length(nprops(i).transfer_out)
+                switch nprops(i).transfer_out{j}
+                    case 'displ_x'
+                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,1);
+                    case 'displ_y'
+                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,2);
+                    case 'displ_z'
+                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,3);
+                    case 'veloc_x'
+                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,1);
+                    case 'veloc_y'
+                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,2);
+                    case 'veloc_z'
+                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,3);
+                end
+            end
+            tf_output_count = tf_output_count+1;
+        end
+         
+         
+    end
     
     %nodal masses/inertia
     if(isfield(nprops(i),'mass') && ~isempty(nprops(i).mass));                      pr_nm = sprintf('%s\nXM\t\t\t%3u\t\t%6f',pr_nm,(i-1)*2+1,nprops(i).mass); end
@@ -559,52 +604,6 @@ if      (id_ini && id_add);      pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.00
 elseif  (id_ini && ~id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t%3u',pr_add,steps);    %if initial loading/displacement
 elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
 else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end %#ok<SEPEX> %no loading/displacement
-
-% %TRANSFER FUNCTION INPUT/OUTPUT
-% if ((isfield(opt,'transfer_in') && ~isempty(opt.transfer_in)) ||  (isfield(opt,'transfer_out') && ~isempty(opt.transferout)))
-%     if id_inputx
-%         disp('Warning: input displacement is prediscribed, possibly affecting input/ouput transfer function.')
-%     end
-%
-%     fprintf(fileID,'\n\nEND\nHALT\n\n');
-%     for i=1:size(opt.transfer_in,2) %add inputs
-%         switch opt.transfer_in(i).cshape
-%             case 'force_x';     fprintf(fileID,'\nINPUTF %2u %3u 1',i,(opt.transfer_in(i).node-1)*2+1);
-%             case 'force_y';     fprintf(fileID,'\nINPUTF %2u %3u 2',i,(opt.transfer_in(i).node-1)*2+1);
-%             case 'force_z';     fprintf(fileID,'\nINPUTF %2u %3u 3',i,(opt.transfer_in(i).node-1)*2+1);
-%                 %TO BE DONE
-%                 %case 'moment_x';    fprintf(fileID,'\nINPUTF %2u %3u 4',i,(opt.transfer_in(i).node-1)*2+2);
-%                 %case 'moment_y';    fprintf(fileID,'\nINPUTF %2u %3u 3',i,(opt.transfer_in(i).node-1)*2+2);
-%                 %case 'moment_z';    fprintf(fileID,'\nINPUTF %2u %3u 2',i,(opt.transfer_in(i).node-1)*2+2);
-%
-%             case 'displ_x';      fprintf(fileID,'\nINX %2u %3u 1',i,(opt.transfer_in(i).node-1)*2+1);
-%             case 'displ_y';      fprintf(fileID,'\nINX %2u %3u 2',i,(opt.transfer_in(i).node-1)*2+1);
-%             case 'displ_z';      fprintf(fileID,'\nINX %2u %3u 3',i,(opt.transfer_in(i).node-1)*2+1);
-%                 %case 'rot_x';       fprintf(fileID,'\nINX %2u %3u 4',i,(opt.transfer_in(i).node-1)*2+2);
-%                 %case 'rot_y';       fprintf(fileID,'\nINX %2u %3u 3',i,(opt.transfer_in(i).node-1)*2+2);
-%                 %case 'rot_z';       fprintf(fileID,'\nINX %2u %3u 2',i,(opt.transfer_in(i).node-1)*2+2);
-%         end
-%     end
-%     for i=1:size(opt.transfer_out,2) %add outputs
-%         switch opt.transfer_out(i).cshape
-%             case 'force_x';     fprintf(fileID,'\nOUTF %2u %3u 1',i,(opt.transfer_out(i).node-1)*2+1);
-%             case 'force_y';     fprintf(fileID,'\nOUTF %2u %3u 2',i,(opt.transfer_out(i).node-1)*2+1);
-%             case 'force_z';     fprintf(fileID,'\nOUTF %2u %3u 3',i,(opt.transfer_out(i).node-1)*2+1);
-%                 %TO BE DONE
-%                 %case 'moment_x';    fprintf(fileID,'\nOUTF %2u %3u 4',i,(opt.transfer_out(i).node-1)*2+2);
-%                 %case 'moment_y';    fprintf(fileID,'\nOUTF %2u %3u 3',i,(opt.transfer_out(i).node-1)*2+2);
-%                 %case 'moment_z';    fprintf(fileID,'\nOUTF %2u %3u 2',i,(opt.transfer_out(i).node-1)*2+2);
-%
-%             case 'displ_x';      fprintf(fileID,'\nOUTX %2u %3u 1',i,(opt.transfer_out(i).node-1)*2+1);
-%             case 'displ_y';      fprintf(fileID,'\nOUTX %2u %3u 2',i,(opt.transfer_out(i).node-1)*2+1);
-%             case 'displ_z';      fprintf(fileID,'\nOUTX %2u %3u 3',i,(opt.transfer_out(i).node-1)*2+1);
-%                 %case 'rot_x';       fprintf(fileID,'\nOUTX %2u %3u 4',i,(opt.transfer_out(i).node-1)*2+2);
-%                 %case 'rot_y';       fprintf(fileID,'\nOUTX %2u %3u 3',i,(opt.transfer_out(i).node-1)*2+2);
-%                 %case 'rot_z';       fprintf(fileID,'\nOUTX %2u %3u 2',i,(opt.transfer_out(i).node-1)*2+2);
-%         end
-%     end
-% end
-
 
 
 %% VISUALIZATION
@@ -695,12 +694,18 @@ print_dat(fileID,'%s\n\n\n',pr_input);
 fprintf(fileID,'\nEND\nHALT\n\n\n');
 print_dat(fileID,'%s\n\n\n\n',pr_stiff);
 print_dat(fileID,'%s\n\n\n\n',pr_mass);
+print_dat(fileID,'%s\n\n\n\n',pr_nm);
+print_dat(fileID,'%s\n\n\n\n',pr_add);
+if mode~=9
 print_dat(fileID,'%s\n\n\n\n',pr_force);
 print_dat(fileID,'%s\n\n\n\n',pr_moment);
 print_dat(fileID,'%s\n\n\n\n',pr_dispr);
 print_dat(fileID,'%s\n\n\n\n',pr_dispx);
-print_dat(fileID,'%s\n\n\n\n',pr_nm);
-print_dat(fileID,'%s\n\n\n\n',pr_add);
+else
+    fprintf(fileID,'END\nHALT\n\n\n\n');
+    print_dat(fileID,'%s\n\n\n\n',pr_transfer_in);
+    print_dat(fileID,'%s\n\n\n\n',pr_transfer_out);
+end
 fprintf(fileID,'END\nEND\n\n\n\n');
 print_dat(fileID,'%s',pr_vis);
 fclose(fileID); %datfile finished!
@@ -970,7 +975,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     if exist('nprops','var')
         
         allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-            'displ_initial_x','displ_initial_y','displ_initial_z'};
+            'displ_initial_x','displ_initial_y','displ_initial_z','transfer_in','transfer_out'};
         supplied_nprops = fieldnames(nprops);
         ensure(size(supplied_nprops,1)>0,'Node properties seem empty.')
         unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
@@ -1003,6 +1008,37 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                         if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('mass property in nprops(%u)',i));      end
                     case 'mominertia'
                         if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'vector','numel',6},'',   sprintf('mominertia property in nprops(%u)',i));   end
+                        
+                    case 'transfer_in'
+                        if ~isempty(nprops(i).(Node_fields{j}))
+                            validateattributes(nprops(i).(Node_fields{j}),{'char','cell'},{'nonempty'},'',   sprintf('transfer_in property in nprops(%u)',i));
+                            %if single string (so char), convert to a cell
+                            if ischar(nprops(i).transfer_in)
+                                nprops(i).transfer_in = cellstr(nprops(i).transfer_in);
+                            end
+                            %since transfer_in field can be a cell of multiple char entries, loop over them and check if all of them are allowed
+                            for k=1:length(nprops(i).transfer_in)
+                                ensure(any(strcmp(nprops(i).transfer_in{k},{'force_x','force_y','force_z'})),'Unknown transfer_in{%u} value in nprops(%u)',k,i);
+                            end
+                            %check if no double entries
+                            [~,ia,ib] = unique(nprops(i).transfer_in);
+                            ensure(length(ia)==length(ib),'nprops(%u).transfer_in should contain unique values.',i);
+                        end
+                    case 'transfer_out'
+                        if ~isempty(nprops(i).(Node_fields{j}))
+                            validateattributes(nprops(i).(Node_fields{j}),{'char','cell'},{'nonempty'},'',   sprintf('transfer_out property in nprops(%u)',i));
+                            %if single string (so char), convert to a cell
+                            if ischar(nprops(i).transfer_out)
+                                nprops(i).transfer_out = cellstr(nprops(i).transfer_out);
+                            end
+                            %since transfer_out field can be a cell of multiple char entries, loop over them and check if they are allowed
+                            for k=1:length(nprops(i).transfer_out)
+                                ensure(any(strcmp(nprops(i).transfer_out{k},{'displ_x','displ_y','displ_z','veloc_x','veloc_y','veloc_z'})),'Unknown transfer_out{%u} value in nprops(%u)',k,i);
+                            end
+                            %check if no double entries
+                            [~,ia,ib] = unique(nprops(i).transfer_out);
+                            ensure(length(ia)==length(ib),'nprops(%u).transfer_out should contain unique values.',i);
+                        end
                 end
             end
             
@@ -1082,6 +1118,37 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 
                 warn('Moment of inertia associated with orientation-fixed node %i.',i);
             end
+            
+            %checks in case of transfer function input or output
+            if (isfield(nprops(i),'transfer_in') && ~isempty(nprops(i).transfer_in)) || (isfield(nprops(i),'transfer_out') && ~isempty(nprops(i).transfer_out))
+                %no combination of (fix or fix_pos) and any transfer_in/transfer_out argument
+                if (isfield(nprops(i),'fix') && any(nprops(i).fix==1)) || (isfield(nprops(i),'fix_pos') && any(nprops(i).fix_pos==1))
+                    err('Cannot use fixed node %u as transfer function input or output.',i);
+                end
+                
+                %no combination of fix_x and (force_x, displ_x, veloc_x)
+                if isfield(nprops(i),'fix_x') && any(nprops(i).fix_x==1) && (...
+                    (isfield(nprops(i),'transfer_in') && any(strcmp('force_x',nprops(i).transfer_in))) || ...
+                    (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_x',nprops(i).transfer_out)) || any(strcmp('veloc_x',nprops(i).transfer_out)))) ...
+                   )
+                        err('Cannot use fixed node %u as transfer function input or output in x-direction',i);
+                end
+                %no combination of fix_y and (force_y, displ_y, veloc_y)
+                if isfield(nprops(i),'fix_y') && any(nprops(i).fix_y==1) && (...
+                    (isfield(nprops(i),'transfer_in') && any(strcmp('force_y',nprops(i).transfer_in))) || ...
+                    (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_y',nprops(i).transfer_out)) || any(strcmp('veloc_y',nprops(i).transfer_out)))) ...
+                   )
+                        err('Cannot use fixed node %u as transfer function input or output in y-direction',i);
+                end
+                %no combination of fix_z and (force_z, displ_z, veloc_z)
+                if isfield(nprops(i),'fix_z') && any(nprops(i).fix_z==1) && (...
+                    (isfield(nprops(i),'transfer_in') && any(strcmp('force_z',nprops(i).transfer_in))) || ...
+                    (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_z',nprops(i).transfer_out)) || any(strcmp('veloc_z',nprops(i).transfer_out)))) ...
+                   )
+                        err('Cannot use fixed node %u as transfer function input or output in z-direction',i);
+                end
+            end
+
         end
         ensure(count_bcs >= 6,'The nodes seem to have insufficient (%i<6) constraints (fix, displ, or rot).',count_bcs);
     end
@@ -1305,7 +1372,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK OPTIONAL ARGUMENTS
     if (exist('opt','var') && ~isempty(opt))
-        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode'};
+        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer'};
         supplied_opts = fieldnames(opt);
         unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
         if any(unknown_opts_i)
@@ -1329,6 +1396,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
             validateattributes(opt.silent,{'logical'},{'scalar'},'',            'silent property in opt');   end
         if (isfield(opt,'calcbuck') && ~isempty(opt.calcbuck))
             validateattributes(opt.calcbuck,{'logical'},{'scalar'},'',          'calcbuck property in opt'); end
+        
         if (isfield(opt,'gravity') && ~isempty(opt.gravity))
             validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
         
@@ -1342,6 +1410,53 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                     validateattributes(opt.rls(i).def,{'double'},{'vector'},'',   sprintf('def property in rls(%u)',i));
                     if any(((opt.rls(i).def==1)+(opt.rls(i).def==2)+(opt.rls(i).def==3)+(opt.rls(i).def==4)+(opt.rls(i).def==5)+(opt.rls(i).def==6))==0)
                         err('Invalid deformation mode in rls(%u).',i)
+                    end
+                end
+            end
+        end
+        
+        %CHECK TRANSFER FIELD
+        if (isfield(opt,'transfer') && ~isempty(opt.transfer))
+            %check whether appropriate type
+            ensure(islogical(opt.transfer) || (iscell(opt.transfer) && length(opt.transfer)==2),'opt.transfer should be logical or 2-field cell.')
+            
+            %check value for relative damping
+            if iscell(opt.transfer)
+                ensure(islogical(opt.transfer{1}),'opt.transfer{1} should be logical.');
+                ensure(isnumeric(opt.transfer{2}),'opt.transfer{2} should be scalar.');
+                ensure(length(opt.transfer{2})==1,'opt.transfer{2} should be scalar.');
+                ensure(opt.transfer{2}>=0,'Relative damping (opt.transfer(2)) should be >=0.');
+            end
+            
+            %opt.transfer can be two different types, always convert to cell
+            if islogical(opt.transfer)
+                opt.transfer = {opt.transfer};
+            end
+            
+            %CHECKS IN CASE TRANSFER == TRUE
+            if any(opt.transfer{1} == true)
+                %check clash with buckling calculation
+                if isfield(opt,'calcbuck') && any(opt.calcbuck==true)
+                    err('Simultaneous calculation of buckling load multipliers (opt.calcbuck) and state-space equations (opt.transfer) is not supported.');
+                end
+            
+                %check if at least one input and at least one output are specified
+                if isfield(nprops,'transfer_in') && isfield(nprops,'transfer_out')
+                    ensure(any(~cellfun(@isempty,{nprops.transfer_in})),'Calculation of state-space equations requires at least one input (nprops.transfer_in)');
+                    ensure(any(~cellfun(@isempty,{nprops.transfer_out})),'Calculation of state-space equations requires at least one output (nprops.transfer_out)');
+                else
+                    err('Calculation of state-space equations requires at least one input (nprops.transfer_in) and output (nprops.transfer_out).'); 
+                end
+            
+                %check clash with some specified input displ, force, moment
+                clashinputs = {
+                    'displ_x','displ_y','displ_z',...
+                    'displ_initial_x','displ_initial_y','displ_initial_z',...
+                    'force','force_initial','moment','moment_initial'...
+                    };
+                for k=1:length(clashinputs)
+                    if isfield(nprops,clashinputs(k))
+                        ensure(all(cellfun('isempty',{nprops.(clashinputs{k})})),'Calculation of state-space equations (opt.transfer) requires absence of nprops.%s input.',clashinputs{k});
                     end
                 end
             end
@@ -1388,6 +1503,7 @@ errorstruct.stack.file = '';
 errorstruct.stack.name = 'spacarlight';
 errorstruct.stack.line = 1;
 errorstruct.identifier = '';
+msg = [msg '\n'];
 
 if nargin > 1
     errorstruct.message = sprintf(msg,varargin{:});
@@ -1555,10 +1671,17 @@ for i=t_list
     results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
     results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
     
+    if opt.mode==9
+        sys_ss = getss(filename);
+        if length(opt.transfer) == 2 %relative damping has been specified
+            reldamp = opt.transfer{2};
+            nstates = size(sys_ss.a,1);
+%             sys_ss.a(nstates/2+1:nstates,nstates/2+1:nstates) = ...
+%                 2*reldamp*(sys_ss.a(nstates/2+1:nstates,1:nstates/2));
+        end
+        results.statespace = sys_ss;
+    end   
 end
-
-
-
 
 end
 
