@@ -67,7 +67,7 @@ opt.filename    = 'crosshinge';     %Filename
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 % opt.calcbuck    = true;           %Enable calculation of load multipliers
 % opt.showinputonly = true;         %Only visualize the elements and nodes that were defined (not running any simulation)
-% opt.transfer = true;              %Calculation of state-space equations
+% opt.transfer = {true 0.01};       %Calculation of state-space equations (with relative damping 0.01)
 
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);

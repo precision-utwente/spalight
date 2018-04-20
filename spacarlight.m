@@ -547,13 +547,13 @@ for i=1:size(nprops,2) %loop over all user defined nodes
             for j=1:length(nprops(i).transfer_in)
                 switch nprops(i).transfer_in{j}
                     case 'force_x'
-                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,1);
+                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,(i-1)*2+1,1);
                         label_transfer_in{tf_input_count} =  sprintf('force_x n%u',i);
                     case 'force_y'
-                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,2);
+                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,(i-1)*2+1,2);
                         label_transfer_in{tf_input_count} =  sprintf('force_y n%u',i);
                     case 'force_z'
-                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,3);
+                        pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,(i-1)*2+1,3);
                         label_transfer_in{tf_input_count} =  sprintf('force_z n%u',i);
                 end
                 tf_input_count = tf_input_count+1;
@@ -564,22 +564,22 @@ for i=1:size(nprops,2) %loop over all user defined nodes
             for j=1:length(nprops(i).transfer_out)
                 switch nprops(i).transfer_out{j}
                     case 'displ_x'
-                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,1);
+                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,1);
                         label_transfer_out{tf_output_count} =  sprintf('displ_x n%u',i);
                     case 'displ_y'
-                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,2);
+                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,2);
                         label_transfer_out{tf_output_count} =  sprintf('displ_y n%u',i);
                     case 'displ_z'
-                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,3);
+                        pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,3);
                         label_transfer_out{tf_output_count} =  sprintf('displ_z n%u',i);
                     case 'veloc_x'
-                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,1);
+                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,1);
                         label_transfer_out{tf_output_count} =  sprintf('veloc_x n%u',i);
                     case 'veloc_y'
-                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,2);
+                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,2);
                         label_transfer_out{tf_output_count} =  sprintf('veloc_y n%u',i);
                     case 'veloc_z'
-                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,3);
+                        pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,3);
                         label_transfer_out{tf_output_count} =  sprintf('veloc_z n%u',i);
                 end
                 tf_output_count = tf_output_count+1;
@@ -1657,9 +1657,9 @@ for i=t_list
     %EIGENFREQUENCIES
     
     if nddof>10
-        [~,D]   = eigs(K0+N0+G0,M0,10,'sm');
+        [V,D]   = eigs(K0+N0+G0,M0,10,'sm');
     else
-        [~,D]   = eig(K0+N0+G0,M0);
+        [V,D]   = eig(K0+N0+G0,M0);
     end
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
@@ -1686,8 +1686,11 @@ for i=t_list
         if length(opt.transfer) == 2 %relative damping has been specified
             reldamp = opt.transfer{2};
             nstates = size(sys_ss.a,1);
-%             sys_ss.a(nstates/2+1:nstates,nstates/2+1:nstates) = ...
-%                 2*reldamp*(sys_ss.a(nstates/2+1:nstates,1:nstates/2));
+            V = V*diag(1./sqrt(diag(V.'*M0*V))); %modeshapes mass-orthonormal
+%             V*diag(D)*V'*M0 %M\K
+%             V*2*reldamp*diag(sqrt(D))*V'*M0; %M\D
+            sys_ss.a(nstates/2+1:nstates,nstates/2+1:nstates) = ...
+                -V*2*reldamp*diag(sqrt(D))*V'*M0;
         end
         results.statespace = sys_ss;
     end  
