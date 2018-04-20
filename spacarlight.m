@@ -126,7 +126,7 @@ ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'str
 
 
 %% BUILD DATFILE
-[~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,0);
+[~, ~, E_list,~,~] = build_datfile(nodes,elements,nprops,eprops,opt,0);
 
 %% SIMULATE FOR CHECKING CONSTRAINTS
 try %try to run spacar in its silent mode
@@ -160,7 +160,7 @@ end
 
 %% RE-BUILD DATFILE
 %appropriate releases should now be in opt.rls
-[id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
+[id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
 
 %% SIMULATE STATICS
 try %run spacar in its silent mode
@@ -225,7 +225,7 @@ end
 try
     %get results
     %note calc_results needs a results struct as input since it can already contain some fields
-    results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, results);
+    results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results);
 catch
     err('A problem occurred processing simulation results.')
 end
@@ -237,7 +237,7 @@ warning backtrace on
 end
 
 
-function [id_inputx, id_inputf, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
+function [id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
 %returns E_list (amongst others):
 % spalight element i is represented by spacar beams E_list(i,:)
 
@@ -500,6 +500,7 @@ pr_dispr =  sprintf('#INPUTR\t\t Nn\t\tdir\t\tdr');
 pr_dispx =  sprintf('#INPUTX\t\t Nn\t\tdir\t\tdx');
 pr_transfer_in = sprintf('#TRANSFER IN\t  Index \tnode \tdir');
 pr_transfer_out = sprintf('#TRANSFER OUT\t  Index \tnode \tdir');
+label_transfer_in = []; label_transfer_out = [];
 tf_input_count = 1;
 tf_output_count = 1;
 pr_nm =  sprintf('#MASS\t\t  Nn\tM,Ixx\t\tIxy\t\t\tIxz\t\t\tIyy\t\t\tIyz\t\t\tIzz');
@@ -547,10 +548,13 @@ for i=1:size(nprops,2) %loop over all user defined nodes
                 switch nprops(i).transfer_in{j}
                     case 'force_x'
                         pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,1);
+                        label_transfer_in{tf_input_count} =  sprintf('force_x n%u',i);
                     case 'force_y'
                         pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,2);
+                        label_transfer_in{tf_input_count} =  sprintf('force_y n%u',i);
                     case 'force_z'
                         pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,i,3);
+                        label_transfer_in{tf_input_count} =  sprintf('force_z n%u',i);
                 end
                 tf_input_count = tf_input_count+1;
             end 
@@ -561,19 +565,25 @@ for i=1:size(nprops,2) %loop over all user defined nodes
                 switch nprops(i).transfer_out{j}
                     case 'displ_x'
                         pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,1);
+                        label_transfer_out{tf_output_count} =  sprintf('displ_x n%u',i);
                     case 'displ_y'
                         pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,2);
+                        label_transfer_out{tf_output_count} =  sprintf('displ_y n%u',i);
                     case 'displ_z'
                         pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,3);
+                        label_transfer_out{tf_output_count} =  sprintf('displ_z n%u',i);
                     case 'veloc_x'
                         pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,1);
+                        label_transfer_out{tf_output_count} =  sprintf('veloc_x n%u',i);
                     case 'veloc_y'
                         pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,2);
+                        label_transfer_out{tf_output_count} =  sprintf('veloc_y n%u',i);
                     case 'veloc_z'
                         pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,i,3);
+                        label_transfer_out{tf_output_count} =  sprintf('veloc_z n%u',i);
                 end
+                tf_output_count = tf_output_count+1;
             end
-            tf_output_count = tf_output_count+1;
         end
          
          
@@ -1556,7 +1566,7 @@ end
 end
 
 %% AUXILIARY FUNCTIONS
-function results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, results)
+function results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results)
 filename = opt.filename;
 nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
 t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %list of timesteps
@@ -1680,7 +1690,13 @@ for i=t_list
 %                 2*reldamp*(sys_ss.a(nstates/2+1:nstates,1:nstates/2));
         end
         results.statespace = sys_ss;
-    end   
+    end  
+    for j=1:length(label_transfer_in)
+        results.statespace.InputName{j} = label_transfer_in{j};
+    end
+    for j=1:length(label_transfer_out)
+        results.statespace.OutputName{j} = label_transfer_out{j};
+    end
 end
 
 end
