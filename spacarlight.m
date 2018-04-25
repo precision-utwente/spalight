@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.2
+% Version 1.21
 % 25-04-2018
-version = '1.2';
+version = '1.21';
 
 %% WARNINGS
 warning off backtrace
@@ -548,13 +548,13 @@ for i=1:size(nprops,2) %loop over all user defined nodes
                 switch nprops(i).transfer_in{j}
                     case 'force_x'
                         pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,(i-1)*2+1,1);
-                        label_transfer_in{tf_input_count} =  sprintf('force_x n%u',i);
+                        label_transfer_in{tf_input_count} =  sprintf('force-x n%u',i);
                     case 'force_y'
                         pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,(i-1)*2+1,2);
-                        label_transfer_in{tf_input_count} =  sprintf('force_y n%u',i);
+                        label_transfer_in{tf_input_count} =  sprintf('force-y n%u',i);
                     case 'force_z'
                         pr_transfer_in = sprintf('%s\nINPUTF\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_in,tf_input_count,(i-1)*2+1,3);
-                        label_transfer_in{tf_input_count} =  sprintf('force_z n%u',i);
+                        label_transfer_in{tf_input_count} =  sprintf('force-z n%u',i);
                 end
                 tf_input_count = tf_input_count+1;
             end 
@@ -565,22 +565,22 @@ for i=1:size(nprops,2) %loop over all user defined nodes
                 switch nprops(i).transfer_out{j}
                     case 'displ_x'
                         pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,1);
-                        label_transfer_out{tf_output_count} =  sprintf('displ_x n%u',i);
+                        label_transfer_out{tf_output_count} =  sprintf('displ-x n%u',i);
                     case 'displ_y'
                         pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,2);
-                        label_transfer_out{tf_output_count} =  sprintf('displ_y n%u',i);
+                        label_transfer_out{tf_output_count} =  sprintf('displ-y n%u',i);
                     case 'displ_z'
                         pr_transfer_out = sprintf('%s\nOUTX\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,3);
-                        label_transfer_out{tf_output_count} =  sprintf('displ_z n%u',i);
+                        label_transfer_out{tf_output_count} =  sprintf('displ-z n%u',i);
                     case 'veloc_x'
                         pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,1);
-                        label_transfer_out{tf_output_count} =  sprintf('veloc_x n%u',i);
+                        label_transfer_out{tf_output_count} =  sprintf('veloc-x n%u',i);
                     case 'veloc_y'
                         pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,2);
-                        label_transfer_out{tf_output_count} =  sprintf('veloc_y n%u',i);
+                        label_transfer_out{tf_output_count} =  sprintf('veloc-y n%u',i);
                     case 'veloc_z'
                         pr_transfer_out = sprintf('%s\nOUTXP\t\t\t%3u\t\t  %3u \t  %3u',pr_transfer_out,tf_output_count,(i-1)*2+1,3);
-                        label_transfer_out{tf_output_count} =  sprintf('veloc_z n%u',i);
+                        label_transfer_out{tf_output_count} =  sprintf('veloc-z n%u',i);
                 end
                 tf_output_count = tf_output_count+1;
             end
