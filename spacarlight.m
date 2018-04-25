@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.15
-% 19-04-2018
-version = '1.15';
+% Version 1.2
+% 25-04-2018
+version = '1.2';
 
 %% WARNINGS
 warning off backtrace
@@ -604,8 +604,7 @@ if (exist('opt','var') && isstruct(opt) && isfield(opt,'gravity') && ~isempty(op
 end
 
 %ITERSTEP SETTINGS
-if (exist('opt','var') && isstruct(opt) && isfield(opt,'loadsteps') && ~isempty(opt.loadsteps) && opt.loadsteps>0)
-    ensure((mod(opt.loadsteps,1)==0 && opt.loadsteps>0),'Number of loadsteps (opt.loadsteps) have to be a positive integer.')
+if (exist('opt','var') && isstruct(opt) && isfield(opt,'loadsteps'))
     steps = opt.loadsteps-1;
 else
     steps = 9;
@@ -1406,11 +1405,17 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
             validateattributes(opt.silent,{'logical'},{'scalar'},'',            'silent property in opt');   end
         if (isfield(opt,'calcbuck') && ~isempty(opt.calcbuck))
             validateattributes(opt.calcbuck,{'logical'},{'scalar'},'',          'calcbuck property in opt'); end
-        
         if (isfield(opt,'gravity') && ~isempty(opt.gravity))
             validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
-        
-        
+        if isfield(opt,'loadsteps')
+            validateattributes(opt.loadsteps,{'double'},{'scalar','>=',1},'',   'loadsteps property in opt');
+            ensure(~isinf(opt.loadsteps),'Number of loadsteps (opt.loadsteps) cannot be Inf.')
+            ensure((mod(opt.loadsteps,1)==0 ),'Number of loadsteps (opt.loadsteps) has to be a positive integer.')
+            if opt.loadsteps >= 100
+               warn('A large number of load steps is specified; this might increase computation time and memory usage.'); 
+            end
+        end
+
         %CHECK RLS INPUT VARIABLE
         if (isfield(opt,'rls') && ~isempty(opt.rls))
             ensure(all(ismember(fieldnames(opt.rls),{'def'})),'Unknown field in rls; only def field is allowed.');
@@ -1435,7 +1440,8 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 ensure(islogical(opt.transfer{1}),'opt.transfer{1} should be logical.');
                 ensure(isnumeric(opt.transfer{2}),'opt.transfer{2} should be scalar.');
                 ensure(length(opt.transfer{2})==1,'opt.transfer{2} should be scalar.');
-                ensure(opt.transfer{2}>=0,'Relative damping (opt.transfer(2)) should be >=0.');
+                ensure(opt.transfer{2}>=0,'Relative damping (opt.transfer{2}) should be >=0.');
+                ensure(~isinf(opt.transfer{2}),'Relative damping (opt.transfer{2}) cannot be Inf.');
             end
             
             %opt.transfer can be two different types, always convert to cell
@@ -1445,6 +1451,11 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
             
             %CHECKS IN CASE TRANSFER == TRUE
             if any(opt.transfer{1} == true)
+                %check 'clash' with loadstep specification
+                if isfield(opt,'loadsteps') && ~isempty(opt.loadsteps)
+                    warn('Specification of load steps is ignored (default of 1 is used) since state-space equations are calculated (opt.transfer=true)');
+                end
+                
                 %check clash with buckling calculation
                 if isfield(opt,'calcbuck') && any(opt.calcbuck==true)
                     err('Simultaneous calculation of buckling load multipliers (opt.calcbuck) and state-space equations (opt.transfer) is not supported.');
@@ -1661,6 +1672,7 @@ for i=t_list
     else
         [V,D]   = eig(K0+N0+G0,M0);
     end
+    
     D       = diag(D);
     [~,o]   = sort(abs(D(:)));
     d       = D(o);
