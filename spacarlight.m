@@ -99,6 +99,11 @@ if ~(isfield(opt,'silent') && opt.silent == 1)
     opt.silent = false;
 end
 
+%determine whether to calculate compliance matrices
+if ~isfield(opt,'calccompl')
+    opt.calccompl = true;
+end
+
 %determine whether silent mode
 if (isfield(opt,'transfer') && opt.transfer{1})
     opt.mode = 9;
