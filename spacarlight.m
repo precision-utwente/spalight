@@ -7,7 +7,7 @@ function results = spacarlight(varargin)
 % Contact: m.naves@utwente.nl
 %
 % CONTRIBUTIONS
-% J.P. Meijaard (complm)
+% J.P. Meijaard (complt)
 % S.E. Boer (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
 % D.H. Wiersma (CWvalues)
 %
@@ -441,7 +441,7 @@ for i=1:size(nprops,2)
                 (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
         if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
             err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
-        end        
+        end
     end
 end
 
@@ -475,7 +475,7 @@ for i=1:size(eprops,2) %loop over each element property set
                         if eprops(i).cw == 1
                             cw = cw_value;
                         else
-                            cw = 1; 
+                            cw = 1;
                         end
                     else
                         cw = 1;
@@ -562,7 +562,7 @@ for i=1:size(nprops,2) %loop over all user defined nodes
                         label_transfer_in{tf_input_count} =  sprintf('force-z n%u',i);
                 end
                 tf_input_count = tf_input_count+1;
-            end 
+            end
         end
         
         if (isfield(nprops(i),'transfer_out') && ~isempty(nprops(i).transfer_out))
@@ -590,8 +590,8 @@ for i=1:size(nprops,2) %loop over all user defined nodes
                 tf_output_count = tf_output_count+1;
             end
         end
-         
-         
+        
+        
     end
     
     %nodal masses/inertia
@@ -711,10 +711,10 @@ print_dat(fileID,'%s\n\n\n\n',pr_mass);
 print_dat(fileID,'%s\n\n\n\n',pr_nm);
 print_dat(fileID,'%s\n\n\n\n',pr_add);
 if mode~=9
-print_dat(fileID,'%s\n\n\n\n',pr_force);
-print_dat(fileID,'%s\n\n\n\n',pr_moment);
-print_dat(fileID,'%s\n\n\n\n',pr_dispr);
-print_dat(fileID,'%s\n\n\n\n',pr_dispx);
+    print_dat(fileID,'%s\n\n\n\n',pr_force);
+    print_dat(fileID,'%s\n\n\n\n',pr_moment);
+    print_dat(fileID,'%s\n\n\n\n',pr_dispr);
+    print_dat(fileID,'%s\n\n\n\n',pr_dispx);
 else
     fprintf(fileID,'END\nHALT\n\n\n\n');
     print_dat(fileID,'%s\n\n\n\n',pr_transfer_in);
@@ -1142,27 +1142,27 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 
                 %no combination of fix_x and (force_x, displ_x, veloc_x)
                 if isfield(nprops(i),'fix_x') && any(nprops(i).fix_x==1) && (...
-                    (isfield(nprops(i),'transfer_in') && any(strcmp('force_x',nprops(i).transfer_in))) || ...
-                    (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_x',nprops(i).transfer_out)) || any(strcmp('veloc_x',nprops(i).transfer_out)))) ...
-                   )
-                        err('Cannot use fixed node %u as transfer function input or output in x-direction',i);
+                        (isfield(nprops(i),'transfer_in') && any(strcmp('force_x',nprops(i).transfer_in))) || ...
+                        (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_x',nprops(i).transfer_out)) || any(strcmp('veloc_x',nprops(i).transfer_out)))) ...
+                        )
+                    err('Cannot use fixed node %u as transfer function input or output in x-direction',i);
                 end
                 %no combination of fix_y and (force_y, displ_y, veloc_y)
                 if isfield(nprops(i),'fix_y') && any(nprops(i).fix_y==1) && (...
-                    (isfield(nprops(i),'transfer_in') && any(strcmp('force_y',nprops(i).transfer_in))) || ...
-                    (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_y',nprops(i).transfer_out)) || any(strcmp('veloc_y',nprops(i).transfer_out)))) ...
-                   )
-                        err('Cannot use fixed node %u as transfer function input or output in y-direction',i);
+                        (isfield(nprops(i),'transfer_in') && any(strcmp('force_y',nprops(i).transfer_in))) || ...
+                        (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_y',nprops(i).transfer_out)) || any(strcmp('veloc_y',nprops(i).transfer_out)))) ...
+                        )
+                    err('Cannot use fixed node %u as transfer function input or output in y-direction',i);
                 end
                 %no combination of fix_z and (force_z, displ_z, veloc_z)
                 if isfield(nprops(i),'fix_z') && any(nprops(i).fix_z==1) && (...
-                    (isfield(nprops(i),'transfer_in') && any(strcmp('force_z',nprops(i).transfer_in))) || ...
-                    (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_z',nprops(i).transfer_out)) || any(strcmp('veloc_z',nprops(i).transfer_out)))) ...
-                   )
-                        err('Cannot use fixed node %u as transfer function input or output in z-direction',i);
+                        (isfield(nprops(i),'transfer_in') && any(strcmp('force_z',nprops(i).transfer_in))) || ...
+                        (isfield(nprops(i),'transfer_out') && (any(strcmp('displ_z',nprops(i).transfer_out)) || any(strcmp('veloc_z',nprops(i).transfer_out)))) ...
+                        )
+                    err('Cannot use fixed node %u as transfer function input or output in z-direction',i);
                 end
             end
-
+            
         end
         ensure(count_bcs >= 6,'The nodes seem to have insufficient (%i<6) constraints (fix, displ, or rot).',count_bcs);
     end
@@ -1419,10 +1419,10 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
             ensure(~isinf(opt.loadsteps),'Number of loadsteps (opt.loadsteps) cannot be Inf.')
             ensure((mod(opt.loadsteps,1)==0 ),'Number of loadsteps (opt.loadsteps) has to be a positive integer.')
             if opt.loadsteps >= 100
-               warn('A large number of load steps is specified; this might increase computation time and memory usage.'); 
+                warn('A large number of load steps is specified; this might increase computation time and memory usage.');
             end
         end
-
+        
         %CHECK RLS INPUT VARIABLE
         if (isfield(opt,'rls') && ~isempty(opt.rls))
             ensure(all(ismember(fieldnames(opt.rls),{'def'})),'Unknown field in rls; only def field is allowed.');
@@ -1467,15 +1467,15 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
                 if isfield(opt,'calcbuck') && any(opt.calcbuck==true)
                     err('Simultaneous calculation of buckling load multipliers (opt.calcbuck) and state-space equations (opt.transfer) is not supported.');
                 end
-            
+                
                 %check if at least one input and at least one output are specified
                 if isfield(nprops,'transfer_in') && isfield(nprops,'transfer_out')
                     ensure(any(~cellfun(@isempty,{nprops.transfer_in})),'Calculation of state-space equations requires at least one input (nprops.transfer_in)');
                     ensure(any(~cellfun(@isempty,{nprops.transfer_out})),'Calculation of state-space equations requires at least one output (nprops.transfer_out)');
                 else
-                    err('Calculation of state-space equations requires at least one input (nprops.transfer_in) and output (nprops.transfer_out).'); 
+                    err('Calculation of state-space equations requires at least one input (nprops.transfer_in) and output (nprops.transfer_out).');
                 end
-            
+                
                 %check clash with some specified input displ, force, moment
                 clashinputs = {
                     'displ_x','displ_y','displ_z',...
@@ -1657,9 +1657,6 @@ for i=t_list
         results.step(i).node(j).r_quat      = x(i,lnp((j-1)*2+2,1:4));
         results.step(i).node(j).Freac       = fxtot(i,lnp((j-1)*2+1,1:3));
         results.step(i).node(j).Mreac       = fxtot(i,lnp((j-1)*2+2,2:4))/2;
-        %compliance matrix can be computed for all timesteps at once with
-        %complmt, but requires seperate loop
-        [results.step(i).node(j).CMglob, results.step(i).node(j).CMloc]  =  complm(filename,(j-1)*2+1,(j-1)*2+2,i);
         
         %also store results for all loadsteps combined
         results.node(j).p(1:3,i)             = results.step(i).node(j).p;
@@ -1668,8 +1665,6 @@ for i=t_list
         results.node(j).r_quat(1:4,i)        = results.step(i).node(j).r_quat;
         results.node(j).Freac(1:3,i)         = results.step(i).node(j).Freac;
         results.node(j).Mreac(1:3,i)         = results.step(i).node(j).Mreac;
-        results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
-        results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
     end
     
     %EIGENFREQUENCIES
@@ -1706,13 +1701,13 @@ for i=t_list
             reldamp = opt.transfer{2};
             nstates = size(sys_ss.a,1);
             V = V*diag(1./sqrt(diag(V.'*M0*V))); %modeshapes mass-orthonormal
-%             V*diag(D)*V'*M0 %M\K
-%             V*2*reldamp*diag(sqrt(D))*V'*M0; %M\D
+            %             V*diag(D)*V'*M0 %M\K
+            %             V*2*reldamp*diag(sqrt(D))*V'*M0; %M\D
             sys_ss.a(nstates/2+1:nstates,nstates/2+1:nstates) = ...
                 -V*2*reldamp*diag(sqrt(D))*V'*M0;
         end
         results.statespace = sys_ss;
-    end  
+    end
     for j=1:length(label_transfer_in)
         results.statespace.InputName{j} = label_transfer_in{j};
     end
@@ -1721,6 +1716,19 @@ for i=t_list
     end
 end
 
+if opt.calccompl
+    for j=1:size(nodes,1)
+        [CMglob, CMloc] = complt(filename,(j-1)*2+1,(j-1)*2+2);
+        for i=t_list
+            results.step(i).node(j).CMglob = CMglob(:,:,i);
+            results.step(i).node(j).CMloc = CMloc(:,:,i);
+        end
+        for i=t_list
+            results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
+            results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+        end
+    end
+end
 end
 
 function stiffness = calc_stiffness(eprops)
@@ -1857,64 +1865,96 @@ c       = sqrt(24/(1+v));
 cw      = (aspect*c/(aspect*c-2*tanh(aspect*c/2)));
 end
 
-function [CMglob, CMloc] = complm(filename,ntr,nrot,tstp)
+function [CMglob, CMloc] = complt(filename,ntr,nrot)
 % Calculate the compliance matrix in global directions and in body-fixed
 % local directions.
+% Calling syntax: [CMglob CMloc] = complt(filename,ntr,nrot)
+% Input:
+%   filename: string with the filename, without extension, of the file
+%             where the data can be found
+%   ntr:      node number of the translational node
+%   nrot:     node number of the rotational node
+% Output:
+%   CMglob: 6 x 6 x n compliance matrix in global directions
+%   CMloc:  6 x 6 x n compliance matrix in local directions
 
-tstp    = tstp-1;
-CMglob  =zeros(6,6);
-CMloc   =zeros(6,6);
-if (nargin < 3) || (nargin>4)
-    warn('complm() needs 3 or 4 input arguments');
+if (nargin ~= 3)
+    disp('complt needs 3 input arguments');
+    CMglob=zeros(6,6,1);
+    CMloc=zeros(6,6,1);
     return;
-end
-if nargin < 4, tstp=0; end
-% get data from files
-DX      =getfrsbf([filename '.sbd'],'dx',tstp+1);
-X       =getfrsbf([filename '.sbd'],'x',tstp+1);
+end;
+
+% read total number of steps from the file
+tdef     =getfrsbf([filename '.sbd'],'tdef');
+CMglob=zeros(6,6,tdef);
+CMloc=zeros(6,6,tdef);
 lnp     =getfrsbf([filename '.sbd'],'lnp');
+nx      =getfrsbf([filename '.sbd'],'nx');
+nkdof   =getfrsbf([filename '.sbd'],'nkdof');
 nxp     =getfrsbf([filename '.sbd'],'nxp');
 nep     =getfrsbf([filename '.sbd'],'nep');
-% nddof   =getfrsbf([filename '.sbd'],'nddof');
+DX_data      =getfrsbf([filename '.sbd'],'dx');
+K0_data      =getfrsbf([filename '.sbm'],'k0');
+G0_data      =getfrsbf([filename '.sbm'],'G0');
+X_data       =getfrsbf([filename '.sbd'],'x');
+
+
 % locate the place of the coordinates of the points where the compliance
 % has to be determined
-locv    =[lnp(ntr,1:3), lnp(nrot,1:4)];
+locv=[lnp(ntr,1:3), lnp(nrot,1:4)];
 % test whether the selected coordinates are feasible
-for i=1:7
-    if locv(i) <= 0
-        warn('Invalid node number for complm().');
-        return;
-    end
-    if locv(i) <= nxp(1) || ...
-            (locv(i)>(nxp(1)+nxp(2)) && locv(i) <= (nxp(1)+nxp(2)+nxp(3)))
-        %          disp('WARNING: constrained node');
-    end
-end
+% for i=1:7
+%   if locv(i) <= 0
+%     disp('ERROR: invalid node number');
+%     return;
+%   end;
+%   if locv(i) <= nxp(1) || ...
+%      (locv(i)>(nxp(1)+nxp(2)) && locv(i) <= (nxp(1)+nxp(2)+nxp(3)))
+%     disp('WARNING: constrained node');
+%   end;
+% end;
 % search for the right degrees of freedom
 locdof=[nxp(3)+(1:nxp(4)), nxp(3)+nxp(4)+nep(3)+(1:nep(4))];
 
-% reduce DX to the rows needed
-DX=DX(locv,locdof);
-K0      =getfrsbf([filename '.sbm'],'k0',tstp+1);
-G0      =getfrsbf([filename '.sbm'],'g0',tstp+1);
-CMlambda=DX*((K0+G0)\(DX'));
-% Reduce CMlambda to the correct matrices by the lambda matrices
-lambda0=X(locv(4));
-lambda1=X(locv(5));
-lambda2=X(locv(6));
-lambda3=X(locv(7));
-lambdabt=[ -lambda1  lambda0 -lambda3  lambda2
-    -lambda2  lambda3  lambda0 -lambda1
-    -lambda3 -lambda2  lambda1  lambda0 ];
-lambdat= [ -lambda1  lambda0  lambda3 -lambda2
-    -lambda2 -lambda3  lambda0  lambda1
-    -lambda3  lambda2 -lambda1  lambda0 ];
-Tglob= [ eye(3)     zeros(3,4)
-    zeros(3,3) 2*lambdabt];
-Tloc = [ lambdat*(lambdabt') zeros(3,4)
-    zeros(3,3) 2*lambdat];
-CMglob=Tglob*CMlambda*(Tglob');
-CMloc=Tloc*CMlambda*(Tloc');
+
+
+
+
+% start loop over the time steps
+for tstp=1:tdef
+    % get data from files
+    %DX      =getfrsbf([filename '.sbd'],'dx',tstp);
+    %X       =getfrsbf([filename '.sbd'],'x',tstp);
+    % reduce DX to the rows needed
+    DX = reshape(DX_data(tstp,:),nx,[]);
+    %K0      =getfrsbf([filename '.sbm'],'k0',tstp);
+    %G0      =getfrsbf([filename '.sbm'],'g0',tstp);
+    K0 = reshape(K0_data(tstp,:),nkdof,[]);
+    G0 = reshape(G0_data(tstp,:),nkdof,[]);
+    
+    DX = DX(locv,locdof);
+    X = X_data(tstp,:);
+    
+    CMlambda=DX*((K0+G0)\(DX'));
+    % Reduce CMlambda to the correct matrices by the lambda matrices
+    lambda0=X(locv(4));
+    lambda1=X(locv(5));
+    lambda2=X(locv(6));
+    lambda3=X(locv(7));
+    lambdabt=[ -lambda1  lambda0 -lambda3  lambda2
+        -lambda2  lambda3  lambda0 -lambda1
+        -lambda3 -lambda2  lambda1  lambda0 ];
+    lambdat= [ -lambda1  lambda0  lambda3 -lambda2
+        -lambda2 -lambda3  lambda0  lambda1
+        -lambda3  lambda2 -lambda1  lambda0 ];
+    Tglob= [ eye(3)     zeros(3,4)
+        zeros(3,3) 2*lambdabt];
+    Tloc = [ lambdat*(lambdabt') zeros(3,4)
+        zeros(3,3) 2*lambdat];
+    CMglob(:,:,tstp)=Tglob*CMlambda*(Tglob');
+    CMloc(:,:,tstp)=Tloc*CMlambda*(Tloc');
+end
 end
 
 function [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops)
