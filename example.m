@@ -65,7 +65,8 @@ eprops(2).color    = 'darkblue';
 %% OPTIONAL ARGUMENTS
 opt.filename    = 'crosshinge';     %Filename
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
-% opt.calcbuck    = true;           %Enable calculation of load multipliers
+opt.calcbuck    = true;             %Enable calculation of load multipliers
+% opt.calccompl   = false;          %Disable calculation of compliance matrices
 % opt.showinputonly = true;         %Only visualize the elements and nodes that were defined (not running any simulation)
 % opt.transfer = {true 0.01};       %Calculation of state-space equations (with relative damping 0.01)
 
