@@ -1381,7 +1381,7 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
     
     %CHECK OPTIONAL ARGUMENTS
     if (exist('opt','var') && ~isempty(opt))
-        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer'};
+        allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl'};
         supplied_opts = fieldnames(opt);
         unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
         if any(unknown_opts_i)
@@ -1405,6 +1405,8 @@ if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent=
             validateattributes(opt.silent,{'logical'},{'scalar'},'',            'silent property in opt');   end
         if (isfield(opt,'calcbuck') && ~isempty(opt.calcbuck))
             validateattributes(opt.calcbuck,{'logical'},{'scalar'},'',          'calcbuck property in opt'); end
+        if (isfield(opt,'calccompl') && ~isempty(opt.calccompl))
+            validateattributes(opt.calccompl,{'logical'},{'scalar'},'',          'calccompl property in opt'); end
         if (isfield(opt,'gravity') && ~isempty(opt.gravity))
             validateattributes(opt.gravity,{'double'},{'vector','numel',3},'',  'gravity property in opt');  end
         if isfield(opt,'loadsteps')
