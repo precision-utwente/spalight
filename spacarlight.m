@@ -1556,12 +1556,15 @@ warning backtrace on
         fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
         fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
         fprintf(fid, 'Message displayed in command window: %s\n',message);
-        fprintf(fid, 'Error: %s\n\n',msg.message);
-        fprintf(fid, '\nError location:\n');
-        for i=1:size(msg.stack,1)
-            fprintf(fid, '\nFile: %s\n',msg.stack(i).file);
-            fprintf(fid, 'Name: %s\n',msg.stack(i).name);
-            fprintf(fid, 'Line: %u\n',msg.stack(i).line);
+        
+        if exist('msg','var')
+            fprintf(fid, 'Error: %s\n\n',msg.message);
+            fprintf(fid, '\nError location:\n');
+            for i=1:size(msg.stack,1)
+                fprintf(fid, '\nFile: %s\n',msg.stack(i).file);
+                fprintf(fid, 'Name: %s\n',msg.stack(i).name);
+                fprintf(fid, 'Line: %u\n',msg.stack(i).line);
+            end
         end
         fprintf(fid, '\n\n\n------ SPACAR DAT INPUT -----\n');
         if exist('dat','var')
@@ -2053,6 +2056,5 @@ warning backtrace on
             rls(i).def = write;
         end
     end
-
 
 end
