@@ -25,7 +25,7 @@ function results = spacarlight(varargin)
 %
 % Version 1.23
 % 15-05-2018
-version = '1.23';
+sl_version = '1.23'; %version variable not allowed, function in matlab
 
 %% WARNINGS
 warning off backtrace
@@ -86,8 +86,8 @@ end
 if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 
 %version number in opt (for further use in spacarlight) and in results (for output to user)
-opt.version = version;
-results.version = version;
+opt.version = sl_version;
+results.version = sl_version;
 
 %set filename, even if not specified
 if ~(isfield(opt,'filename') && ~isempty(opt.filename))
@@ -148,9 +148,9 @@ catch
     catch msg
         switch msg.message
             case 'ERROR in subroutine PRPARE: Too many DOFs.'
-                err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
+                err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.',msg.message);
             otherwise
-                err('Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of the .log file.');
+                err_log(['Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of ' opt.filename '.log for more information.'],msg.message);
         end
     end
 end
@@ -194,12 +194,12 @@ catch
         if ~exist('old_version','var')
             warning('Old version of Spacar detected.')
         end
-    catch
+    catch msg
         %apparently, spacar mode 10 did not succeed.
         %try to figure out what went wrong:
         
         %1) see if a bigD matrix is available and whether its singular:
-        try %#ok<TRYNC>
+        try
             warning('off','all')
             [~] = spacar(0,opt.filename); %to get bigD
             warning('on','all')
@@ -222,24 +222,25 @@ catch
                 end
                 return
             end
+        catch msg
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
+        err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.',msg)
     end
 end
 try
     %get results
     %note calc_results needs a results struct as input since it can already contain some fields
     results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results);
-catch
-    err('A problem occurred processing simulation results.')
+catch msg
+    err(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'],msg)
+    %err_log(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'],msg)
 end
 
 %% WARNINGS
 warning backtrace on
 
 % END OF SPACAR_LIGHT
-end
 
 
 function [id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
@@ -1525,23 +1526,78 @@ if ~isempty(regexp(string,'\n','once'))
 end
 end
 
-function err(msg,varargin)
+function err(message,varargin)
 %custom error function to hide the backtrace stuff in command window
 errorstruct.stack.file = '';
 errorstruct.stack.name = 'spacarlight';
 errorstruct.stack.line = 1;
 errorstruct.identifier = '';
-msg = [msg '\n'];
+message = [message '\n'];
+
 
 if nargin > 1
-    errorstruct.message = sprintf(msg,varargin{:});
+    errorstruct.message = sprintf(message,varargin{:});
 else
-    errorstruct.message =sprintf(msg);
+    errorstruct.message =sprintf(message);
 end
 
 error(errorstruct)
-
 end
+
+function err_log(msg,or_msg)
+%custom error function to hide the backtrace stuff in command window
+errorstruct.stack.file = '';
+errorstruct.stack.name = 'spacarlight';
+errorstruct.stack.line = 1;
+errorstruct.identifier = '';
+errorstruct.message =sprintf(msg);
+
+if exist([opt.filename '.log'],'file')
+    fid = fopen([opt.filename '.log']);
+    log = textscan(fid,'%s','delimiter','\n');
+    fclose(fid);
+end
+if exist([opt.filename '.dat'],'file')
+    fid = fopen([opt.filename '.dat']);
+    dat = textscan(fid,'%s','delimiter','\n');
+    fclose(fid);
+end
+
+fid=fopen([opt.filename '.log'],'w');
+fprintf(fid, 'Date: %s\n',date);
+fprintf(fid, 'Spacarlight version: %s\n',opt.version);
+fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
+fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
+fprintf(fid, 'Message displayed in command window: %s\n',msg);
+fprintf(fid, 'Error: %s\n\n',or_msg.message);
+fprintf(fid, '\nError location:\n');
+for i=1:size(or_msg.stack,1)
+    fprintf(fid, '\nFile: %s\n',or_msg.stack(i).file);
+    fprintf(fid, 'Name: %s\n',or_msg.stack(i).name);
+    fprintf(fid, 'Line: %u\n',or_msg.stack(i).line);
+end
+fprintf(fid, '\n\n\n------ SPACAR DAT INPUT -----\n');
+if exist('dat','var')
+    for i=1:size(dat{1},1)
+        fprintf(fid, '%s\n',dat{1}{i});
+    end
+else
+    fprintf(fid, 'No datfile found');
+end
+fprintf(fid, '\n\n\n------ SPACAR LOG OUTPUT -----\n');
+if exist('log','var')
+    for i=1:size(log{1},1)
+        fprintf(fid, '%s\n',log{1}{i});
+    end
+else
+    fprintf(fid, 'No logfile found');
+end
+fclose(fid);
+
+error(errorstruct)
+end
+
+
 
 function warn(msg,varargin)
 %custom warning function to include sprintf syntax
@@ -2010,4 +2066,7 @@ for i=1:size(rlse,1)
     write(write==0) = [];
     rls(i).def = write;
 end
+end
+
+
 end
