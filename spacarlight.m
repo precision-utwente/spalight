@@ -1533,24 +1533,11 @@ errorstruct.stack.name = 'spacarlight';
 errorstruct.stack.line = 1;
 errorstruct.identifier = '';
 message = [message '\n'];
-
-
 if nargin > 1
     errorstruct.message = sprintf(message,varargin{:});
 else
     errorstruct.message =sprintf(message);
 end
-
-error(errorstruct)
-end
-
-function err_log(msg,or_msg)
-%custom error function to hide the backtrace stuff in command window
-errorstruct.stack.file = '';
-errorstruct.stack.name = 'spacarlight';
-errorstruct.stack.line = 1;
-errorstruct.identifier = '';
-errorstruct.message =sprintf(msg);
 
 if exist([opt.filename '.log'],'file')
     fid = fopen([opt.filename '.log']);
@@ -1568,13 +1555,13 @@ fprintf(fid, 'Date: %s\n',date);
 fprintf(fid, 'Spacarlight version: %s\n',opt.version);
 fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
 fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
-fprintf(fid, 'Message displayed in command window: %s\n',msg);
-fprintf(fid, 'Error: %s\n\n',or_msg.message);
+fprintf(fid, 'Message displayed in command window: %s\n',message);
+fprintf(fid, 'Error: %s\n\n',msg.message);
 fprintf(fid, '\nError location:\n');
-for i=1:size(or_msg.stack,1)
-    fprintf(fid, '\nFile: %s\n',or_msg.stack(i).file);
-    fprintf(fid, 'Name: %s\n',or_msg.stack(i).name);
-    fprintf(fid, 'Line: %u\n',or_msg.stack(i).line);
+for i=1:size(msg.stack,1)
+    fprintf(fid, '\nFile: %s\n',msg.stack(i).file);
+    fprintf(fid, 'Name: %s\n',msg.stack(i).name);
+    fprintf(fid, 'Line: %u\n',msg.stack(i).line);
 end
 fprintf(fid, '\n\n\n------ SPACAR DAT INPUT -----\n');
 if exist('dat','var')
@@ -1596,7 +1583,6 @@ fclose(fid);
 
 error(errorstruct)
 end
-
 
 
 function warn(msg,varargin)
