@@ -148,9 +148,9 @@ catch
     catch msg
         switch msg.message
             case 'ERROR in subroutine PRPARE: Too many DOFs.'
-                err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.',msg.message);
+                err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
             otherwise
-                err_log(['Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of ' opt.filename '.log for more information.'],msg.message);
+                err(['Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck the last line of ' opt.filename '.log for more information.']);
         end
     end
 end
@@ -233,8 +233,7 @@ try
     %note calc_results needs a results struct as input since it can already contain some fields
     results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results);
 catch msg
-    err(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'],msg)
-    %err_log(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'],msg)
+    err(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'])
 end
 
 %% WARNINGS
