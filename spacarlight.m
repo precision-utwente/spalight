@@ -1538,51 +1538,52 @@ warning backtrace on
             errorstruct.message =sprintf(message);
         end
         
-        if exist([opt.filename '.log'],'file')
-            fid = fopen([opt.filename '.log']);
-            log = textscan(fid,'%s','delimiter','\n');
+        try %#ok<TRYNC>
+            if exist([opt.filename '.log'],'file')
+                fid = fopen([opt.filename '.log']);
+                log = textscan(fid,'%s','delimiter','\n');
+                fclose(fid);
+            end
+            if exist([opt.filename '.dat'],'file')
+                fid = fopen([opt.filename '.dat']);
+                dat = textscan(fid,'%s','delimiter','\n');
+                fclose(fid);
+            end
+            
+            fid=fopen([opt.filename '.log'],'w');
+            fprintf(fid, 'Date: %s\n',date);
+            fprintf(fid, 'Spacarlight version: %s\n',opt.version);
+            fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
+            fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
+            fprintf(fid, 'Message displayed in command window: %s\n',message);
+            
+            if exist('msg','var')
+                fprintf(fid, 'Error: %s\n\n',msg.message);
+                fprintf(fid, '\nError location:\n');
+                for i=1:size(msg.stack,1)
+                    fprintf(fid, '\nFile: %s\n',msg.stack(i).file);
+                    fprintf(fid, 'Name: %s\n',msg.stack(i).name);
+                    fprintf(fid, 'Line: %u\n',msg.stack(i).line);
+                end
+            end
+            fprintf(fid, '\n\n\n------ SPACAR DAT INPUT -----\n');
+            if exist('dat','var')
+                for i=1:size(dat{1},1)
+                    fprintf(fid, '%s\n',dat{1}{i});
+                end
+            else
+                fprintf(fid, 'No datfile found');
+            end
+            fprintf(fid, '\n\n\n------ SPACAR LOG OUTPUT -----\n');
+            if exist('log','var')
+                for i=1:size(log{1},1)
+                    fprintf(fid, '%s\n',log{1}{i});
+                end
+            else
+                fprintf(fid, 'No logfile found');
+            end
             fclose(fid);
-        end
-        if exist([opt.filename '.dat'],'file')
-            fid = fopen([opt.filename '.dat']);
-            dat = textscan(fid,'%s','delimiter','\n');
-            fclose(fid);
-        end
-        
-        fid=fopen([opt.filename '.log'],'w');
-        fprintf(fid, 'Date: %s\n',date);
-        fprintf(fid, 'Spacarlight version: %s\n',opt.version);
-        fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
-        fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
-        fprintf(fid, 'Message displayed in command window: %s\n',message);
-        
-        if exist('msg','var')
-            fprintf(fid, 'Error: %s\n\n',msg.message);
-            fprintf(fid, '\nError location:\n');
-            for i=1:size(msg.stack,1)
-                fprintf(fid, '\nFile: %s\n',msg.stack(i).file);
-                fprintf(fid, 'Name: %s\n',msg.stack(i).name);
-                fprintf(fid, 'Line: %u\n',msg.stack(i).line);
-            end
-        end
-        fprintf(fid, '\n\n\n------ SPACAR DAT INPUT -----\n');
-        if exist('dat','var')
-            for i=1:size(dat{1},1)
-                fprintf(fid, '%s\n',dat{1}{i});
-            end
-        else
-            fprintf(fid, 'No datfile found');
-        end
-        fprintf(fid, '\n\n\n------ SPACAR LOG OUTPUT -----\n');
-        if exist('log','var')
-            for i=1:size(log{1},1)
-                fprintf(fid, '%s\n',log{1}{i});
-            end
-        else
-            fprintf(fid, 'No logfile found');
-        end
-        fclose(fid);
-        
+        end       
         error(errorstruct)
     end
 
