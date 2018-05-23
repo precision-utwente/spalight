@@ -1555,7 +1555,7 @@ warning backtrace on
             fprintf(fid, 'Spacarlight version: %s\n',opt.version);
             fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
             fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
-            fprintf(fid, 'Message displayed in command window: %s\n',message);
+            fprintf(fid, 'Message displayed in command window: %s\n',errorstruct.message);
             
             if exist('msg','var')
                 fprintf(fid, 'Error: %s\n\n',msg.message);
