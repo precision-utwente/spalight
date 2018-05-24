@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.23
-% 15-05-2018
-sl_version = '1.23'; %version variable not allowed, function in matlab
+% Version 1.24
+% 24-05-2018
+sl_version = '1.24';
 
 %% WARNINGS
 warning off backtrace
@@ -128,7 +128,7 @@ end
 ensure(exist('spacar','file') == 3,'spacar() is not in your path.');
 ensure((exist('spavisual','file') == 2 || exist('spavisual','file') == 6),'spavisual() is not in your path.');
 ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'stressbeam() is not in your path (typically part of spavisual package).');
-
+ensure((exist('getss','file') == 2 || exist('getss','file') == 6),'getss() is not in your path.');
 
 %% BUILD DATFILE
 [~, ~, E_list,~,~] = build_datfile(nodes,elements,nprops,eprops,opt,0);
