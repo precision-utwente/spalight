@@ -86,7 +86,6 @@ end
 if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 
 %version number in opt (for further use in spacarlight) and in results (for output to user)
-opt.version = sl_version;
 results.version = sl_version;
 
 %set filename, even if not specified
@@ -262,7 +261,7 @@ warning backtrace on
         end
         
         %% START CREATING DATFILE
-        pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',opt.version,datestr(datetime),username);
+        pr_I = sprintf('#Dat-file generated with SPACAR Light version %s\n#Date: %s\n#User: %s',sl_version,datestr(datetime),username);
         
         if mode==3
             pr_I = sprintf('%s \n%s',pr_I,'OUTLEVEL 0 1');
