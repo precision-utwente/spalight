@@ -29,9 +29,9 @@ function results = spacarlight(varargin)
 %Fixes for warping nodes
 
 
-% Version 1.24
-% 24-05-2018
-sl_version = '1.24';
+% Version 2.01 (beamw)
+% 04-06-2018
+sl_version = '2.01';
 
 %% WARNINGS
 warning off backtrace
