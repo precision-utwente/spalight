@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.24
-% 24-05-2018
-sl_version = '1.24';
+% Version 1.25
+% 06-06-2018
+sl_version = '1.25';
 
 %% WARNINGS
 warning off backtrace
@@ -225,7 +225,7 @@ catch
         catch msg
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.',msg)
+        err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
     end
 end
 try
@@ -1538,6 +1538,13 @@ warning backtrace on
             errorstruct.message =sprintf(message);
         end
         
+        fid_write=fopen([opt.filename '.log'],'w');
+        fprintf(fid_write, 'Date: %s\n',date);
+        fprintf(fid_write, 'Spacarlight version: %s\n',sl_version);
+        fprintf(fid_write, 'Matlab version: %s\n\n\n\n',version);
+        fprintf(fid_write, '------ SPACAR LIGHT LOG -----\n');
+        fprintf(fid_write, 'Message displayed in command window: %s\n',errorstruct.message);
+        
         try %#ok<TRYNC>
             if exist([opt.filename '.log'],'file')
                 fid = fopen([opt.filename '.log']);
@@ -1550,40 +1557,33 @@ warning backtrace on
                 fclose(fid);
             end
             
-            fid=fopen([opt.filename '.log'],'w');
-            fprintf(fid, 'Date: %s\n',date);
-            fprintf(fid, 'Spacarlight version: %s\n',opt.version);
-            fprintf(fid, 'Matlab version: %s\n\n\n\n',version);
-            fprintf(fid, '------ SPACAR LIGHT LOG -----\n');
-            fprintf(fid, 'Message displayed in command window: %s\n',errorstruct.message);
-            
             if exist('msg','var')
-                fprintf(fid, 'Error: %s\n\n',msg.message);
-                fprintf(fid, '\nError location:\n');
+                fprintf(fid_write, 'Error: %s\n\n',msg.message);
+                fprintf(fid_write, '\nError location:\n');
                 for i=1:size(msg.stack,1)
-                    fprintf(fid, '\nFile: %s\n',msg.stack(i).file);
-                    fprintf(fid, 'Name: %s\n',msg.stack(i).name);
-                    fprintf(fid, 'Line: %u\n',msg.stack(i).line);
+                    fprintf(fid_write, '\nFile: %s\n',msg.stack(i).file);
+                    fprintf(fid_write, 'Name: %s\n',msg.stack(i).name);
+                    fprintf(fid_write, 'Line: %u\n',msg.stack(i).line);
                 end
             end
-            fprintf(fid, '\n\n\n------ SPACAR DAT INPUT -----\n');
+            fprintf(fid_write, '\n\n\n------ SPACAR DAT INPUT -----\n');
             if exist('dat','var')
                 for i=1:size(dat{1},1)
-                    fprintf(fid, '%s\n',dat{1}{i});
+                    fprintf(fid_write, '%s\n',dat{1}{i});
                 end
             else
-                fprintf(fid, 'No datfile found');
+                fprintf(fid_write, 'No datfile found');
             end
             fprintf(fid, '\n\n\n------ SPACAR LOG OUTPUT -----\n');
             if exist('log','var')
                 for i=1:size(log{1},1)
-                    fprintf(fid, '%s\n',log{1}{i});
+                    fprintf(fid_write, '%s\n',log{1}{i});
                 end
             else
-                fprintf(fid, 'No logfile found');
+                fprintf(fid_write, 'No logfile found');
             end
-            fclose(fid);
-        end       
+        end
+        fclose(fid_write);
         error(errorstruct)
     end
 
