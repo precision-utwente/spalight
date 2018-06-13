@@ -312,7 +312,11 @@ warning backtrace on
                     else
                         Orien = [0 1 0];
                     end
-                    warping = eprops(j).enable_warping;
+                    if isempty(eprops(j).enable_warping)
+                        warping = false;
+                    else
+                        warping = eprops(j).enable_warping;
+                    end
                 end
             end
             if i_set == 0 %defaults for if element does not exist in any element set
@@ -383,7 +387,7 @@ warning backtrace on
             end
             
             %for the last beam only, add dyne and/or rlse
-            if mode~=0
+           % if mode~=0
                 if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
                     pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
                     for m=1:length(Flex)    %loop over all flexible deformation modes
@@ -420,7 +424,7 @@ warning backtrace on
                         pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
                     end
                 end
-            end
+           % end
             
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
             x_count = x_count+3; %increase node counter by 2 (+1 for rotation node)
