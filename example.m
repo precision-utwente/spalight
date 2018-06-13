@@ -25,12 +25,12 @@ elements = [    1   3;  %element 1
 nprops(1).fix               = true;         %Fix node 1
 
 %node 3
-nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
-nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
-nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3
+%nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
+%nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
+%nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3
 nprops(3).mass              = 0.1;          %Mass [kg] of node 3
-% nprops(3).transfer_in = {'force_z'};
-% nprops(3).transfer_out = {'displ_z'};
+nprops(3).transfer_in = {'force_z'};
+nprops(3).transfer_out = {'displ_z'};
 
 %node 4
 nprops(4).fix               = true;         %Fix node 4
@@ -65,10 +65,10 @@ eprops(2).color    = 'darkblue';
 %% OPTIONAL ARGUMENTS
 opt.filename    = 'crosshinge';     %Filename
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
-opt.calcbuck    = true;             %Enable calculation of load multipliers
+%opt.calcbuck    = true;             %Enable calculation of load multipliers
 % opt.calccompl   = false;          %Disable calculation of compliance matrices
 % opt.showinputonly = true;         %Only visualize the elements and nodes that were defined (not running any simulation)
-% opt.transfer = {true 0.01};       %Calculation of state-space equations (with relative damping 0.01)
+opt.transfer = {true 0.01};       %Calculation of state-space equations (with relative damping 0.01)
 
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);
