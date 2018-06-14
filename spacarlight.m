@@ -332,12 +332,10 @@ warning backtrace on
                         pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-2,x_count-1,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
                     end
                     
-                    if mode~=0
-                        if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
-                            pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                            for m=1:length(Flex) %loop over all flexible deformation modes
-                                pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                            end
+                    if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
+                        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                        for m=1:length(Flex) %loop over all flexible deformation modes
+                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                         end
                     end
                     
@@ -360,42 +358,40 @@ warning backtrace on
             end
             
             %for the last beam only, add dyne and/or rlse
-            if mode~=0
-                if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
-                    pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                    for m=1:length(Flex)    %loop over all flexible deformation modes
-                        pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                    end
-                else%if some rls are specified
-                    %compensate size of rls if size is smaller than element list
-                    if i>size(opt.rls,2)
-                        opt.rls(i).def = [];
-                    end
-                    
-                    % add dyne
-                    if ~isempty(Flex)                           %if some flexibility is specified
-                        dyn_added = false;                      %reset identifier to check if string 'dyne' is added
-                        for m=1:length(Flex)                    %loop over all flexible deformation modes
-                            if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
-                                if ~dyn_added                   %only add string 'dyne' if it is not yet added
-                                    pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                                    dyn_added = true;           %set 'dyne' identifier
-                                end
-                                pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+            if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
+                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                for m=1:length(Flex)    %loop over all flexible deformation modes
+                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                end
+            else%if some rls are specified
+                %compensate size of rls if size is smaller than element list
+                if i>size(opt.rls,2)
+                    opt.rls(i).def = [];
+                end
+                
+                % add dyne
+                if ~isempty(Flex)                           %if some flexibility is specified
+                    dyn_added = false;                      %reset identifier to check if string 'dyne' is added
+                    for m=1:length(Flex)                    %loop over all flexible deformation modes
+                        if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
+                            if ~dyn_added                   %only add string 'dyne' if it is not yet added
+                                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                                dyn_added = true;           %set 'dyne' identifier
                             end
+                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                         end
                     end
-                    
-                    
-                    % add rlse
-                    rlse_added = false;                    %reset identifier to check if string 'rlse' is added
-                    for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
-                        if ~rlse_added                     %only add string 'rlse' if it is not yet added
-                            pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
-                            rlse_added = true;
-                        end
-                        pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
+                end
+                
+                
+                % add rlse
+                rlse_added = false;                    %reset identifier to check if string 'rlse' is added
+                for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
+                    if ~rlse_added                     %only add string 'rlse' if it is not yet added
+                        pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
+                        rlse_added = true;
                     end
+                    pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
                 end
             end
             
@@ -695,7 +691,15 @@ warning backtrace on
             end
             pr_vis = sprintf('%s\nFACECOLOR\t  %3f %3f %3f',pr_vis,no_set_color(1),no_set_color(2),no_set_color(3));
         end
-        
+        try
+            if(isfield(opt,'customvis') && ~isempty(opt.customvis));
+                for i=1:size(opt.customvis,2)
+                    pr_vis = sprintf('%s\n%s',pr_vis,opt.customvis{i});
+                end
+            end
+        catch msg
+            err('Invalid opt.customvis input')
+        end
         
         fileID = fopen([opt.filename '.dat'],'w');
         print_dat(fileID,'%s\n\n\n\n',pr_I);
@@ -1385,7 +1389,7 @@ warning backtrace on
             
             %CHECK OPTIONAL ARGUMENTS
             if (exist('opt','var') && ~isempty(opt))
-                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl'};
+                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis'};
                 supplied_opts = fieldnames(opt);
                 unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
                 if any(unknown_opts_i)
