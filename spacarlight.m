@@ -1893,13 +1893,13 @@ warning backtrace on
                 A   = t*w;
                 Iy  = 1/12 * t^3*w;
                 Iz  = 1/12 * t*w^3;
-                Vwc = (w^3*t^3)/144;
+                Iw = (w^3*t^3)/144;
             case 'circ'
                 d   = dim(1);
                 A   = (pi/4)*d^2;
                 Iy  = (pi/64)*d^4;
                 Iz  = Iy;
-                Vwc = 1;
+                Iw = 1;
         end
         
         inertia(1,1) = rho*A;
@@ -1907,7 +1907,10 @@ warning backtrace on
         inertia(1,3) = rho*Iy;
         inertia(1,4) = rho*Iz;
         inertia(1,5) = 0;
-        inertia(1,6) = rho*Vwc;
+        inertia(1,6) = rho*Iw;
+        if any(inertia([1:4 6])<1e-16)
+            err('Some inertia components are smaller then 1e-16. Check the cross-sectional dimensions of your beams or consider scaling your system (i.e. from meters to millimeters)')
+        end
     end
 
     function out = quat2axang(q)
