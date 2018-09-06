@@ -410,12 +410,12 @@ warning backtrace on
         
         for i=1:size(nprops,2)
             %fixes
-            if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix));            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*2+1,(i-1)*2+2); end
-            if(isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos));    pr_fix = sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+1);   end
-            if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*2+1);  end
-            if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*2+1);  end
-            if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z));        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*2+1);  end
-            if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien)); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+2);   end
+            if(isfield(nprops(i),'fix') &&  nprops(i).fix);            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*2+1,(i-1)*2+2); end
+            if(isfield(nprops(i),'fix_pos') && nprops(i).fix_pos);     pr_fix = sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+1);   end
+            if(isfield(nprops(i),'fix_x') && nprops(i).fix_x);         pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*2+1);  end
+            if(isfield(nprops(i),'fix_y') && nprops(i).fix_y);         pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*2+1);  end
+            if(isfield(nprops(i),'fix_z') && nprops(i).fix_z);         pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*2+1);  end
+            if(isfield(nprops(i),'fix_orien') && nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*2+2);   end
             
             %input displacements
             if (mode~=3 && mode~=9)
