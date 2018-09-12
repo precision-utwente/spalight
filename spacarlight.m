@@ -176,8 +176,8 @@ try %run spacar in its silent mode
         results.fighandle.Children.XLabel.String = 'x';
         results.fighandle.Children.YLabel.String = 'y';
         results.fighandle.Children.ZLabel.String = 'z';
+        disp('Spacar simulation succeeded.')
     end
-    disp('Spacar simulation succeeded.')
 catch
     try %retry to run spacar in non-silent mode for old spacar versions
         warning('off','all')
