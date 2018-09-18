@@ -429,11 +429,11 @@ warning backtrace on
                 %input rotations
                 id_inputr = 0; %identifier to count the number of input rotations
                 if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
-                        (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+                        (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
                         (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
-                        (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+                        (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
                     err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
                 end
@@ -530,18 +530,18 @@ warning backtrace on
                 if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
                 
                 %rotations
-                if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([nprops(i).rot_x(1) 0 0]);
-                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); id_add = true; end
+                if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([0 0 nprops(i).rot_x(1)]);
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
                 if(isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y));                rot = eul2quat([0 nprops(i).rot_y(1) 0]);
                     pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3)); id_add = true; end
-                if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([0 0 nprops(i).rot_z(1)]);
-                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
-                if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([nprops(i).rot_initial_x(1) 0 0]);
-                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4));  id_ini = true; end
+                if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([nprops(i).rot_z(1) 0 0]);
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); id_add = true; end
+                if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([0 0 nprops(i).rot_initial_x(1)]);
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true; end
                 if(isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y));rot = eul2quat([0 nprops(i).rot_initial_y(1) 0]);
                     pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));  id_ini = true; end
-                if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([0 0 nprops(i).rot_initial_z(1)]);
-                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true; end
+                if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([nprops(i).rot_initial_z(1) 0 0]);
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4));  id_ini = true; end
             else
                 if (isfield(nprops(i),'transfer_in') && ~isempty(nprops(i).transfer_in))
                     for j=1:length(nprops(i).transfer_in)
@@ -991,8 +991,8 @@ warning backtrace on
             %CHECK NPROPS INPUT VARIABLE
             if exist('nprops','var')
                 
-                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-                    'displ_initial_x','displ_initial_y','displ_initial_z','transfer_in','transfer_out'};
+                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+                    'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
                 supplied_nprops = fieldnames(nprops);
                 ensure(size(supplied_nprops,1)>0,'Node properties seem empty.')
                 unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
