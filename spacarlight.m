@@ -386,7 +386,7 @@ warning backtrace on
             end
             
             %for the last beam only, add dyne and/or rlse
-
+            
 
             if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
                 pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
@@ -423,7 +423,7 @@ warning backtrace on
                     end
                     pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
                 end
-           % end
+           end
             
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
             x_count = x_count+3; %increase node counter by 2 (+1 for rotation node)
@@ -2021,7 +2021,7 @@ warning backtrace on
             CMglob=zeros(6,6,1);
             CMloc=zeros(6,6,1);
             return;
-        end;
+        end
         
         % read total number of steps from the file
         tdef     =getfrsbf([filename '.sbd'],'tdef');
