@@ -52,5 +52,8 @@ txt/
 *.sbm
 *.log
 *.dat
+
 example.m
 example_statespace.m
+test.m
+

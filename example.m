@@ -27,10 +27,8 @@ nprops(1).fix               = true;         %Fix node 1
 %node 3
 nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
 nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
-nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3
+nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3 (combined with moment_initial, moment goes from -0.025 to 0.025 Nm)
 nprops(3).mass              = 0.1;          %Mass [kg] of node 3
-% nprops(3).transfer_in = {'force_z'};
-% nprops(3).transfer_out = {'displ_z'};
 
 %node 4
 nprops(4).fix               = true;         %Fix node 4
@@ -45,11 +43,11 @@ eprops(1).dens     = 7800;             %Density [kg/m^3]
 eprops(1).cshape   = 'rect';           %Rectangular cross-section
 eprops(1).dim      = [50e-3 0.2e-3];   %Width: 50 mm, thickness: 0.2 mm
 eprops(1).orien    = [0 0 1];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(1).nbeams   = 1;                %4 beam elements for simulating these elements
+eprops(1).nbeams   = 2;                %Number of beams used to model this element 
 eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
-eprops(1).color    = 'grey';
-eprops(1).opacity  = 0.7;
-eprops(1).cw       = true;             %Constrain warping at nodes
+eprops(1).color    = 'grey';           %Color
+eprops(1).opacity  = 0.7;              %Opacity
+eprops(1).cw       = true;             %Constrain warping at nodes (typical condition for flexure clamped at both ends). For a "free" end, warping is typically not constrained
 
 %Property set 2
 eprops(2).elems    = 2;                %Add this set of properties to element 2
@@ -57,7 +55,7 @@ eprops(2).dens     = 3000;             %Density [kg/m^3]
 eprops(2).cshape   = 'rect';           %Rectangular cross-section
 eprops(2).dim      = [50e-3 10e-3];    %Width: 50 mm, thickness: 10 mm
 eprops(2).orien    = [0 0 1];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(2).nbeams   = 1;                %1 beam element for simulating this element
+eprops(2).nbeams   = 1;                %1 beam for simulating this element (as it is rigid an no more elements are required)
 eprops(2).color    = 'darkblue';
 % eprops(2).hide     = true;           %Hide element (in visualization only)
 
@@ -66,12 +64,13 @@ eprops(2).color    = 'darkblue';
 opt.filename    = 'crosshinge';     %Filename
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 opt.calcbuck    = true;             %Enable calculation of load multipliers
-% opt.calccompl   = false;          %Disable calculation of compliance matrices
-% opt.showinputonly = true;         %Only visualize the elements and nodes that were defined (not running any simulation)
-% opt.transfer = {true 0.01};       %Calculation of state-space equations (with relative damping 0.01)
+%opt.calccompl   = false;            %Disable calculation of compliance matrices (can reduce computation time for large simulations)
+%opt.showinputonly = true;          %Only visualize the elements and nodes that were defined (not running any simulation)
+%opt.silent      = true;            %Run in silent mode
 
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);
+
 
 %out.step(i)                            Results at loadstep i
 %out.step(i).freq                       List with eigenfrequencies [Hz], sorted from lowest to highest
@@ -84,7 +83,8 @@ out = spacarlight(nodes, elements, nprops, eprops, opt);
 %out.step(i).node(j).r_quat             Rotations in quaternions
 %out.step(i).node(j).Freac              Reaction forces on the node
 %out.step(i).node(j).Mreac              Reaction moments on the node
-%out.step(i).node(j).CMglob             6x6 compliance matrix of the node in the global frame
-%out.step(i).node(j).CMloc              6x6 compliance matrix of the node in the local frame
+%out.step(i).node(j).CMglob             6x6 compliance matrix of the node in the global frame**
+%out.step(i).node(j).CMloc              6x6 compliance matrix of the node in the local frame**
 %
 %   *load multipliers only calculated if opt.calcbuck = true.
+%   **Compliance matrixes only calculated if opt.calccompl = true (if not specified, the default option "true" will be used)
