@@ -1384,7 +1384,7 @@ warning backtrace on
                             eprops(i).flex = [];
                             if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
                             if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warn('Property eprops(%u).smod is redundant without the flex property.',i);     end
-                            if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw)); warn('Property eprops(%u).cw is redundant without the flex property.',i);           end
+                            if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw) && eprops(i).cw); warn('Property eprops(%u).cw is redundant without the flex property.',i);           end
                         end
                     end
                 end
