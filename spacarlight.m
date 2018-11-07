@@ -222,7 +222,7 @@ catch
                 if opt.autosolve
                     opt.autosolve = false;
                     opt.rls = [];
-                    [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt);
+                    [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
                     [~] = spacar(0,opt.filename);
                     [~, ~, overconstraints] = check_constraints(opt,E_list,eprops);
                     results.overconstraints = overconstraints;
