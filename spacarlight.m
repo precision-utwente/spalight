@@ -582,17 +582,17 @@ warning backtrace on
                 %rotations
 
                 if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([0 0 nprops(i).rot_x(1)]);
-                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*3+2,rot(2)); id_add = true; end
                 if(isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y));                rot = eul2quat([0 nprops(i).rot_y(1) 0]);
-                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3)); id_add = true; end
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*3+2,rot(3)); id_add = true; end
                 if(isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z));                rot = eul2quat([nprops(i).rot_z(1) 0 0]);
-                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); id_add = true; end
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*3+2,rot(4)); id_add = true; end
                 if(isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x));rot = eul2quat([0 0 nprops(i).rot_initial_x(1)]);
-                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true; end
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*3+2,rot(2));  id_ini = true; end
                 if(isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y));rot = eul2quat([0 nprops(i).rot_initial_y(1) 0]);
-                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));  id_ini = true; end
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*3+2,rot(3));  id_ini = true; end
                 if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([nprops(i).rot_initial_z(1) 0 0]);
-                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4));  id_ini = true; end
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*3+2,rot(4));  id_ini = true; end
             else
                 if (isfield(nprops(i),'transfer_in') && ~isempty(nprops(i).transfer_in))
                     for j=1:length(nprops(i).transfer_in)
