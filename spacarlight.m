@@ -462,13 +462,13 @@ warning backtrace on
                 %input rotations
                 id_inputr = 0; %identifier to count the number of input rotations
                 if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
-                        (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*3+2);id_inputx = true; id_inputr=id_inputr+1; end
+                        (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*3+2);id_inputx = true; id_inputr=id_inputr+1; end
 
                 if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
                         (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t3',pr_input,(i-1)*3+2);id_inputx = true; id_inputr=id_inputr+1; end
                 
                 if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
-                        (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*3+2);id_inputx = true; id_inputr=id_inputr+1; end
+                        (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t4',pr_input,(i-1)*3+2);id_inputx = true; id_inputr=id_inputr+1; end
 
                 if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
                     err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
