@@ -448,7 +448,9 @@ warning backtrace on
             if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) &&  nprops(i).fix_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
             if(isfield(nprops(i),'fix_w') && ~isempty(nprops(i).fix_w) && nprops(i).fix_w); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
-
+            if(isfield(nprops(i),'fix_rot_x') &&~isempty(nprops(i).fix_rot_x) && nprops(i).fix_rot_x);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+2);  end
+            if(isfield(nprops(i),'fix_rot_y') && ~isempty(nprops(i).fix_rot_y) &&  nprops(i).fix_rot_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+2);  end
+            if(isfield(nprops(i),'fix_rot_z') && ~isempty(nprops(i).fix_rot_z) &&  nprops(i).fix_rot_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t4',pr_fix,(i-1)*3+2);  end
             
             %input displacements
             if (mode~=3 && mode~=9)
@@ -1043,7 +1045,7 @@ warning backtrace on
             if exist('nprops','var')
                 
 
-                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','fix_w','displ_x','displ_y','displ_z','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_rot_x','fix_rot_y','fix_rot_z','fix_pos','fix_orien','fix_w','displ_x','displ_y','displ_z','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
                     'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
 
                 supplied_nprops = fieldnames(nprops);
@@ -1066,6 +1068,8 @@ warning backtrace on
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_pos/orien property in nprops(%u)',i)); end
                             case {'fix_x','fix_y','fix_z'}
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_x/y/z property in nprops(%u)',i)); end
+                            case {'fix_rot_x','fix_rot_y','fix_rot_z'}
+                                if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_rot_x/y/z property in nprops(%u)',i)); end
                             case 'fix_w'
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_w property in nprops(%u)',i)); end
                             case {'force','force_initial'}
@@ -1122,6 +1126,9 @@ warning backtrace on
                     if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x) && nprops(i).fix_x == true);             count_bcs = count_bcs + 1;   end
                     if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) && nprops(i).fix_y == true);             count_bcs = count_bcs + 1;   end
                     if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) && nprops(i).fix_z == true);             count_bcs = count_bcs + 1;   end
+                    if(isfield(nprops(i),'fix_rot_x') && ~isempty(nprops(i).fix_rot_x) && nprops(i).fix_rot_x == true); count_bcs = count_bcs + 1;   end
+                    if(isfield(nprops(i),'fix_rot_y') && ~isempty(nprops(i).fix_rot_y) && nprops(i).fix_rot_y == true); count_bcs = count_bcs + 1;   end
+                    if(isfield(nprops(i),'fix_rot_z') && ~isempty(nprops(i).fix_rot_z) && nprops(i).fix_rot_z == true); count_bcs = count_bcs + 1;   end
                     
                     %checks for input displacements
                     if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
