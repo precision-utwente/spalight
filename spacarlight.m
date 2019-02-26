@@ -366,7 +366,7 @@ warning backtrace on
                 
                 %for the last beam in element i, connect to last intermediate node and q-node
                 if ~warping
-                    pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),k+1);
+                    pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),k+1);
                 else
                     pr_E = sprintf('%s\nBEAMW\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,x_count-1,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),k+1);
                 end
