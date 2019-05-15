@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.27
-% 19-09-2018
-sl_version = '1.27';
+% Version 1.28
+% 15-05-2019
+sl_version = '1.28';
 
 %% WARNINGS
 warning off backtrace
@@ -1766,14 +1766,18 @@ warning backtrace on
         
         if opt.calccompl
             for j=1:size(nodes,1)
-                [CMglob, CMloc] = complt(filename,(j-1)*2+1,(j-1)*2+2);
-                for i=t_list
-                    results.step(i).node(j).CMglob = CMglob(:,:,i);
-                    results.step(i).node(j).CMloc = CMloc(:,:,i);
-                end
-                for i=t_list
-                    results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
-                    results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+                if ismember(j,elements) %Check if node in element list
+                    [CMglob, CMloc] = complt(filename,(j-1)*2+1,(j-1)*2+2);
+                    for i=t_list
+                        results.step(i).node(j).CMglob = CMglob(:,:,i);
+                        results.step(i).node(j).CMloc = CMloc(:,:,i);
+                    end
+                    for i=t_list
+                        results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
+                        results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+                    end
+                else
+                    %Node does not exist, do nothing
                 end
             end
         end
