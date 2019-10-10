@@ -428,6 +428,8 @@ warning backtrace on
                 
                 %input rotations
                 id_inputr = 0; %identifier to count the number of input rotations
+                if((isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)) ||...
+                        (isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2 3 4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
                         (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
@@ -437,6 +439,7 @@ warning backtrace on
                 if id_inputr>1 %if multiple rotations are prescribed, problems can arise with quaternion<->euler conversion
                     err('Multiple rotational inputs defined for node %u. Only a single input rotation can be added to a node.',i)
                 end
+                
             end
         end
         
@@ -529,6 +532,16 @@ warning backtrace on
                 if(isfield(nprops(i),'displ_initial_y') && ~isempty(nprops(i).displ_initial_y));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,2) + nprops(i).displ_initial_y(1));  id_ini = true; end
                 if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
                 
+                %axang rotations
+                if(isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)); rot = axang2quat(nprops(i).displ_rot);
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; 
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));
+                    pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); end
+                if(isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot));rot = axang2quat(nprops(i).displ_initial_rot);
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true;
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));
+                    pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); end
+                    
                 %rotations
                 if(isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x));                rot = eul2quat([0 0 nprops(i).rot_x(1)]);
                     pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; end
@@ -991,8 +1004,8 @@ warning backtrace on
             %CHECK NPROPS INPUT VARIABLE
             if exist('nprops','var')
                 
-                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-                    'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
+                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','displ_rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+                    'displ_initial_x','displ_initial_y','displ_initial_z','displ_initial_rot','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
                 supplied_nprops = fieldnames(nprops);
                 ensure(size(supplied_nprops,1)>0,'Node properties seem empty.')
                 unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
@@ -1021,6 +1034,8 @@ warning backtrace on
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('displ property in nprops(%u)',i));      end
                             case {'rot_x','rot_y','rot_z','rot_initial_x','rot_initial_y','rot_initial_z'}
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('rot property in nprops(%u)',i));      end
+                            case {'displ_rot','displ_initial_rot'}
+                                if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'vector','numel',4},'',  sprintf('displ_rot property in nprops(%u)',i));      end
                             case 'mass'
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('mass property in nprops(%u)',i));      end
                             case 'mominertia'
@@ -1077,6 +1092,8 @@ warning backtrace on
                             (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));     count_bcs = count_bcs + 1;   end
                     
                     %checks for input rotations
+                    if((isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)) ||...
+                            (isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot))); count_bcs = count_bcs + 3;   end
                     if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
                             (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)));         count_bcs = count_bcs + 1;   end
                     if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
@@ -1109,8 +1126,7 @@ warning backtrace on
                     ensure(sum([ ...
                         (isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) && nprops(i).fix_orien == true) ...
                         ((isfield(nprops(i),'moment') && ~isempty(nprops(i).moment) && any(nprops(i).moment~=0)) || (isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial) && any(nprops(i).moment_initial~=0) )) ...
-                        ( (isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) || (isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) || (isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) || ...
-                        (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)) || (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y)) || (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)) ) ...
+                        ((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) || (isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) || (isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) || (isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)) || (isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot)) || (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)) || (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y)) || (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)) ) ...
                         ])<=1,'There is a combination of fix_orien, moment and rot_x/y/z on node %i.',i);
                     
                     %no combination of fix (6 constraints) and (mass or mominertia)
@@ -1907,21 +1923,33 @@ warning backtrace on
     end
 
     function q = eul2quat(eul)
-       %conversion from Euler angles (radians) to quaternions
-       %rotation sequence is ZYX (following eul2quat from Robotics System Toolbox)
-       
-       % Pre-allocate output
-       q = zeros(size(eul,1), 4, 'like', eul);
-       
-       % Compute sines and cosines of half angles
-       c = cos(eul/2);
-       s = sin(eul/2);
-       
-       % Construct quaternion
+        %conversion from Euler angles (radians) to quaternions
+        %rotation sequence is ZYX (following eul2quat from Robotics System Toolbox)
+        
+        % Pre-allocate output
+        q = zeros(size(eul,1), 4, 'like', eul);
+        
+        % Compute sines and cosines of half angles
+        c = cos(eul/2);
+        s = sin(eul/2);
+        
+        % Construct quaternion
         q = [c(:,1).*c(:,2).*c(:,3)+s(:,1).*s(:,2).*s(:,3), ...
             c(:,1).*c(:,2).*s(:,3)-s(:,1).*s(:,2).*c(:,3), ...
             c(:,1).*s(:,2).*c(:,3)+s(:,1).*c(:,2).*s(:,3), ...
             s(:,1).*c(:,2).*c(:,3)-c(:,1).*s(:,2).*s(:,3)];
+    end
+
+    function q = axang2quat(axang)
+        %conversion from axang to quaternions
+        
+        % Normalize the axis
+        v = axang(1:3)./norm(axang(1:3));
+        
+        % Create the quaternion
+        thetaHalf = axang(:,4)/2;
+        sinThetaHalf = sin(thetaHalf);
+        q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
     end
 
     function [cw, aspect] = cw_values(L,eprops)
