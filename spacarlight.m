@@ -23,9 +23,9 @@ function results = spacarlight(varargin)
 % spacarlight() is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-% Version 1.28
-% 15-05-2019
-sl_version = '1.28';
+% Version 1.29
+% 10-10-2019
+sl_version = '1.29';
 
 %% WARNINGS
 warning off backtrace
