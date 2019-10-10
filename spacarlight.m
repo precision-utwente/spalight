@@ -1876,8 +1876,7 @@ warning backtrace on
         inertia(1,5) = 0;
     end
 
-    function out = quat2axang(q)
-        
+    function out = quat2axang(q)   
         %conversion from quaternions (Euler parameters) to axis-angle representation
         %based on http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/
         %first output is angle (radians), followed by axis
@@ -1901,8 +1900,8 @@ warning backtrace on
         
     end
 
-    function eul = quat2eulang(q)
-        
+
+    function eul = quat2eulang(q) 
         %conversion from quaternions to Euler angles (radians)
         %rotation sequence is ZYX (following quat2eul from Robotics System Toolbox)
         
@@ -1944,10 +1943,10 @@ warning backtrace on
         %conversion from axang to quaternions
         
         % Normalize the axis
-        v = axang(1:3)./norm(axang(1:3));
+        v = axang(2:4)./norm(axang(2:4));
         
         % Create the quaternion
-        thetaHalf = axang(:,4)/2;
+        thetaHalf = axang(:,1)/2;
         sinThetaHalf = sin(thetaHalf);
         q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
     end
