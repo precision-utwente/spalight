@@ -11,11 +11,10 @@ function results = spacarlight(varargin)
 % S.E. Boer (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
 % D.H. Wiersma (CWvalues)
 %
-% LIMITATIONS (note that the full Spacar version does allow these things)
+% LIMITATIONS (note that the full Spacar version does not have these limitations)
 % - Type of analysis: only static analyses are supported;
 % - Boundary conditions: the orientation of a node can either be fixed or
-% free. It is not possible to create a pinned boundary condition about a certain axis;
-% - Prescribed motion: only displacements can be prescribed, no rotations.
+% free. It is not possible to create a pinned boundary condition about a specified axis.
 %
 % Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 %
@@ -424,8 +423,8 @@ warning backtrace on
                 
                 %input rotations
                 id_inputr = 0; %identifier to count the number of input rotations
-                if((isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)) ||...
-                        (isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2 3 4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
+                if((isfield(nprops(i),'rot') && ~isempty(nprops(i).rot)) ||...
+                        (isfield(nprops(i),'rot_initial') && ~isempty(nprops(i).rot_initial))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2 3 4',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
                         (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x))); pr_input = sprintf('%s\nINPUTX\t%3u\t\t2',pr_input,(i-1)*2+2);id_inputx = true; id_inputr=id_inputr+1; end
                 if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
@@ -529,11 +528,11 @@ warning backtrace on
                 if(isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z));  pr_dispx = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispx,(i-1)*2+1,nodes(i,3) +nprops(i).displ_initial_z(1));   id_ini = true; end
                 
                 %axang rotations
-                if(isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)); rot = axang2quat(nprops(i).displ_rot);
+                if(isfield(nprops(i),'rot') && ~isempty(nprops(i).rot)); rot = axang2quat(nprops(i).rot);
                     pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2)); id_add = true; 
                     pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));
                     pr_dispr = sprintf('%s\nDELINPX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); end
-                if(isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot));rot = axang2quat(nprops(i).displ_initial_rot);
+                if(isfield(nprops(i),'rot_initial') && ~isempty(nprops(i).rot_initial));rot = axang2quat(nprops(i).rot_initial);
                     pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t2\t\t%6f',pr_dispr,(i-1)*2+2,rot(2));  id_ini = true;
                     pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t3\t\t%6f',pr_dispr,(i-1)*2+2,rot(3));
                     pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*2+2,rot(4)); end
@@ -1005,8 +1004,8 @@ warning backtrace on
             %CHECK NPROPS INPUT VARIABLE
             if exist('nprops','var')
                 
-                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','displ_rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-                    'displ_initial_x','displ_initial_y','displ_initial_z','displ_initial_rot','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
+                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','displ_x','displ_y','displ_z','rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+                    'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
                 supplied_nprops = fieldnames(nprops);
                 ensure(size(supplied_nprops,1)>0,'Node properties seem empty.')
                 unknown_nprops_i = ~ismember(supplied_nprops,allowed_nprops);
@@ -1035,8 +1034,8 @@ warning backtrace on
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('displ property in nprops(%u)',i));      end
                             case {'rot_x','rot_y','rot_z','rot_initial_x','rot_initial_y','rot_initial_z'}
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('rot property in nprops(%u)',i));      end
-                            case {'displ_rot','displ_initial_rot'}
-                                if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'vector','numel',4},'',  sprintf('displ_rot property in nprops(%u)',i));      end
+                            case {'rot','rot_initial'}
+                                if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'vector','numel',4},'',  sprintf('rot property in nprops(%u)',i));      end
                             case 'mass'
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'scalar'},'',             sprintf('mass property in nprops(%u)',i));      end
                             case 'mominertia'
@@ -1093,8 +1092,8 @@ warning backtrace on
                             (isfield(nprops(i),'displ_initial_z') && ~isempty(nprops(i).displ_initial_z)));     count_bcs = count_bcs + 1;   end
                     
                     %checks for input rotations
-                    if((isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)) ||...
-                            (isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot))); count_bcs = count_bcs + 3;   end
+                    if((isfield(nprops(i),'rot') && ~isempty(nprops(i).rot)) ||...
+                            (isfield(nprops(i),'rot_initial') && ~isempty(nprops(i).rot_initial))); count_bcs = count_bcs + 3;   end
                     if((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) ||...
                             (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)));         count_bcs = count_bcs + 1;   end
                     if((isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) ||...
@@ -1127,7 +1126,7 @@ warning backtrace on
                     ensure(sum([ ...
                         (isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) && nprops(i).fix_orien == true) ...
                         ((isfield(nprops(i),'moment') && ~isempty(nprops(i).moment) && any(nprops(i).moment~=0)) || (isfield(nprops(i),'moment_initial') && ~isempty(nprops(i).moment_initial) && any(nprops(i).moment_initial~=0) )) ...
-                        ((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) || (isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) || (isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) || (isfield(nprops(i),'displ_rot') && ~isempty(nprops(i).displ_rot)) || (isfield(nprops(i),'displ_initial_rot') && ~isempty(nprops(i).displ_initial_rot)) || (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)) || (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y)) || (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)) ) ...
+                        ((isfield(nprops(i),'rot_x') && ~isempty(nprops(i).rot_x)) || (isfield(nprops(i),'rot_y') && ~isempty(nprops(i).rot_y)) || (isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) || (isfield(nprops(i),'rot') && ~isempty(nprops(i).rot)) || (isfield(nprops(i),'rot_initial') && ~isempty(nprops(i).rot_initial)) || (isfield(nprops(i),'rot_initial_x') && ~isempty(nprops(i).rot_initial_x)) || (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y)) || (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)) ) ...
                         ])<=1,'There is a combination of fix_orien, moment and rot_x/y/z on node %i.',i);
                     
                     %no combination of fix (6 constraints) and (mass or mominertia)
@@ -1668,7 +1667,7 @@ warning backtrace on
         if (isfield(opt,'calcbuck') && opt.calcbuck == 1)
             calcbuck = true;
             if id_inputx
-                warn('Input displacement prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
+                warn('Input displacement or rotation prescribed; buckling load multipliers are also with respect to reaction forces due to this input.');
             end
             if ~id_inputf
                 warn('No external forces are prescribed. Buckling values are not calculated.');
