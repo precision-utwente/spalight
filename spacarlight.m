@@ -88,11 +88,6 @@ if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 %version number in opt (for further use in spacarlight) and in results (for output to user)
 results.version = sl_version;
 
-%set filename, even if not specified
-if ~(isfield(opt,'filename') && ~isempty(opt.filename))
-    opt.filename = 'spacar_file';
-end
-
 %determine whether silent mode
 if ~(isfield(opt,'silent') && opt.silent == 1)
     opt.silent = false;
@@ -398,6 +393,7 @@ warning backtrace on
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
             x_count = x_count+2; %increase node counter by 2 (+1 for rotation node)
         end
+        
         
         
         %% NODE FIXES AND INPUTS
@@ -973,6 +969,11 @@ warning backtrace on
                 opt = varargin{5};
         end
         
+        %set filename, even if not specified
+        if ~exist('opt','var') || (isfield(opt,'filename') && isempty(opt.filename))
+            opt.filename = 'spacar_file';
+        end
+
         %BEGIN NOT-SILENT MODE BLOCK
         if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent==1) %checks are skipped in silent mode
             
