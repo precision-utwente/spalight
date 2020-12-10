@@ -87,11 +87,6 @@ if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 %version number in opt (for further use in spacarlight) and in results (for output to user)
 results.version = sl_version;
 
-%set filename, even if not specified
-if ~(isfield(opt,'filename') && ~isempty(opt.filename))
-    opt.filename = 'spacar_file';
-end
-
 %determine whether silent mode
 if ~(isfield(opt,'silent') && opt.silent == 1)
     opt.silent = false;
@@ -255,7 +250,7 @@ warning backtrace on
         %get username
         if ispc
             username = getenv('username');
-        elseif ismac
+        elseif ismac || isunix
             username = getenv('USER');
         end
         
@@ -397,6 +392,7 @@ warning backtrace on
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
             x_count = x_count+2; %increase node counter by 2 (+1 for rotation node)
         end
+        
         
         
         %% NODE FIXES AND INPUTS
@@ -626,6 +622,14 @@ warning backtrace on
         elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
         else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end  %no loading/displacement
         
+        %% CUSTOM DYNAMIC COMMAND
+        pr_custdyn = '';
+        if (exist('opt','var') && isstruct(opt) && isfield(opt,'customdyn'))
+            pr_custdyn = sprintf('#CUSTOM DYNAMIC COMMANDS');
+            for i=1:size(opt.customdyn,2)
+                    pr_custdyn = sprintf('%s\n%s',pr_custdyn,opt.customdyn{i});
+                end
+        end
         
         %% VISUALIZATION
         pr_vis = sprintf('VISUALIZATION');
@@ -725,6 +729,7 @@ warning backtrace on
         print_dat(fileID,'%s\n\n\n\n',pr_mass);
         print_dat(fileID,'%s\n\n\n\n',pr_nm);
         print_dat(fileID,'%s\n\n\n\n',pr_add);
+        print_dat(fileID,'%s\n\n\n\n',pr_custdyn);
         if mode~=9
             print_dat(fileID,'%s\n\n\n\n',pr_force);
             print_dat(fileID,'%s\n\n\n\n',pr_moment);
@@ -972,6 +977,11 @@ warning backtrace on
                 opt = varargin{5};
         end
         
+        %set filename, even if not specified
+        if ~exist('opt','var') || (isfield(opt,'filename') && isempty(opt.filename))
+            opt.filename = 'spacar_file';
+        end
+
         %BEGIN NOT-SILENT MODE BLOCK
         if ~(exist('opt','var') && isstruct(opt) && isfield(opt,'silent') && opt.silent==1) %checks are skipped in silent mode
             
@@ -1187,7 +1197,7 @@ warning backtrace on
             
             %CHECK EPROPS INPUT VARIABLE
             if exist('eprops','var')
-                allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw'};
+                allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw','enable_warping'};
                 supplied_eprops = fieldnames(eprops);
                 unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
                 if any(unknown_eprops_i)
@@ -1404,7 +1414,7 @@ warning backtrace on
             
             %CHECK OPTIONAL ARGUMENTS
             if (exist('opt','var') && ~isempty(opt))
-                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis'};
+                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis','customdyn'};
                 supplied_opts = fieldnames(opt);
                 unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
                 if any(unknown_opts_i)
@@ -1604,7 +1614,6 @@ warning backtrace on
         fclose(fid_write);
         error(errorstruct)
     end
-
 
     function warn(msg,varargin)
         %custom warning function to include sprintf syntax
@@ -1898,7 +1907,6 @@ warning backtrace on
         out = [angle; x; y; z];
         
     end
-
 
     function eul = quat2eulang(q) 
         %conversion from quaternions to Euler angles (radians)
