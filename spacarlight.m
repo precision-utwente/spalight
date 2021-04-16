@@ -8,38 +8,39 @@ function results = spacarlight(varargin)
 %
 % CONTRIBUTIONS
 % J.P. Meijaard (complt)
-% S.E. Boer (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
+% S.E. Boer, R.G.K.M Aarts (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
 % D.H. Wiersma (CWvalues)
 %
 % LIMITATIONS (note that the full Spacar version does allow these things)
 % - Type of analysis: only static analyses are supported;
 % - Boundary conditions: the orientation of a node can either be fixed or
 % free. It is not possible to create a pinned boundary condition about a certain axis;
-% - Prescribed motion: only displacements can be prescribed, no rotations.
 %
 % Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 %
 % For certain desired simulations, the current feature set of
-% spacarlight() is too limited. In that case, the full version of SPACAR
+% SPACAR Light is too limited. In that case, the full version of SPACAR
 % should be used. It offers *many* more features.
 %
-
-%TBD
-%Warping properties for circular crossection
-%Stress computation for beamw
-%Fixes for warping nodes
-
-
-% Version 2.01 (beamw)
-% 04-06-2018
-sl_version = '2.01';
-
+% Check www.spacar.nl for
+% - detailed list of function inputs and outputs
+% - examples
+% - installation instructions
+%
+%To do:
+% - if warping and nprops(i).fix, also fix warping coordinate
+% - repair numbering in comments dat-file regarding spacarlight beam numbers
+% - disable transfer fnt when warping
+%
+% Version 1.30
+% 16-04-2020
+sl_version = '1.30';
 
 %% WARNINGS
 warning off backtrace
 
 %% CHECK FOR INCOMPLETE INPUT
-%Temporary disable support for less then 4 input arguments (geometry visualization is not yet completed)
+%Temporarily disable support for less then 4 input arguments (geometry visualization is not yet completed)
 if nargin==0
     err('No input was provided.');
 elseif nargin<4
@@ -130,47 +131,39 @@ end
 %% CHECK EXISTENCE OF REQUIRED FUNCTIONS
 ensure(exist('spacar','file') == 3,'spacar() is not in your path.');
 ensure((exist('spavisual','file') == 2 || exist('spavisual','file') == 6),'spavisual() is not in your path.');
-ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'stressbeam() is not in your path (typically part of spavisual package).');
+ensure((exist('stressbeam','file') == 2 || exist('stressbeam','file') == 6),'stressbeam() is not in your path (part of Spavisual package).');
 ensure((exist('getss','file') == 2 || exist('getss','file') == 6),'getss() is not in your path.');
 
 %% BUILD DATFILE
 [~, ~, E_list,~,~] = build_datfile(nodes,elements,nprops,eprops,opt,0);
 
 %% SIMULATE FOR CHECKING CONSTRAINTS
-try %try to run spacar in its silent mode
+try 
     warning('off','all')
     [~] = spacar(0,opt.filename);
     warning('on','all')
-catch
-    try %retry to run spacar in non-silent mode for old spacar versions
-        warning('off','all')
-        spacar(0,opt.filename);
-        warning('on','all')
-        warning('Old version of Spacar detected.')
-        old_version = true; %#ok<NASGU> %Track if old version to prevent duplicate warning at mode 10 simulation
-    catch msg
-        switch msg.message
-            case 'ERROR in subroutine PRPARE: Too many DOFs.'
-                err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
-            otherwise
-                %check if too many elements/nodes are used - indicating limit of license
-                license_err = 0;
-                try %#ok<TRYNC>
-                    if exist([opt.filename '.log'],'file')
-                        fid = fopen([opt.filename '.log']);
-                        log = textscan(fid,'%s','delimiter','\n');
-                        fclose(fid);
-                        if any(~cellfun(@isempty,strfind(log{1},'Invalid nodal point')))
-                            license_err = 1;
-                        end
+catch msg
+    switch msg.message
+        case 'ERROR in subroutine PRPARE: Too many DOFs.'
+            err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
+        otherwise
+            %check if too many elements/nodes are used - indicating limitation of license
+            license_err = 0;
+            try %#ok<TRYNC>
+                if exist([opt.filename '.log'],'file')
+                    fid = fopen([opt.filename '.log']);
+                    log = textscan(fid,'%s','delimiter','\n');
+                    fclose(fid);
+                    if any(~cellfun(@isempty,strfind(log{1},'Invalid nodal point')))
+                        license_err = 1;
                     end
                 end
-                if license_err
-                    err('License issue. Model uses more elements or nodes than license supports.');
-                else
-                    err(['Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck ' opt.filename '.log for more information.']);
-                end
-        end
+            end
+            if license_err
+                err('License issue. Model uses more elements or nodes than license supports.');
+            else
+                err(['Connectivity incorrect. Check element properties, node properties, element connectivity etc.\nCheck ' opt.filename '.log for more information.']);
+            end
     end
 end
 
@@ -187,7 +180,7 @@ end
 [id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
 
 %% SIMULATE STATICS
-try %run spacar in its silent mode
+try 
     warning('off','all')
     [~] = spacar(-opt.mode,opt.filename);
     warning('on','all')
@@ -200,58 +193,44 @@ try %run spacar in its silent mode
         results.fighandle.Children.ZLabel.String = 'z';
         disp('Spacar simulation succeeded.')
     end
-catch
-    try %retry to run spacar in non-silent mode for old spacar versions
+catch msg
+    %apparently, the main Spacar run did not succeed
+    %try to figure out what went wrong:
+
+    %1) see if a bigD matrix is available and whether it's singular:
+    try
         warning('off','all')
-        spacar(-opt.mode,opt.filename);
+        [~] = spacar(0,opt.filename); %to get bigD
         warning('on','all')
-        if ~(opt.silent)
-            results.fighandle = spavisual(opt.filename);
-            results.fighandle.Children.XLabel.String = 'x';
-            results.fighandle.Children.YLabel.String = 'y';
-            results.fighandle.Children.ZLabel.String = 'z';
-        end
-        disp('Spacar simulation succeeded.')
-        if ~exist('old_version','var')
-            warning('Old version of Spacar detected.')
+        sbd     = [opt.filename '.sbd'];
+        nep     = getfrsbf(sbd,'nep');
+        nxp     = getfrsbf(sbd,'nxp');
+        BigD    = getfrsbf(sbd,'bigd',1);
+        Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
+        if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
+            warn('Overconstraints could not be solved automatically. Try setting releases (opt.rls) manually.')
+            %get the overconstraints in the system (without any autosolve attempt)
+            %so build dat file again without any release attempts, do mode 0, get overconstraints
+            if opt.autosolve
+                opt.autosolve = false;
+                opt.rls = [];
+                [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
+                [~] = spacar(0,opt.filename);
+                [~, ~, overconstraints] = check_constraints(opt,E_list,eprops);
+                results.overconstraints = overconstraints;
+            end
+            return
         end
     catch msg
-        %apparently, spacar mode 10 did not succeed.
-        %try to figure out what went wrong:
-        
-        %1) see if a bigD matrix is available and whether its singular:
-        try
-            warning('off','all')
-            [~] = spacar(0,opt.filename); %to get bigD
-            warning('on','all')
-            sbd     = [opt.filename '.sbd'];
-            nep     = getfrsbf(sbd,'nep');
-            nxp     = getfrsbf(sbd,'nxp');
-            BigD    = getfrsbf(sbd,'bigd',1);
-            Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
-            if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
-                warn('Overconstraints could not be solved automatically; Try setting releases (opt.rls) manually.')
-                %get the overconstraints in the system (without any autosolve attempt)
-                %so build dat file again without any release attempts, do mode 0, get overconstraints
-                if opt.autosolve
-                    opt.autosolve = false;
-                    opt.rls = [];
-                    [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
-                    [~] = spacar(0,opt.filename);
-                    [~, ~, overconstraints] = check_constraints(opt,E_list,eprops);
-                    results.overconstraints = overconstraints;
-                end
-                return
-            end
-        catch msg
-        end
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
     end
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
 end
+
+%% GET RESULTS
 try
     %get results
-    %note calc_results needs a results struct as input since it can already contain some fields
+    %note: calc_results needs a results struct as input since it can already contain some fields
     results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results);
 catch msg
     err(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'])
@@ -260,8 +239,8 @@ end
 %% WARNINGS
 warning backtrace on
 
-% END OF SPACAR_LIGHT
-
+% END OF SPACARLIGHT MAIN 
+%%%%%%%%%%%%%%%%%%%%%%%%%
 
     function [id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
         %returns E_list (amongst others):
@@ -298,7 +277,7 @@ warning backtrace on
         
         
         %% ELEMENTS
-        pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t Xq\t Rq\t\tOx\t\t\tOy\t\t\tOz');
+        pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t (Wp)\t Xq\t Rq\t (Wq)\t\tOx\t\t\tOy\t\t\tOz');
         pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
         
         for i=1:size(elements,1)
@@ -327,10 +306,10 @@ warning backtrace on
                     else
                         Orien = [0 1 0];
                     end
-                    if isempty(eprops(j).enable_warping)
+                    if isempty(eprops(j).warping)
                         warping = false;
                     else
-                        warping = eprops(j).enable_warping;
+                        warping = eprops(j).warping;
                     end
                 end
             end
@@ -461,7 +440,7 @@ warning backtrace on
             if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) &&  nprops(i).fix_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) &&  nprops(i).fix_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
-            if(isfield(nprops(i),'fix_w') && ~isempty(nprops(i).fix_w) && nprops(i).fix_w); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
+            if(isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
             if(isfield(nprops(i),'fix_rot_x') &&~isempty(nprops(i).fix_rot_x) && nprops(i).fix_rot_x);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+2);  end
             if(isfield(nprops(i),'fix_rot_y') && ~isempty(nprops(i).fix_rot_y) &&  nprops(i).fix_rot_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+2);  end
             if(isfield(nprops(i),'fix_rot_z') && ~isempty(nprops(i).fix_rot_z) &&  nprops(i).fix_rot_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t4',pr_fix,(i-1)*3+2);  end
@@ -525,8 +504,8 @@ warning backtrace on
         
         
         %% STIFFNESS/INERTIA PROPS
-        pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z');
-        pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t\tJzz/L\t\t\t\t\tJyz/L');
+        pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z\t\t\t\t\tEIw');
+        pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t\tJzz/L\t\t\t\t\tJyz/L\t\t\t\t\tJw/L');
         for i=1:size(eprops,2) %loop over each element property set
             if (isfield(eprops(i),'dens') &&  ~isempty(eprops(i).dens))
                 inertia = calc_inertia(eprops(i));     %calculate mass properties
@@ -534,7 +513,7 @@ warning backtrace on
                     for k=1:size(E_list,2) %write mass/inertia values
                         El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                         if El>0
-                            if ~eprops(i).enable_warping
+                            if ~eprops(i).warping
                                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                             else
                                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5),inertia(6));
@@ -549,35 +528,21 @@ warning backtrace on
                     for j=1:length(eprops(i).elems) %loop over all elements in element property set
                         
                         %CHECK CONSTRAINT WARPING PROPERTIES
-                        switch eprops(i).cshape
-                            case 'rect'
-                                L   = norm(nodes(elements(eprops(i).elems(j),2),:)...
-                                    - nodes(elements(eprops(i).elems(j),1),:));
-                                [cw_value, aspect] = cw_values(L,eprops(i));
-                                
-                                if isfield(eprops(i),'cw') && ~isempty(eprops(i).cw)
-                                    if ((eprops(i).cw) && ~eprops(i).enable_warping)
-                                        cw = cw_value;
-                                    else
-                                        cw = 1;
-                                    end
-                                else
-                                    cw = 1;
-                                    if aspect < 3 && mode ~= 0 && ~eprops(i).enable_warping
-                                        warn('Aspect ratio of element %i is < 3; consider (constrained) warping.',eprops(i).elems(j));
-                                    end
-                                end
-                            case 'circ'
-                                cw = 1;
-                        end
-                        
+                        if strcmp(eprops(i).cshape,'rect')
+                            L = norm(nodes(elements(eprops(i).elems(j),2),:)...
+                                - nodes(elements(eprops(i).elems(j),1),:));
+                            aspect = L/max(eprops(i).dim);
+                            if aspect < 3 && mode ~= 0 && ~eprops(i).warping
+                                warn('Aspect ratio of element %i is smaller than 3; consider (constrained) warping.',eprops(i).elems(j));
+                            end
+                        end                        
                         
                         
                         for k=1:size(E_list,2) %write mass/inertia values
                             El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                             if El>0
-                                if ~eprops(i).enable_warping
-                                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),cw*stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
+                                if ~eprops(i).warping
+                                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                                 else
                                     pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6),stiffness(7));
                                 end
@@ -1106,7 +1071,7 @@ warning backtrace on
             if exist('nprops','var')
                 
 
-                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_rot_x','fix_rot_y','fix_rot_z','fix_pos','fix_orien','fix_w','displ_x','displ_y','displ_z','rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_rot_x','fix_rot_y','fix_rot_z','fix_pos','fix_orien','fix_warp','displ_x','displ_y','displ_z','rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
                     'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
 
                 supplied_nprops = fieldnames(nprops);
@@ -1131,8 +1096,8 @@ warning backtrace on
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_x/y/z property in nprops(%u)',i)); end
                             case {'fix_rot_x','fix_rot_y','fix_rot_z'}
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_rot_x/y/z property in nprops(%u)',i)); end
-                            case 'fix_w'
-                                if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_w property in nprops(%u)',i)); end
+                            case 'fix_warp'
+                                if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_warp property in nprops(%u)',i)); end
                             case {'force','force_initial'}
                                 if ~isempty(nprops(i).(Node_fields{j}));     validateattributes(nprops(i).(Node_fields{j}),{'double'},{'vector','numel',3},'',   sprintf('force property in nprops(%u)',i));     end
                             case {'moment','moment_initial'}
@@ -1295,7 +1260,7 @@ warning backtrace on
             
             %CHECK EPROPS INPUT VARIABLE
             if exist('eprops','var')
-                allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw','enable_warping'};
+                allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw','warping'};
                 supplied_eprops = fieldnames(eprops);
                 unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
                 if any(unknown_eprops_i)
@@ -1415,13 +1380,13 @@ warning backtrace on
                             ensure(mod(eprops(i).nbeams,1)==0,'Property eprops(%i).nbeams should be a positive integer.',i);
                         end
                         
-                        if (isfield(eprops(i),'enable_warping') && ~isempty(eprops(i).enable_warping));
-                            validateattributes(eprops(i).enable_warping,{'logical'},{'scalar'},'',sprintf('enable_warping property in eprops(%u)',i));
+                        if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping));
+                            validateattributes(eprops(i).warping,{'logical'},{'scalar'},'',sprintf('warping property in eprops(%u)',i));
                         else
-                            eprops(i).enable_warping = false;
+                            eprops(i).warping = false;
                         end
                         
-                        if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw));     validateattributes(eprops(i).cw,{'logical'},{'scalar'},'',sprintf('cw property in eprops(%u)',i)); end
+                        if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw)); warn('Property cw in eprops(%u) is deprecated. Use eprops(%u).warping for modeling warping effects.',i,i); end
                         
                         %check for mandatory fields when dens field is present
                         if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens))
@@ -1452,7 +1417,6 @@ warning backtrace on
                             eprops(i).flex = [];
                             if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
                             if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warn('Property eprops(%u).smod is redundant without the flex property.',i);     end
-                            if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw) && eprops(i).cw); warn('Property eprops(%u).cw is redundant without the flex property.',i);           end
                         end
                     end
                 end
@@ -1873,7 +1837,7 @@ warning backtrace on
             %MAXIMUM STRESS
             beamw_exist = false;
             for k=1:size(eprops,2)
-                if eprops(k).enable_warping == true
+                if eprops(k).warping == true
                     beamw_exist = true;
                 end
             end
@@ -2087,17 +2051,6 @@ warning backtrace on
         thetaHalf = axang(:,1)/2;
         sinThetaHalf = sin(thetaHalf);
         q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
-    end
-
-    function [cw, aspect] = cw_values(L,eprops)
-        w = eprops.dim(1);
-        E = eprops.emod;
-        G = eprops.smod;
-        v = E/(2*G) - 1;
-
-        aspect  = L/w;       %- aspect ratio of flexure
-        c       = sqrt(24/(1+v));
-        cw      = (aspect*c/(aspect*c-2*tanh(aspect*c/2)));
     end
 
     function [CMglob, CMloc] = complt(filename,ntr,nrot)
