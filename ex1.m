@@ -26,7 +26,9 @@ elements = [    1   2;  %element 1
             
 %% NODE PROPERTIES  
 %node 1
-nprops(1).fix               = true;         %Fix node 1
+% nprops(1).fix               = true;         %Fix node 1
+nprops(1).fix_pos = true;
+nprops(1).fix_orien = true;
 nprops(1).fix_warp = true;
 
 %node 3
@@ -34,7 +36,8 @@ nprops(3).force             = [150 0 0];      %Force [N] in y-direction on node 
 
 
 %node 4
-nprops(4).fix               = true;         %Fix node 4
+nprops(4).fix_pos = true;
+nprops(4).fix_orien = true;
 nprops(4).fix_warp = true;
 
 %% ELEMENT PROPERTIES
@@ -64,7 +67,7 @@ eprops(2).color    = 'darkblue';
 % eprops(2).flex = 1:6;
 eprops(2).emod = 210e9;
 eprops(2).smod = 70e9;
-eprops(2).warping = true;
+% eprops(2).warping = true;
 
 
 %% OPTIONAL ARGUMENTS

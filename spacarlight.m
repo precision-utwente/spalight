@@ -434,16 +434,13 @@ warning backtrace on
         for i=1:size(nprops,2)
             %fixes
 
-            if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix) &&  nprops(i).fix);            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*3+1,(i-1)*3+2); end
+            if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix) &&  nprops(i).fix);            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*3+1,(i-1)*3+2,(i-1)*3+3); end
             if(isfield(nprops(i),'fix_pos') &&  ~isempty(nprops(i).fix_pos) &&  nprops(i).fix_pos);    pr_fix = sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+1);   end
             if(isfield(nprops(i),'fix_x') &&~isempty(nprops(i).fix_x) && nprops(i).fix_x);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) &&  nprops(i).fix_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) &&  nprops(i).fix_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
             if(isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
-            if(isfield(nprops(i),'fix_rot_x') &&~isempty(nprops(i).fix_rot_x) && nprops(i).fix_rot_x);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+2);  end
-            if(isfield(nprops(i),'fix_rot_y') && ~isempty(nprops(i).fix_rot_y) &&  nprops(i).fix_rot_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+2);  end
-            if(isfield(nprops(i),'fix_rot_z') && ~isempty(nprops(i).fix_rot_z) &&  nprops(i).fix_rot_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t4',pr_fix,(i-1)*3+2);  end
             
             %input displacements
             if (mode~=3 && mode~=9)
@@ -1071,7 +1068,7 @@ warning backtrace on
             if exist('nprops','var')
                 
 
-                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_rot_x','fix_rot_y','fix_rot_z','fix_pos','fix_orien','fix_warp','displ_x','displ_y','displ_z','rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
+                allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','fix_warp','displ_x','displ_y','displ_z','rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
                     'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
 
                 supplied_nprops = fieldnames(nprops);
@@ -1094,8 +1091,6 @@ warning backtrace on
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_pos/orien property in nprops(%u)',i)); end
                             case {'fix_x','fix_y','fix_z'}
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_x/y/z property in nprops(%u)',i)); end
-                            case {'fix_rot_x','fix_rot_y','fix_rot_z'}
-                                if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_rot_x/y/z property in nprops(%u)',i)); end
                             case 'fix_warp'
                                 if ~isempty(nprops(i).(Node_fields{j}));    validateattributes(nprops(i).(Node_fields{j}),{'logical'},{'scalar'},'',            sprintf('fix_warp property in nprops(%u)',i)); end
                             case {'force','force_initial'}
@@ -1152,9 +1147,6 @@ warning backtrace on
                     if(isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x) && nprops(i).fix_x == true);             count_bcs = count_bcs + 1;   end
                     if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) && nprops(i).fix_y == true);             count_bcs = count_bcs + 1;   end
                     if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) && nprops(i).fix_z == true);             count_bcs = count_bcs + 1;   end
-                    if(isfield(nprops(i),'fix_rot_x') && ~isempty(nprops(i).fix_rot_x) && nprops(i).fix_rot_x == true); count_bcs = count_bcs + 1;   end
-                    if(isfield(nprops(i),'fix_rot_y') && ~isempty(nprops(i).fix_rot_y) && nprops(i).fix_rot_y == true); count_bcs = count_bcs + 1;   end
-                    if(isfield(nprops(i),'fix_rot_z') && ~isempty(nprops(i).fix_rot_z) && nprops(i).fix_rot_z == true); count_bcs = count_bcs + 1;   end
                     
                     %checks for input displacements
                     if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
@@ -1171,6 +1163,20 @@ warning backtrace on
                             (isfield(nprops(i),'rot_initial_y') && ~isempty(nprops(i).rot_initial_y)));         count_bcs = count_bcs + 1;   end
                     if((isfield(nprops(i),'rot_z') && ~isempty(nprops(i).rot_z)) ||...
                             (isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z)));         count_bcs = count_bcs + 1;   end
+                    
+                    %no combination of fix and [fix_pos,fix_orien,fix_warp,fix_x/y/z]
+                    if( (isfield(nprops(i),'fix') && ~isempty(nprops(i).fix) && nprops(i).fix == true ) && ...
+                        ( ...
+                            (isfield(nprops(i),'fix_pos') && ~isempty(nprops(i).fix_pos) && nprops(i).fix_pos == true) || ...
+                            (isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) && nprops(i).fix_orien == true) || ...
+                            (isfield(nprops(i),'fix_x') && ~isempty(nprops(i).fix_x) && nprops(i).fix_x == true) || ...
+                            (isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) && nprops(i).fix_y == true) || ...
+                            (isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) && nprops(i).fix_z == true) || ...
+                            (isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp == true) ...
+                        ) ...
+                      ) 
+                        err('There is a combination of fix and any of [fix_pos,fix_orien,fix_warp,fix_x/y/z] on node %i',i);
+                    end
                     
                     %no combination of fix, force, displ on one node in the same direction (translational along x)
                     ensure(sum([ ...
@@ -1478,6 +1484,12 @@ warning backtrace on
                     err(orien_err,i);
                 end
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            end
+            
+            if (  (isfield(nprops,'fix_warp') && any( cellfun(@any,{nprops.fix_warp}))) && ...  
+                  ~(isfield(eprops,'warping') && any( cellfun(@any,{eprops.warping}))) ...
+               )
+                    warn('There is an nprops.fix_warp but no element has warping enabled (eprops.warping)');
             end
             
             %CHECK OPTIONAL ARGUMENTS
