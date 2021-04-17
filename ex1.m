@@ -58,16 +58,16 @@ eprops(1).warping  = true;
 %Property set 2
 eprops(2).elems    = [2 4];            %Add this set of properties to element 2
 eprops(2).dens     = 2700;             %Density [kg/m^3]
-eprops(2).cshape   = 'rect';           %Rectangular cross-section
-eprops(2).dim      = [40e-3 5e-3];     %Width: 50 mm, thickness: 10 mm
+eprops(2).cshape   = 'circ';           %Rectangular cross-section
+eprops(2).dim      = [1e-2];     %Width: 50 mm, thickness: 10 mm
 eprops(2).orien    = [0 1 0];          %Orientation of the cross-section as a vector pointing along "width-direction"
 eprops(2).nbeams   = 1;                %1 beam for simulating this element (as it is rigid an no more elements are required)
 eprops(2).color    = 'darkblue';
 % eprops(2).hide     = true;           %Hide element (in visualization only)
-% eprops(2).flex = 1:6;
+eprops(2).flex = 1:6;
 eprops(2).emod = 210e9;
 eprops(2).smod = 70e9;
-% eprops(2).warping = true;
+eprops(2).warping = true;
 
 
 %% OPTIONAL ARGUMENTS

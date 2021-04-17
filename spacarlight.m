@@ -1377,7 +1377,12 @@ warning backtrace on
                                 case 'circ'
                                     if ~(isfield(eprops(i),'dim') && ~isempty(eprops(i).dim));  err('Property dim is not defined in eprops(%u)',i); end
                                     validateattributes(eprops(i).dim,{'double'},{'vector','numel',1},'',sprintf('dim property in eprops(%u)',i));
-                                    ensure(eprops(i).dim>=1e-4,sprintf('eprops(%i).dim value should be at least 1e-4 m.',i))
+                                    if(eprops(i).dim<1e-4)
+                                        warn('eprops(%i).dim value is very small (<1e-4 m) and may lead to an ill-conditioned problem.',i)
+                                    end
+                                    if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
+                                       warn('Note: there is no warping for circular cross-sections (eprops(%i))',i); 
+                                    end
                             end
                         end
                         
