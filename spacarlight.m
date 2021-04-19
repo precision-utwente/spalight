@@ -28,7 +28,6 @@ function results = spacarlight(varargin)
 % - installation instructions
 %
 %To do:
-% - if warping and nprops(i).fix, also fix warping coordinate
 % - repair numbering in comments dat-file regarding spacarlight beam numbers
 % - disable transfer fnt when warping
 %
@@ -280,6 +279,7 @@ warning backtrace on
         pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t (Wp)\t Xq\t Rq\t (Wq)\t\tOx\t\t\tOy\t\t\tOz');
         pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
         
+        warping_fix = [];
         for i=1:size(elements,1)
             pr_E = sprintf('%s\n#element %u',pr_E,i);
             
@@ -310,6 +310,21 @@ warning backtrace on
                         warping = false;
                     else
                         warping = eprops(j).warping;
+                    end
+                    
+                    if warping && isempty(Flex)
+                        
+                        
+                           %user has created a rigid element with warping enabled.
+                           %
+                           %Because the defaults for the beamw are strange,
+                           %we need to make extra effort to ensure that the warping is also zero
+                           %(ep_7 and ep_8 are always calculable, so no way to make them zero
+                           %therefore, the only way to make warping zero -- for rigid beam -- 
+                           %is to fix both warping nodes)
+                           %
+                           %Store the p and q-node, in order to fix (if not already specified by user) the warping later on
+                           warping_fix(end+(1:2)) = [N_p N_q]; 
                     end
                 end
             end
@@ -431,6 +446,12 @@ warning backtrace on
             err('Node properties applied to non-existing nodes.')
         end
         
+        warping_fix = unique(warping_fix,'sorted');
+        for i=1:length(warping_fix)
+            node = warping_fix(i);
+            pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(node-1)*3+3);
+        end
+        
         for i=1:size(nprops,2)
             %fixes
 
@@ -440,7 +461,9 @@ warning backtrace on
             if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) &&  nprops(i).fix_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) &&  nprops(i).fix_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+1);  end
             if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
-            if(isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
+            
+            
+            if(~ismember(i,warping_fix) && isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
             
             %input displacements
             if (mode~=3 && mode~=9)
