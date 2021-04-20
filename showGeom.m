@@ -74,14 +74,6 @@ function showGeom(no,el,nprops,eprops)
     if max(el(:))>nno, error('Element seems connected to node that does not exist.'); end
     if any((el(:,1)-el(:,2))==0), error('Both sides of element seem connected to the same node.'); end
     
-    % Mark elements that are flexible
-    [flexElements{1:nel}] = deal('k');
-    for i = 1:length(eprops)
-        if isempty(eprops(i).flex) ~= 1
-            flexElements(eprops(i).elems) = {'r'};
-        end
-    end
-    
     %--plot elements--
     eh = [];
     for i=1:nel
@@ -112,7 +104,7 @@ function showGeom(no,el,nprops,eprops)
 %}
         
         % Plot elements
-        eh(i) = plot3([xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)],flexElements{i},'LineWidth',2.5);
+        eh(i) = plot3([xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)]);
     end
 
 
@@ -120,15 +112,7 @@ function showGeom(no,el,nprops,eprops)
     %--plot nodes--
     nh = [];
     for i=1:nno
-        % Color based on nodes being fixed or not
-        if (i <= size(nprops,2) && isfield(nprops,'fix') && ~isempty(nprops(i).fix) && nprops(i).fix == true)
-            c = 'k';
-        else
-            c = 'b';
-        end
-        
-        % Plot nodes
-        nh(i) = plot3(no(i,1),no(i,2),no(i,3),c,'Marker','.','MarkerSize',16);
+        nh(i) = plot3(no(i,1),no(i,2),no(i,3));
     end
     
     %get largest and characteristic distance of system
@@ -210,15 +194,37 @@ function showGeom(no,el,nprops,eprops)
     %--legend style--
     if showlegend
         set(leg1,'Marker','.','MarkerSize',16,'Color','k')
-        set(leg2,'Marker','.','MarkerSize',16,'Color','r')
+        set(leg2,'Marker','.','MarkerSize',16,'Color','g')
         set(leg3,'Marker','.','MarkerSize',16,'Color','b')
-        set(leg4,'Marker','.','MarkerSize',16,'Color','g')
+        set(leg4,'Marker','.','MarkerSize',16,'Color','r')
         set(leg5,'BackgroundColor','w','Color','b')
         set(leg6,'BackgroundColor','w','EdgeColor','k','FontWeight','bold')
     end
     
     %--visual properties--
-    %set(nh,'Marker','.','MarkerSize',16,'Color','k')
+    for i=1:nno
+        if (i <= size(nprops,2) && isfield(nprops,'fix') && ~isempty(nprops(i).fix) && nprops(i).fix == true)
+            set(nh(i),'Marker','.','MarkerSize',16,'Color','r')
+        else
+            set(nh(i),'Marker','.','MarkerSize',16,'Color','k')
+        end
+    end
+    
+    for i=1:size(eprops,2)
+        if isempty(eprops(i).flex)
+            %rigid element
+            set(eh(eprops(i).elems),'Color','k');
+        else
+            %flexible element
+            set(eh(eprops(i).elems),'Color','b');
+        end
+    end
+    
+    el_eprops = cell2mat({eprops.elems}); %elements with associated eprops
+    el_all = 1:nel; %all element numbers
+    el_no_eprops = setdiff(el_all,el_eprops); %elements without eprops
+    set(eh(el_no_eprops),'Color',0.75*[1 1 1]);
+    
     %set(eh,'Color',0.75*[1 1 1],'LineWidth',2.5)
     set(nnh,'BackgroundColor','w','Color','b')
     grid on
