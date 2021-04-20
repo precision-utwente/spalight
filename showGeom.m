@@ -75,7 +75,7 @@ function showGeom(no,el,nprops,eprops)
     if any((el(:,1)-el(:,2))==0), error('Both sides of element seem connected to the same node.'); end
     
     % Mark elements that are flexible
-    [flexElements{1:size(el,1)}] = deal('k');
+    [flexElements{1:nel}] = deal('k');
     for i = 1:length(eprops)
         if isempty(eprops(i).flex) ~= 1
             flexElements(eprops(i).elems) = {'r'};

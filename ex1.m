@@ -28,7 +28,7 @@ elements = [    1   2;  %element 1
             
 %% NODE PROPERTIES  
 %node 1
-nprops(1).fix               = true;         %Fix node 1
+% nprops(1).fix               = true;         %Fix node 1
 % nprops(1).fix_pos = true;
 % nprops(1).fix_orien = true;
 % nprops(2).fix_warp = true;
@@ -50,7 +50,7 @@ eprops(1).cshape   = 'rect';           %Rectangular cross-section
 eprops(1).dim      = [40e-3 1e-3];   %Width: 50 mm, thickness: 0.2 mm
 eprops(1).orien    = [0 1 0];          %Orientation of the cross-section as a vector pointing along "width-direction"
 eprops(1).nbeams   = 1;                %Number of beams used to model this element 
-eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
+% eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
 eprops(1).color    = 'grey';           %Color
 eprops(1).opacity  = 0.7;              %Opacity
 % eprops(1).warping  = true;
@@ -75,12 +75,12 @@ opt.filename    = 'ex1';     %Filename
 %opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 % opt.calcbuck    = true;             %Enable calculation of load multipliers
 %opt.calccompl   = false;            %Disable calculation of compliance matrices (can reduce computation time for large simulations)
-% opt.showinputonly = true;          %Only visualize the elements and nodes that were defined (not running any simulation)
+opt.showinputonly = true;          %Only visualize the elements and nodes that were defined (not running any simulation)
 %opt.silent      = true;            %Run in silent mode
 % opt.spavisual=false;
 
 %% CALL SPACAR_LIGHT
-out = spacarlight(nodes, elements, nprops, eprops,opt);
+out = spacarlight(nodes, elements, nprops, eprops, opt);
 
 %out.step(i)                            Results at loadstep i
 %out.step(i).freq                       List with eigenfrequencies [Hz], sorted from lowest to highest
