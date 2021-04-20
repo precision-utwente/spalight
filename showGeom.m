@@ -1,6 +1,15 @@
-function showGeom(no,el,nopr)
+function showGeomv2(no,el,nprops,eprops)
     
+    %%%%%%%%%%
+    %visualize user-specified geometry based on the SPACAR Light input data
+    %created by Marijn Nijenhuis
+    %%%%%%%%%%
+    
+    %contributions from Wouter van Dijk
+    
+    %%%
     %to do:
+    %%%
     %return handles (optionally) to user?
     %plot applied moments
     %take force and moment vectors into account for deciding tag placement
@@ -54,53 +63,75 @@ function showGeom(no,el,nopr)
     rotobj.Enable = 'on';
     
     %handy vars
-    nno = size(no,1);
-    nel = size(el,1);
+    nno = size(no,1);   % Number of nodes
+    nel = size(el,1);   % Number of elements
     
     %--check input--
-        % no input and load on same node-direction
-        
-        % elements are connected to defined nodes
-        if any(el(:)<=0), error('Element seems connected to node number <=0.'); end
-        if max(el(:))>nno, error('Element seems connected to node that does not exist.'); end
-        if any((el(:,1)-el(:,2))==0), error('Both sides of element seem connected to the same node.'); end
-        
+    % no input and load on same node-direction
+    
+    % elements are connected to defined nodes
+    if any(el(:)<=0), error('Element seems connected to node number <=0.'); end
+    if max(el(:))>nno, error('Element seems connected to node that does not exist.'); end
+    if any((el(:,1)-el(:,2))==0), error('Both sides of element seem connected to the same node.'); end
+    
+    % Mark elements that are flexible
+    [flexElements{1:size(el,1)}] = deal('k');
+    for i = 1:length(eprops)
+        if isempty(eprops(i).flex) ~= 1
+            flexElements(eprops(i).elems) = {'r'};
+        end
+    end
+    
     %--plot elements--
     eh = [];
     for i=1:nel
+        % Start (xp) & end (xq) of elements
         xp = no(el(i,1),:);
         xq = no(el(i,2),:);
 
-%         %check element length: if not too short, leave some space for the
-%         %element number tag
-%         minlen = ;
-%         d = 0.1;
-%         len = norm(xq - xp);
-%         if len > minlen
-%             x1 = xp+1/len*(xq-xp)*(len/2-d/2);
-%             x2 = xp+1/len*(xq-xp)*(len/2+d/2);
-%             eh(end+1) = plot3(...
-%                 [xp(1) x1(1)],[xp(2) x1(2)],[xp(3) x1(3)]);
-%             eh(end+1) = plot3(...
-%                 [x2(1) xq(1)],[x2(2) xq(2)],[x2(3) xq(3)]);
-%                 
-%         else
-%             %use index end+1 instead of i, because elements have one or two
-%             %line handles, depending on element length
-%                 eh(end+1) = plot3(...
-%                     [xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)]);
-%         end
-
-          eh(i) = plot3([xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)]);
+        %check element length: if not too short, leave some space for the
+        %element number tag
+        %{
+        minlen = ;
+        d = 0.1;
+        len = norm(xq - xp);
+        if len > minlen
+            x1 = xp+1/len*(xq-xp)*(len/2-d/2);
+            x2 = xp+1/len*(xq-xp)*(len/2+d/2);
+            eh(end+1) = plot3(...
+                [xp(1) x1(1)],[xp(2) x1(2)],[xp(3) x1(3)]);
+            eh(end+1) = plot3(...
+                [x2(1) xq(1)],[x2(2) xq(2)],[x2(3) xq(3)]);
+                
+        else
+            %use index end+1 instead of i, because elements have one or two
+            %line handles, depending on element length
+                eh(end+1) = plot3(...
+                    [xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)]);
+        end
+%}
+        
+        % Plot elements
+        eh(i) = plot3([xp(1) xq(1)],[xp(2) xq(2)],[xp(3) xq(3)],flexElements{i},'LineWidth',2.5);
     end
-    
+
+
+
     %--plot nodes--
     nh = [];
     for i=1:nno
-        nh(i) = plot3(no(i,1),no(i,2),no(i,3));
+        % Color based on nodes being fixed or not
+        if (i <= size(nprops,2) && isfield(nprops,'fix') && ~isempty(nprops(i).fix) && nprops(i).fix == true)
+            c = 'k';
+        else
+            c = 'b';
+        end
+        
+        % Plot nodes
+        nh(i) = plot3(no(i,1),no(i,2),no(i,3),c,'Marker','.','MarkerSize',16);
     end
     
-    %get largest and characteristisch distance of system
+    %get largest and characteristic distance of system
     maxdistiter = [];
     maxdistiteri = [];
     for i=1:nno
@@ -187,8 +218,8 @@ function showGeom(no,el,nopr)
     end
     
     %--visual properties--
-    set(nh,'Marker','.','MarkerSize',16,'Color','k')
-    set(eh,'Color',0.75*[1 1 1],'LineWidth',2.5)
+    %set(nh,'Marker','.','MarkerSize',16,'Color','k')
+    %set(eh,'Color',0.75*[1 1 1],'LineWidth',2.5)
     set(nnh,'BackgroundColor','w','Color','b')
     grid on
     
@@ -244,11 +275,16 @@ function showGeom(no,el,nopr)
     %this should happen after axis properties are set because of conversions
     %between data and normalized (figure-bound) units
     %get position of labels for elements
-    p = zeros(nel,3);
-    for i=1:nel
-        p(i,1:3) = [(no(el(i,1),1)+no(el(i,2),1))/2
-                    (no(el(i,1),2)+no(el(i,2),2))/2
-                    (no(el(i,1),3)+no(el(i,2),3))/2];
+    p(:,1:3) = (no(el(:,1),:) + no(el(:,2),:))/2;
+    
+    %check for coinciding coordinates
+    [~,~,ic] = unique(p,'rows','stable'); %unique rows and indices
+    [n,~] = histcounts(ic,1:nel); %counts of duplicates
+    dupl = find(n>1); %first index of duplicate row
+    
+    for i = dupl
+        ii = find(ic==ic(dupl)); %indices of all rows with this particular same value
+        p(ii,1:3) = no(el(ii,1),:) + (no(el(ii,2),:)-no(el(ii,1),:))/3;
     end
     
     %store in guidata so accessible from other functions

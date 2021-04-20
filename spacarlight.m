@@ -76,7 +76,7 @@ switch nargin
         % validate all
         [nodes,elements,nprops,eprops,opt] = validateInput(varargin{:});
         if isfield(opt,'showinputonly') && opt.showinputonly == true
-            showGeom(nodes,elements,[]);
+            showGeom(nodes,elements,nprops,eprops);
             return
         end
         % attempt simulation
