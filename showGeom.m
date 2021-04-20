@@ -223,7 +223,7 @@ function showGeom(no,el,nprops,eprops)
     el_eprops = cell2mat({eprops.elems}); %elements with associated eprops
     el_all = 1:nel; %all element numbers
     el_no_eprops = setdiff(el_all,el_eprops); %elements without eprops
-    set(eh(el_no_eprops),'Color',0.75*[1 1 1]);
+    set(eh(el_no_eprops),'Color',0.75*[1 0 0]);
     
     %set(eh,'Color',0.75*[1 1 1],'LineWidth',2.5)
     set(nnh,'BackgroundColor','w','Color','b')

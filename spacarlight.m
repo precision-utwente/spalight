@@ -14,7 +14,7 @@ function results = spacarlight(varargin)
 % LIMITATIONS (note that the full Spacar version does allow these things)
 % - Type of analysis: only static analyses are supported;
 % - Boundary conditions: the orientation of a node can either be fixed or
-% free. It is not possible to create a pinned boundary condition about a certain axis;
+% free. It is not possible to create a pinned boundary condition about a certain axis.
 %
 % Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 %
@@ -28,7 +28,6 @@ function results = spacarlight(varargin)
 % - installation instructions
 %
 %To do:
-% - repair numbering in comments dat-file regarding spacarlight beam numbers
 % - disable transfer fnt when warping
 %
 % Version 1.30
@@ -39,20 +38,14 @@ sl_version = '1.30';
 warning off backtrace
 
 %% CHECK FOR INCOMPLETE INPUT
-%Temporarily disable support for less then 4 input arguments (geometry visualization is not yet completed)
-if nargin==0
-    err('No input was provided.');
-elseif nargin<4
-    err('At least four input arguments are required.');
-end
-
 %initialize here since the following switch can already abort further execution
 %and the results output needs to exist
 results = struct();
 
 switch nargin
     case 0
-        err('No input was provided.');
+        %don't use custom err() function here, because it relies on things not defined at this point
+        error('No input was provided.'); 
     case 1
         warn('Incomplete input; no simulation is run.');
         % validate only nodes
@@ -81,7 +74,8 @@ switch nargin
         end
         % attempt simulation
     otherwise
-        err('Expecting a maximum of 5 input arguments.');
+        %don't use custom err() function here, because it relies on things not defined at this point
+        error('Expecting a maximum of 5 input arguments.');
 end
 
 
@@ -1499,47 +1493,48 @@ warning backtrace on
                 if ~(isfield(eprops,'flex') || sum(cellfun(@isempty,{eprops(:).flex})))
                     warn('No element has the flex property. Simulation does not seem useful.')
                 end
-            end
             
-            %start orien checks. Note: this comes *after* the dependency of cshape=rect on orien is ensured
-            %loop over all elements, check if it belongs to a set with a orien property,
-            %see if that property is valid. If it does not belong to a set, check if default works
-            for i=1:size(elements,1)
-                ii_set = arrayfun(@(x) ismember(i,x.elems),eprops);
-                if ~any(ii_set) %element not in any set
-                    orien_try = [0 1 0];
-                    %error message if this turns out invalid:
-                    orien_err = 'No orien property specified for element %i (because element not in any set). Default value [0 1 0] does not work, because (almost) parallel to element axis.';
-                elseif isfield(eprops(ii_set),'orien') && ~isempty(eprops(ii_set).orien) %element in a set with orien
-                    orien_try = eprops(ii_set).orien;
-                    %error message if this turns out invalid:
-                    orien_err = 'Orien property for element %i does not work, because (almost) parallel to element axis.';
-                else %element in a set, but no orien
-                    orien_try = [0 1 0];
-                    %error message if this turns out invalid:
-                    orien_err = 'No orien property specified for element %i. Default value [0 1 0] does not work, because (almost) parallel to element axis.';
-                end
-                %try to see if the planned (user-supplied or default) orien works
-                xp = nodes(elements(i,1),:);
-                xq = nodes(elements(i,2),:);
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %this directly from SPACAR 2015 source:
-                ex = xq - xp;
-                ex = ex/norm(ex);
-                ey_input = orien_try;
-                ey = ey_input(:)/norm(ey_input);
-                ex_proj = dot(ey,ex);
-                noemer = sqrt(1-ex_proj^2);
-                if noemer < 1e-5
-                    err(orien_err,i);
-                end
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            end
             
-            if (  (isfield(nprops,'fix_warp') && any( cellfun(@any,{nprops.fix_warp}))) && ...  
-                  ~(isfield(eprops,'warping') && any( cellfun(@any,{eprops.warping}))) ...
-               )
-                    warn('There is an nprops.fix_warp but no element has warping enabled (eprops.warping)');
+                %start orien checks. Note: this comes *after* the dependency of cshape=rect on orien is ensured
+                %loop over all elements, check if it belongs to a set with a orien property,
+                %see if that property is valid. If it does not belong to a set, check if default works
+                for i=1:size(elements,1)
+                    ii_set = arrayfun(@(x) ismember(i,x.elems),eprops);
+                    if ~any(ii_set) %element not in any set
+                        orien_try = [0 1 0];
+                        %error message if this turns out invalid:
+                        orien_err = 'No orien property specified for element %i (because element not in any set). Default value [0 1 0] does not work, because (almost) parallel to element axis.';
+                    elseif isfield(eprops(ii_set),'orien') && ~isempty(eprops(ii_set).orien) %element in a set with orien
+                        orien_try = eprops(ii_set).orien;
+                        %error message if this turns out invalid:
+                        orien_err = 'Orien property for element %i does not work, because (almost) parallel to element axis.';
+                    else %element in a set, but no orien
+                        orien_try = [0 1 0];
+                        %error message if this turns out invalid:
+                        orien_err = 'No orien property specified for element %i. Default value [0 1 0] does not work, because (almost) parallel to element axis.';
+                    end
+                    %try to see if the planned (user-supplied or default) orien works
+                    xp = nodes(elements(i,1),:);
+                    xq = nodes(elements(i,2),:);
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    %this directly from SPACAR 2015 source:
+                    ex = xq - xp;
+                    ex = ex/norm(ex);
+                    ey_input = orien_try;
+                    ey = ey_input(:)/norm(ey_input);
+                    ex_proj = dot(ey,ex);
+                    noemer = sqrt(1-ex_proj^2);
+                    if noemer < 1e-5
+                        err(orien_err,i);
+                    end
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                end
+
+                if (  (isfield(nprops,'fix_warp') && any( cellfun(@any,{nprops.fix_warp}))) && ...  
+                      ~(isfield(eprops,'warping') && any( cellfun(@any,{eprops.warping}))) ...
+                   )
+                        warn('There is an nprops.fix_warp but no element has warping enabled (eprops.warping)');
+                end
             end
             
             %CHECK OPTIONAL ARGUMENTS
