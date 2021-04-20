@@ -10,6 +10,7 @@ function results = spacarlight(varargin)
 % J.P. Meijaard (complt)
 % S.E. Boer, R.G.K.M Aarts (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
 % D.H. Wiersma (CWvalues)
+% Sergii Iglin (copyright 2004, Graph Theory Toolbox, functions grCycleBasis, grMinSpanTree, grValidation)
 %
 % LIMITATIONS (note that the full Spacar version does allow these things)
 % - Type of analysis: only static analyses are supported;
@@ -89,6 +90,11 @@ if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 
 %version number in opt (for further use in spacarlight) and in results (for output to user)
 results.version = sl_version;
+
+%set filename, even if not specified
+if ~(isfield(opt,'filename') && ~isempty(opt.filename))
+    opt.filename = 'spacar_file';
+end
 
 %determine whether silent mode
 if ~(isfield(opt,'silent') && opt.silent == 1)
@@ -987,6 +993,14 @@ warning backtrace on
                             end
                             overconstraints = rlsout;
                             exactconstr = false;
+                            
+                            %%%check for rigid loops and report to user
+                            try
+                                detect_rigid_loops(elements,eprops,nprops);
+                            catch
+                                
+                            end
+                            
                             return
                         end
                         
@@ -1063,11 +1077,6 @@ warning backtrace on
                 nprops = varargin{3};
                 eprops = varargin{4};
                 opt = varargin{5};
-        end
-        
-        %set filename, even if not specified
-        if ~exist('opt','var') || ~isfield(opt,'filename') || isempty(opt.filename)
-            opt.filename = 'spacar_file';
         end
         
         %BEGIN NOT-SILENT MODE BLOCK
@@ -2259,5 +2268,39 @@ warning backtrace on
             rls(i).def = write;
         end
     end
+
+    function rigidloops = detect_rigid_loops(elements,eprops,nprops)
+        %get list of rigid elements: the elements specified in a set without flex, and the elements not specified in a set (because default then is rigid)
+        el_all = 1:size(elements,1); %all elements
+        el_spec = cell2mat({eprops.elems}); %elements specified in a prop set
+        el_nospec = setdiff(el_all,el_spec); %elements not specified in a prop set
+
+        irigid = cellfun(@isempty,{eprops.flex}); %property sets with no flex
+        el_rigid_spec = cell2mat({eprops(irigid).elems}); %element numbers with no flex
+
+        el_rigid = [el_nospec el_rigid_spec]; %list of all rigid elements (with and without elem set prop)
+
+        no_fixed = find(~cellfun(@isempty,{nprops.fix})); %fixed nodes
+        ground_elems = nchoosek(no_fixed,2); %add fictitious ground elements to represent loops via fixes
+
+        cycles = grCycleBasis([elements(el_rigid,:) ; ground_elems]); %returns loops (including via ground) per column
+        %the rigid loops (report without the rows for the extra ground_elems). 
+        rigidloops_log = cycles(1:length(el_rigid),:); %as logical indices
+        rigidloops_log = unique(rigidloops_log','rows')';
+
+        %convert logical indices to element numbers
+        for m = 1:size(rigidloops_log,2)
+
+            ii = find(rigidloops_log(:,m));
+            fprintf('Rigid loop detected due to elements ');
+            fprintf('%i ',sort(el_rigid(ii)));
+            fprintf('\n');
+            
+            rigidloops(m) = {sort(el_rigid(ii))};
+        end
+        
+    end
+
+    
 
 end
