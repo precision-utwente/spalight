@@ -52,7 +52,7 @@ eprops(1).dens     = 7800;             %Density [kg/m^3]
 eprops(1).cshape   = 'rect';           %Rectangular cross-section
 eprops(1).dim      = [40e-3 1e-3];   %Width: 50 mm, thickness: 0.2 mm
 eprops(1).orien    = [0 1 0];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(1).nbeams   = 2;                %Number of beams used to model this element 
+eprops(1).nbeams   = 1;                %Number of beams used to model this element 
 eprops(1).flex     = 1:6;        	   %Model out-of-plane bending (modes 3 and 4) as flexible
 eprops(1).color    = 'grey';           %Color
 eprops(1).opacity  = 0.7;              %Opacity
@@ -64,7 +64,7 @@ eprops(2).dens     = 2700;             %Density [kg/m^3]
 eprops(2).cshape   = 'rect';           %Rectangular cross-section
 eprops(2).dim      = [30e-3 5e-3];     %Width: 50 mm, thickness: 10 mm
 eprops(2).orien    = [0 1 0];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(2).nbeams   = 2;                %1 beam for simulating this element (as it is rigid an no more elements are required)
+eprops(2).nbeams   = 1;                %1 beam for simulating this element (as it is rigid an no more elements are required)
 eprops(2).color    = 'darkblue';
 % eprops(2).hide     = true;           %Hide element (in visualization only)
 % eprops(2).flex = 1:6;
@@ -74,13 +74,13 @@ eprops(2).warping = true;
 
 
 %% OPTIONAL ARGUMENTS
-% opt.filename    = 'crosshinge';     %Filename
+opt.filename    = 'ex';     %Filename
 %opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 % opt.calcbuck    = true;             %Enable calculation of load multipliers
 %opt.calccompl   = false;            %Disable calculation of compliance matrices (can reduce computation time for large simulations)
 % opt.showinputonly = true;          %Only visualize the elements and nodes that were defined (not running any simulation)
 %opt.silent      = true;            %Run in silent mode
-opt.spavisual=true;
+% opt.spavisual=false;
 
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops,opt);

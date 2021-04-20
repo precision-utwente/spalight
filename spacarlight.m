@@ -183,8 +183,10 @@ try
     warning('off','all')
     [~] = spacar(-opt.mode,opt.filename);
     warning('on','all')
-    if (opt.silent) || (isfield(opt,'spavisual') && opt.spavisual==false)
-        
+    if (opt.silent) 
+    
+    elseif (isfield(opt,'spavisual') && opt.spavisual==false)
+        disp('Spacar simulation succeeded.')
     else
         results.fighandle = spavisual(opt.filename);
         results.fighandle.Children.XLabel.String = 'x';
@@ -1462,6 +1464,11 @@ warning backtrace on
                             if ~(isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); err('Property emod is not defined in eprops(%u)',i);     end
                             if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); err('Property smod is not defined in eprops(%u)',i);     end
                             if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); err('Property dens is not defined in eprops(%u)',i);     end
+                            
+                            if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true && ...
+                                isfield(eprops(i),'nbeams') && (isempty(eprops(i).nbeams) || (~isempty(eprops(i).nbeams) && eprops(i).nbeams < 3)))
+                                warn('When modeling warping, check convergence when eprops(%i).nbeams is small (<3)',i);
+                            end
                         else
                             eprops(i).flex = [];
                             if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
