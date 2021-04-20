@@ -276,12 +276,20 @@ warning backtrace on
         
         
         %% ELEMENTS
-        pr_E = sprintf('#ELEMENTS\t Ne\t\t Xp\t Rp\t (Wp)\t Xq\t Rq\t (Wq)\t\tOx\t\t\tOy\t\t\tOz');
+        pr_E = sprintf('#ELEMENTS     Ne  Xp  Rp  (Wp)  Xq  Rq  (Wq)  Ox\t\t\tOy\t\t\tOz');
         pr_D = sprintf('#DEF#\t\t Ne\t\t d1\t d2\t d3\t d4\t d5\t d6');
+        
+        %format specifiers for the element commands
+        %(they're used multiple times, so defining them here)
+        beamw_single = '%s\nBEAMW       %4u%4u%4u%4u%6u%4u%4u    %6f\t%6f\t%6f\t\t#element %i';
+        beamw_multiple = '%s\nBEAMW       %4u%4u%4u%4u%6u%4u%4u    %6f\t%6f\t%6f\t\t#element %i beam %i';
+        
+        beam_single = '%s\nBEAM        %4u%4u%4u      %4u%4u        %6f\t%6f\t%6f\t\t#element %i';
+        beam_multiple = '%s\nBEAM        %4u%4u%4u      %4u%4u        %6f\t%6f\t%6f\t\t#element %i beam %i';
         
         warping_fix = [];
         for i=1:size(elements,1)
-            pr_E = sprintf('%s\n#element %u',pr_E,i);
+%             pr_E = sprintf('%s\n#element %u',pr_E,i);
             
             N_p         = elements(i,1);            %p-node nodenumber
             N_q         = elements(i,2);            %q-node nodenumber
@@ -313,18 +321,16 @@ warning backtrace on
                     end
                     
                     if warping && isempty(Flex)
-                        
-                        
-                           %user has created a rigid element with warping enabled.
-                           %
-                           %Because the defaults for the beamw are strange,
-                           %we need to make extra effort to ensure that the warping is also zero
-                           %(ep_7 and ep_8 are always calculable, so no way to make them zero
-                           %therefore, the only way to make warping zero -- for rigid beam -- 
-                           %is to fix both warping nodes)
-                           %
-                           %Store the p and q-node, in order to fix (if not already specified by user) the warping later on
-                           warping_fix(end+(1:2)) = [N_p N_q]; 
+                       %user has created a rigid element with warping enabled.
+                       %
+                       %Because the defaults for the beamw are strange,
+                       %we need to make extra effort to ensure that the warping is also zero
+                       %(ep_7 and ep_8 are always calculable, so no way to make them zero
+                       %therefore, the only way to make warping zero -- for rigid beam -- 
+                       %is to fix both warping nodes)
+                       %
+                       %Store the p and q-node, in order to fix (if not already specified by user) the warping later on
+                       warping_fix(end+(1:2)) = [(N_p-1)*3+3 (N_q-1)*3+3]; 
                     end
                 end
             end
@@ -348,15 +354,15 @@ warning backtrace on
                     
                     if ~warping
                         if k==1 %if the first beam, connect to p-node and first intermediate node
-                            pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
+                            pr_E = sprintf(beam_multiple,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),i,k);
                         else    %if not the first beam, connect to two intermediate nodes
-                            pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),k);
+                            pr_E = sprintf(beam_multiple,pr_E,e_count,x_count-3,x_count-2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),i,k);
                         end
                     else
                         if k==1 %if the first beam, connect to p-node and first intermediate node
-                            pr_E = sprintf('%s\nBEAMW\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),k);
+                            pr_E = sprintf(beamw_multiple,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),i,k);
                         else    %if not the first beam, connect to two intermediate nodes
-                            pr_E = sprintf('%s\nBEAMW\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,x_count-1,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),k);
+                            pr_E = sprintf(beamw_multiple,pr_E,e_count,x_count-3,x_count-2,x_count-1,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),i,k);
                         end
                     end
                     
@@ -366,17 +372,23 @@ warning backtrace on
                             pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                         end
                     end
+   
+                    if warping && isempty(Flex)
+                       %see earlier note
+                       %also add intermediate nodes now
+                       warping_fix(end+1) = x_count+2;
+                    end
                     
                     E_list(i,k) = e_count;      %add beam number to E_list
                     e_count     = e_count+1;    %increase beam counter by 1
-                    x_count     = x_count+3;    %increase node counter by 2 (+1 for rotation node)
+                    x_count     = x_count+3;    %increase node counter by 2 (+1 for rotation node, +1 for warping node)
                 end
                 
                 %for the last beam in element i, connect to last intermediate node and q-node
                 if ~warping
-                    pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),k+1);
+                    pr_E = sprintf(beam_multiple,pr_E,e_count,x_count-3,x_count-2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i,k+1);
                 else
-                    pr_E = sprintf('%s\nBEAMW\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,x_count-3,x_count-2,x_count-1,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),k+1);
+                    pr_E = sprintf(beamw_multiple,pr_E,e_count,x_count-3,x_count-2,x_count-1,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),i,k+1);
                 end
                 
                 X_list(i,k+2) = N_q;        %add q-node to X_list
@@ -384,13 +396,15 @@ warning backtrace on
                 
             else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
                 if ~warping
-                    pr_E = sprintf('%s\nBEAM\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3));
+                    pr_E = sprintf(beam_single,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i);
                 else
-                    pr_E = sprintf('%s\nBEAMW\t\t%3u\t\t%3u\t%3u\t%3u\t%3u\t%3u\t%3u\t\t%6f\t%6f\t%6f\t\t#beam %u',pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3));
+                    pr_E =sprintf(beamw_single,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),i);
                 end
                 
                 X_list(i,2) = N_q;          %add q-node to X_list
                 E_list(i,1) = e_count;      %add beam number to E_list
+                
+
             end
             
             %for the last beam only, add dyne and/or rlse
@@ -431,10 +445,11 @@ warning backtrace on
                     end
                     pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
                 end
-           end
+            end
             
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
-            x_count = x_count+3; %increase node counter by 2 (+1 for rotation node)
+            x_count = x_count+3; %increase node counter by 3 (+1 for rotation node, +1 for warping node)
+            
         end
         
         
@@ -449,7 +464,7 @@ warning backtrace on
         warping_fix = unique(warping_fix,'sorted');
         for i=1:length(warping_fix)
             node = warping_fix(i);
-            pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(node-1)*3+3);
+            pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,node);
         end
         
         for i=1:size(nprops,2)
@@ -463,7 +478,7 @@ warning backtrace on
             if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
             
             
-            if(~ismember(i,warping_fix) && isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
+            if(~ismember((i-1)*3+3,warping_fix) && isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
             
             %input displacements
             if (mode~=3 && mode~=9)
