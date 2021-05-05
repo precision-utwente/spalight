@@ -32,16 +32,19 @@ function results = spacarlight(varargin)
 % - disable transfer fnt when warping
 %
 % Version 1.30
-% 16-04-2020
+% 05-05-2020
 sl_version = '1.30';
 
 %% WARNINGS
 warning off backtrace
 
 %% CHECK FOR INCOMPLETE INPUT
+%---------
 %initialize here since the following switch can already abort further execution
-%and the results output needs to exist
+%and the results output and opt.filename (used in err()) needs to exist
 results = struct();
+filename_default = 'spacar_file';
+%---------
 
 switch nargin
     case 0
@@ -88,13 +91,13 @@ end
 %if no opt struct provided, create empty one
 if ~(exist('opt','var') && isstruct(opt)); opt=struct(); end
 
-%version number in opt (for further use in spacarlight) and in results (for output to user)
-results.version = sl_version;
-
 %set filename, even if not specified
 if ~(isfield(opt,'filename') && ~isempty(opt.filename))
-    opt.filename = 'spacar_file';
+    opt.filename = filename_default;
 end
+
+%version number in opt (for further use in spacarlight) and in results (for output to user)
+results.version = sl_version;
 
 %determine whether silent mode
 if ~(isfield(opt,'silent') && opt.silent == 1)
@@ -327,8 +330,8 @@ warning backtrace on
                        %
                        %Because the defaults for the beamw are strange,
                        %we need to make extra effort to ensure that the warping is also zero
-                       %(ep_7 and ep_8 are always calculable, so no way to make them zero
-                       %therefore, the only way to make warping zero -- for rigid beam -- 
+                       %(ep_7 and ep_8 are always calculable, so no way to make them zero,
+                       %therefore, the only way to make warping zero -- for rigid beamw -- 
                        %is to fix both warping nodes)
                        %
                        %Store the p and q-node, in order to fix (if not already specified by user) the warping later on
@@ -463,24 +466,19 @@ warning backtrace on
             err('Node properties applied to non-existing nodes.')
         end
         
-        warping_fix = unique(warping_fix,'sorted');
-        for i=1:length(warping_fix)
-            node = warping_fix(i);
-            pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,node);
-        end
-        
         for i=1:size(nprops,2)
             %fixes
 
-            if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix) &&  nprops(i).fix);            pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*3+1,(i-1)*3+2,(i-1)*3+3); end
-            if(isfield(nprops(i),'fix_pos') &&  ~isempty(nprops(i).fix_pos) &&  nprops(i).fix_pos);    pr_fix = sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+1);   end
-            if(isfield(nprops(i),'fix_x') &&~isempty(nprops(i).fix_x) && nprops(i).fix_x);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*3+1);  end
-            if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) &&  nprops(i).fix_y);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+1);  end
-            if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) &&  nprops(i).fix_z);        pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+1);  end
-            if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
-            
-            
-            if(~ismember((i-1)*3+3,warping_fix) && isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp); pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+3);   end
+            if(isfield(nprops(i),'fix') && ~isempty(nprops(i).fix) &&  nprops(i).fix)
+                pr_fix = sprintf('%s\nFIX\t\t%3u  \nFIX\t\t%3u',pr_fix,(i-1)*3+1,(i-1)*3+2);
+                warping_fix(end+1) = (i-1)*3+3; %add to warping fixes list, for writing later
+            end
+            if(isfield(nprops(i),'fix_pos') &&  ~isempty(nprops(i).fix_pos) &&  nprops(i).fix_pos);         pr_fix = sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+1);   end
+            if(isfield(nprops(i),'fix_x') &&~isempty(nprops(i).fix_x) && nprops(i).fix_x);                  pr_fix = sprintf('%s\nFIX\t\t%3u\t\t1',pr_fix,(i-1)*3+1);  end
+            if(isfield(nprops(i),'fix_y') && ~isempty(nprops(i).fix_y) &&  nprops(i).fix_y);                pr_fix = sprintf('%s\nFIX\t\t%3u\t\t2',pr_fix,(i-1)*3+1);  end
+            if(isfield(nprops(i),'fix_z') && ~isempty(nprops(i).fix_z) &&  nprops(i).fix_z);                pr_fix = sprintf('%s\nFIX\t\t%3u\t\t3',pr_fix,(i-1)*3+1);  end
+            if(isfield(nprops(i),'fix_orien') && ~isempty(nprops(i).fix_orien) &&  nprops(i).fix_orien);    pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,(i-1)*3+2);   end
+            if(isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp);        warping_fix(end+1) = (i-1)*3+3; end %add to warping fixes list, for writing later
             
             %input displacements
             if (mode~=3 && mode~=9)
@@ -539,6 +537,11 @@ warning backtrace on
             end
         end
         
+        warping_fix = unique(warping_fix,'sorted');
+        for i=1:length(warping_fix)
+            node = warping_fix(i);
+            pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,node);
+        end
         
         %% STIFFNESS/INERTIA PROPS
         pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z\t\t\t\t\tEIw');
@@ -1470,7 +1473,7 @@ warning backtrace on
                             
                             if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true && ...
                                 isfield(eprops(i),'nbeams') && (isempty(eprops(i).nbeams) || (~isempty(eprops(i).nbeams) && eprops(i).nbeams < 3)))
-                                warn('When modeling warping, check convergence when eprops(%i).nbeams is small (<3)',i);
+                                warn('When modeling warping, check convergence when eprops(%i).nbeams is small (< 3)',i);
                             end
                         else
                             eprops(i).flex = [];
@@ -1702,27 +1705,41 @@ warning backtrace on
             errorstruct.message =sprintf(message);
         end
         
+        %depending on where the error occurs, the filename may not yet have been validated and set in opt.filename
+        %(that's where the program expects it to be)
+        %so, in this error function, see if opt.filename is available, otherwise use the default
+        if exist('opt','var') && isstruct(opt) && isfield(opt,'filename') && ~isempty(opt.filename)
+            %lets assume the provided opt.filename is ok
+            fn = opt.filename;
+        else
+            fn = filename_default;
+        end
+                
         %get contents of Spacar dat and log file, to create a new Spacar light log file
         %within try, catch to avoid errors in the err function
         try %#ok<TRYNC>
-            if exist([opt.filename '.log'],'file')
-                fid = fopen([opt.filename '.log']);
+            if exist([fn '.log'],'file')
+                fid = fopen([fn '.log']);
                 log = textscan(fid,'%s','delimiter','\n');
                 fclose(fid);
             end
-            if exist([opt.filename '.dat'],'file')
-                fid = fopen([opt.filename '.dat']);
+            if exist([fn '.dat'],'file')
+                fid = fopen([fn '.dat']);
                 dat = textscan(fid,'%s','delimiter','\n');
                 fclose(fid);
             end
         end
         
-        fid_write=fopen([opt.filename '.log'],'w');
-        fprintf(fid_write, 'Date: %s\n',date);
-        fprintf(fid_write, 'SPACAR Light version: %s\n',sl_version);
-        fprintf(fid_write, 'MATLAB version: %s\n\n\n\n',version);
-        fprintf(fid_write, '------ SPACAR LIGHT LOG -----\n');
-        fprintf(fid_write, 'Message displayed in command window: %s\n',errorstruct.message);
+        try
+            fid_write=fopen([fn '.log'],'w');
+            fprintf(fid_write, 'Date: %s\n',date);
+            fprintf(fid_write, 'SPACAR Light version: %s\n',sl_version);
+            fprintf(fid_write, 'MATLAB version: %s\n\n\n\n',version);
+            fprintf(fid_write, '------ SPACAR LIGHT LOG -----\n');
+            fprintf(fid_write, 'Message displayed in command window: %s\n',errorstruct.message);
+        catch
+            disp('Note: the error that occurred could not be written to the log-file');
+        end
         
         try %#ok<TRYNC>
             if exist('msg','var')
@@ -1751,7 +1768,11 @@ warning backtrace on
                 fprintf(fid_write, 'No logfile found');
             end
         end
-        fclose(fid_write);
+        
+        try %#ok<TRYNC>
+            fclose(fid_write);
+        end
+        
         error(errorstruct)
     end
 
