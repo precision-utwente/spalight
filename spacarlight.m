@@ -200,32 +200,37 @@ try
 catch msg
     %apparently, the main Spacar run did not succeed
     %try to figure out what went wrong:
+    
+    switch msg.message
+        case 'ERROR in subroutine SOLDYN: Singular mass matrix'
+            err('Singular mass matrix')
+        otherwise
+            %see if a bigD matrix is available and whether it's singular:
+            try
+                warning('off','all')
+                [~] = spacar(0,opt.filename); %to get bigD
+                warning('on','all')
+                sbd     = [opt.filename '.sbd'];
+                nep     = getfrsbf(sbd,'nep');
+                nxp     = getfrsbf(sbd,'nxp');
+                BigD    = getfrsbf(sbd,'bigd',1);
+                Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
+                if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
+                    warn('Overconstraints could not be solved automatically. Try setting releases (opt.rls) manually.')
 
-    %1) see if a bigD matrix is available and whether it's singular:
-    try
-        warning('off','all')
-        [~] = spacar(0,opt.filename); %to get bigD
-        warning('on','all')
-        sbd     = [opt.filename '.sbd'];
-        nep     = getfrsbf(sbd,'nep');
-        nxp     = getfrsbf(sbd,'nxp');
-        BigD    = getfrsbf(sbd,'bigd',1);
-        Dcc     = BigD( 1:(nep(1)+nep(3)+nep(4)) , nxp(1)+(1:nxp(2)) );
-        if (size(Dcc,1) ~= size(Dcc,2) || rank(Dcc) < size(Dcc,1) || det(Dcc) == 0)
-            warn('Overconstraints could not be solved automatically. Try setting releases (opt.rls) manually.')
-            %get the overconstraints in the system (without any autosolve attempt)
-            %so build dat file again without any release attempts, do mode 0, get overconstraints
-            if opt.autosolve
-                opt.autosolve = false;
-                opt.rls = [];
-                [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
-                [~] = spacar(0,opt.filename);
-                [~, ~, overconstraints] = check_constraints(opt,E_list,eprops);
-                results.overconstraints = overconstraints;
+                    %get the overconstraints in the system (without any autosolve attempt)
+                    %so build dat file again without any release attempts, do mode 0, get overconstraints
+                    if opt.autosolve
+                        opt.autosolve = false;
+                        opt.rls = [];
+                        [~, ~, E_list] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
+                        [~] = spacar(0,opt.filename);
+                        [~, ~, overconstraints] = check_constraints(opt,E_list,eprops);
+                        results.overconstraints = overconstraints;
+                    end
+                    return
+                end
             end
-            return
-        end
-    catch msg
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     err('Spacar simulation failed. Possibly failed to converge to solution. Check magnitude of input displacements, loads, the number of loadsteps and other input data.')
@@ -540,7 +545,7 @@ warning backtrace on
         warping_fix = unique(warping_fix,'sorted');
         for i=1:length(warping_fix)
             node = warping_fix(i);
-            pr_fix= sprintf('%s\nFIX\t\t%3u',pr_fix,node);
+            pr_fix= sprintf('%s\nFIX\t\t%3u  #warping',pr_fix,node);
         end
         
         %% STIFFNESS/INERTIA PROPS
@@ -553,6 +558,11 @@ warning backtrace on
                     for k=1:size(E_list,2) %write mass/inertia values
                         El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                         if El>0
+                            %check magnitude of these mass coefficients
+% %                             warn('eset %i; element %i; El %i',i,eprops(i).elems(j),El) %for debugging
+                            if any(inertia < 15*eps)
+                                warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
+                            end
                             if ~eprops(i).warping
                                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                             else
@@ -581,6 +591,10 @@ warning backtrace on
                         for k=1:size(E_list,2) %write mass/inertia values
                             El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                             if El>0
+                                %check magnitude of these stiffness coefficients
+                                if any(stiffness < 15*eps)
+                                    warn('Stiffness coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
+                                end
                                 if ~eprops(i).warping
                                     pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                                 else
