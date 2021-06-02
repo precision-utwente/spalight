@@ -560,7 +560,7 @@ warning backtrace on
                         if El>0
                             %check magnitude of these mass coefficients
 % %                             warn('eset %i; element %i; El %i',i,eprops(i).elems(j),El) %for debugging
-                            if any(inertia < 15*eps)
+                            if any(inertia([1:4 6]) < 15*eps)
                                 warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
                             end
                             if ~eprops(i).warping
@@ -1015,8 +1015,7 @@ warning backtrace on
                             try
                                 detect_rigid_loops(elements,eprops,nprops);
                             catch
-                                
-                            end
+                            end 
                             
                             return
                         end
@@ -2073,9 +2072,9 @@ warning backtrace on
         inertia(1,4) = rho*Iz;
         inertia(1,5) = 0;
         inertia(1,6) = rho*Iw;
-        if any(inertia([1:4 6])<1e-16)
-            err('Some inertia components are smaller then 1e-16. Check the cross-sectional dimensions of your beams or consider scaling your system (i.e. from meters to millimeters)')
-        end
+%         if any(inertia([1:4 6])<15*eps)
+%             err('Some mass coefficients turn out to be very small. Check the cross-sectional dimensions of your beams or consider scaling your system (i.e. changing units)')
+%         end
     end
 
     function out = quat2axang(q)
@@ -2314,11 +2313,29 @@ warning backtrace on
         el_rigid_spec = cell2mat({eprops(irigid).elems}); %element numbers with no flex
 
         el_rigid = [el_nospec el_rigid_spec]; %list of all rigid elements (with and without elem set prop)
+        
+        if isfield(nprops,'fix')
+            no_fixed = find(~cellfun(@isempty,{nprops.fix})); %fixed nodes
+            ground_elems = nchoosek(no_fixed,2); %add fictitious ground elements to represent loops via fixes
+        else
+            ground_elems = [];
+        end
+        
+        input_graph = [elements(el_rigid,:) ; ground_elems];
 
-        no_fixed = find(~cellfun(@isempty,{nprops.fix})); %fixed nodes
-        ground_elems = nchoosek(no_fixed,2); %add fictitious ground elements to represent loops via fixes
-
-        cycles = grCycleBasis([elements(el_rigid,:) ; ground_elems]); %returns loops (including via ground) per column
+        %%% ------
+        % attempt to compute the cycles differently, as some still seem to go undetected
+%         max_nodes = max(input_graph(:));
+%         adj_matrix = accumarray(input_graph,1, [max_nodes, max_nodes]);
+% %         adj_matrix = sparse(input_graph(:, 1), input_graph(:, 2), 1, max_nodes,max_nodes);
+%         adj_matrix = adj_matrix.' | adj_matrix;
+%         g = graph(adj_matrix);
+%         t = minspantree(g,'Type','forest');
+%         nonTreeEdges = setdiff(g.Edges.EndNodes, t.Edges.EndNodes, 'rows');
+%         cycles = cell(size(nonTreeEdges, 1), 1);
+        %%% ------
+ 
+        cycles = grCycleBasis(input_graph); %returns loops (including via ground) per column
         %the rigid loops (report without the rows for the extra ground_elems). 
         rigidloops_log = cycles(1:length(el_rigid),:); %as logical indices
         rigidloops_log = unique(rigidloops_log','rows')';
@@ -2332,6 +2349,10 @@ warning backtrace on
             fprintf('\n');
             
             rigidloops(m) = {sort(el_rigid(ii))};
+        end
+        
+        if isempty(rigidloops_log)
+            fprintf('No rigid loops detected \n');
         end
         
     end
