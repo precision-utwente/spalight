@@ -10,7 +10,6 @@ function results = spacarlight(varargin)
 % J.P. Meijaard (complt)
 % S.E. Boer, R.G.K.M Aarts (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
 % D.H. Wiersma (CWvalues)
-% Sergii Iglin (copyright 2004, Graph Theory Toolbox, functions grCycleBasis, grMinSpanTree, grValidation)
 %
 % LIMITATIONS (note that the full Spacar version does allow these things)
 % - Type of analysis: only static analyses are supported;
@@ -28,11 +27,8 @@ function results = spacarlight(varargin)
 % - examples
 % - installation instructions
 %
-%To do:
-% - disable transfer fnt when warping
-%
 % Version 1.30
-% 05-05-2020
+% 02-06-2020
 sl_version = '1.30';
 
 %% WARNINGS
@@ -2303,7 +2299,12 @@ warning backtrace on
         end
     end
 
-    function rigidloops = detect_rigid_loops(elements,eprops,nprops)
+    function detect_rigid_loops(elements,eprops,nprops)
+        
+        if verLessThan('matlab','9.10')
+            return %because the function cyclebasis below requires 2021a
+        end
+        
         %get list of rigid elements: the elements specified in a set without flex, and the elements not specified in a set (because default then is rigid)
         el_all = 1:size(elements,1); %all elements
         el_spec = cell2mat({eprops.elems}); %elements specified in a prop set
@@ -2322,190 +2323,25 @@ warning backtrace on
         end
         
         input_graph = [elements(el_rigid,:) ; ground_elems];
-
-%         %%% ------
-%         % attempt to compute the cycles differently, as some still seem to go undetected
-%         max_nodes = max(input_graph(:));
-%         adj_matrix = accumarray(input_graph,1, [max_nodes, max_nodes]);
-% %         adj_matrix = sparse(input_graph(:, 1), input_graph(:, 2), 1, max_nodes,max_nodes);
-%         adj_matrix = adj_matrix.' | adj_matrix;
-%         g = graph(adj_matrix);
-%         t = minspantree(g,'Type','forest');
-%         nonTreeEdges = setdiff(g.Edges.EndNodes, t.Edges.EndNodes, 'rows');
-%         cycles = cell(size(nonTreeEdges, 1), 1);
-%         %%% ------
- 
-
-        min(min(input_graph))
+        s = input_graph(:,1);
+        t = input_graph(:,2);
+        g = graph(s,t);
         
-        cycles = grCycleBasis(input_graph); %returns loops (including via ground) per column
-        %the rigid loops (report without the rows for the extra ground_elems). 
-        rigidloops_log = cycles(1:length(el_rigid),:); %as logical indices
-        rigidloops_log = unique(rigidloops_log','rows')';
+        cycles = cyclebasis(g); %requires MATLAB R2021a
 
-        %convert logical indices to element numbers
-        for m = 1:size(rigidloops_log,2)
-
-            ii = find(rigidloops_log(:,m));
-            fprintf('Rigid loop detected due to elements ');
-            fprintf('%i ',sort(el_rigid(ii)));
-            fprintf('\n');
+        for m = 1:size(cycles,1)
+            fprintf('Loop of rigid elements detected between nodes ');
             
-            rigidloops(m) = {sort(el_rigid(ii))};
+            for n = 1:length(cycles{m})
+                if n<length(cycles{m})
+                    fprintf('%i, ',cycles{m}(n));
+                else
+                    fprintf('%i',cycles{m}(n));
+                end
+            end
+            fprintf('\n');
         end
         
-        if isempty(rigidloops_log)
-            fprintf('No rigid loops detected \n');
-        end
-        
-    end
-
-    function Cycles=grCycleBasis(E)
-        % Function Cycles=grCycleBasis(E) find 
-        % all independent cycles for a connected simple graph
-        % without loops and multiple edges
-        % (fundamental set of circuits).
-        % For loops and multiple edges you need add new vertexes.
-        % Input parameter: 
-        %   E(m,2) - the edges of graph;
-        %     1st and 2nd elements of each row is numbers of vertexes;
-        %     m - number of edges.
-        % Output parameter:
-        %   Cycles(m,m-n+1) - the Boolean array with numbers of edges.
-        %     n - number of vertexes;
-        %     m-n+1 - number of independent cycles.
-        %     In each column of the array Cycles True value have
-        %     numbers of edges of this cycle.
-        % Uses the addition of one edge to the spanning tree and deleting of tails.
-        % Author: Sergii Iglin
-        % e-mail: siglin@yandex.ru
-        % personal page: http://iglin.exponenta.ru
-
-        nMST=grMinSpanTree(E); % data validation and minimal spanning tree
-        E=sort(E(:,1:2)')'; % only numbers of vertexes
-        m=size(E,1); % number of edges
-        n=max(max(E)); % number of vertexes
-        Erest=E(setdiff([1:m],nMST),:); % rested edges
-        nr=m-n+1; % number of rested edges
-        Cycles=zeros(m,nr); % array for cycles
-        for k1=1:nr, % we add one independent cycle
-          Ecurr=[E(nMST,:);Erest(k1,:)]; % spanning tree + one edge
-          A=zeros(n);
-          A((Ecurr(:,1)-1)*n+Ecurr(:,2))=1;
-          A=A+A'; % the connectivity matrix
-          p=sum(A); % the vertexes power
-          nv=[1:n]; % numbers of vertexes
-          while any(p==1), % we delete all tails
-            nc=find(p>1); % rested vertexes
-            A=A(nc,nc); % new connectivity matrix
-            nv=nv(nc); % rested numbers of vertexes
-            p=sum(A); % new powers
-          end
-          [i1,j1]=find(A);
-          incedg=nv(unique(sort([i1 j1]')','rows')); % included edges
-          Cycles(:,k1)=ismember(E,incedg,'rows'); % current column
-        end
-        return
-    end
-
-    function nMST=grMinSpanTree(E)
-        % Function nMST=grMinSpanTree(E) solve 
-        % the minimal spanning tree problem for a connected graph.
-        % Input parameter: 
-        %   E(m,2) or (m,3) - the edges of graph and their weight;
-        %     1st and 2nd elements of each row is numbers of vertexes;
-        %     3rd elements of each row is weight of edge;
-        %     m - number of edges.
-        %     If we set the array E(m,2), then all weights is 1.
-        % Output parameter:
-        %   nMST(n-1,1) - the list of the numbers of edges included 
-        %     in the minimal (weighted) spanning tree in the including order.
-        % Uses the greedy algorithm.
-        % Author: Sergii Iglin
-        % e-mail: siglin@yandex.ru
-        % personal page: http://iglin.exponenta.ru
-
-        % ============= Input data validation ==================
-        if nargin<1,
-          error('There are no input data!')
-        end
-        [m,n,E] = grValidation(E); % E data validation
-
-        % ============= The data preparation ==================
-        En=[(1:m)',E]; % we add the numbers
-        En(:,2:3)=sort(En(:,2:3)')'; % edges on increase order
-        ln=find(En(:,2)==En(:,3)); % the loops numbers
-        En=En(setdiff([1:size(En,1)]',ln),:); % we delete the loops
-        [w,iw]=sort(En(:,4)); % sort by weight
-        Ens=En(iw,:); % sorted edges
-
-        % === We build the minimal spanning tree by the greedy algorithm ===
-        Emst=Ens(1,:); % 1st edge include to minimal spanning tree
-        Ens=Ens(2:end,:); % rested edges
-        while (size(Emst,1)<n-1)&(~isempty(Ens)),
-          Emst=[Emst;Ens(1,:)]; % we add next edge to spanning tree
-          Ens=Ens(2:end,:); % rested edges
-          if any((Emst(end,2)==Emst(1:end-1,2))&...
-                 (Emst(end,3)==Emst(1:end-1,3))) | ...
-             IsCycle(Emst(:,2:3)), % the multiple edge or cycle
-            Emst=Emst(1:end-1,:); % we delete the last added edge
-          end
-        end
-        nMST=Emst(:,1); % numbers of edges
-        return
-    end
-
-    function ic=IsCycle(E); % true, if graph E have cycle
-        n=max(max(E)); % number of vertexes
-        A=zeros(n);
-        A((E(:,1)-1)*n+E(:,2))=1;
-        A=A+A'; % the connectivity matrix
-        p=sum(A); % the vertexes power
-        ic=false;
-        while any(p<=1), % we delete all tails
-          nc=find(p>1); % rested vertexes
-          if isempty(nc),
-            return
-          end
-          A=A(nc,nc); % new connectivity matrix
-          p=sum(A); % new powers
-        end
-        ic=true;
-        return
-    end
-
-    function [m,n,newE] = grValidation(E);
-        % The validation of array E - auxiliary function for GrTheory Toolbox.
-        % Author: Sergii Iglin
-        % e-mail: siglin@yandex.ru
-        % personal page: http://iglin.exponenta.ru
-
-        if ~isnumeric(E),
-          error('The array E must be numeric!') 
-        end
-        if ~isreal(E),
-          error('The array E must be real!') 
-        end
-        se=size(E); % size of array E
-        if length(se)~=2,
-          error('The array E must be 2D!') 
-        end
-        if (se(2)<2),
-          error('The array E must have 2 or 3 columns!'), 
-        end
-        if ~all(all(E(:,1:2)>0)),
-          error('1st and 2nd columns of the array E must be positive!')
-        end
-        if ~all(all((E(:,1:2)==round(E(:,1:2))))),
-          error('1st and 2nd columns of the array E must be integer!')
-        end
-        m=se(1);
-        if se(2)<3, % not set the weight
-          E(:,3)=1; % all weights =1
-        end
-        newE=E(:,1:3);
-        n=max(max(newE(:,1:2))); % number of vertexes
-        return
     end
 
 end
