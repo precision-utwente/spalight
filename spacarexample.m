@@ -1,5 +1,5 @@
 % EXAMPLE SCRIPT FOR RUNNING SPACAR LIGHT
-% This example simulates a simple cross flexure rotating due to an applied moment
+% This example simulates a simple cross-flexure rotating due to an applied moment
 % For details, more examples and the full syntax list: go to spacar.nl
 
 clear
@@ -63,10 +63,11 @@ eprops(2).warping  = true;             %Enable the modeling of warping (includin
 %% OPTIONAL ARGUMENTS
 opt.filename    = 'crosshinge';     %Filename
 opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
+% opt.transfer    = {true 0.01};    %Enable calculation of transfer function (uses modal relative damping of 0.01)
 % opt.calcbuck    = true;           %Enable calculation of load multipliers
-%opt.calccompl   = false;           %Disable calculation of compliance matrices (can reduce computation time for large simulations)
-%opt.showinputonly = true;          %Only visualize the elements and nodes that were specified (not running any simulation)
-%opt.silent      = true;            %Run in silent mode
+% opt.calccompl   = false;          %Disable calculation of compliance matrices (can reduce computation time for large simulations)
+% opt.showinputonly = true;         %Only visualize the elements and nodes that were specified (not running any simulation)
+% opt.silent      = true;           %Run in silent mode
 
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);
