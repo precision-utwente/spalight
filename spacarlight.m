@@ -147,7 +147,7 @@ try
 catch msg
     switch msg.message
         case 'ERROR in subroutine PRPARE: Too many DOFs.'
-            err('Too many degrees of freedom. Decrease the number of elements or the number of flexible deformations.');
+            err('License issue. Model uses more degrees of freedom than license supports.');
         otherwise
             %check if too many elements/nodes are used - indicating limitation of license
             license_err = 0;
@@ -2323,8 +2323,8 @@ warning backtrace on
         
         input_graph = [elements(el_rigid,:) ; ground_elems];
 
-        %%% ------
-        % attempt to compute the cycles differently, as some still seem to go undetected
+%         %%% ------
+%         % attempt to compute the cycles differently, as some still seem to go undetected
 %         max_nodes = max(input_graph(:));
 %         adj_matrix = accumarray(input_graph,1, [max_nodes, max_nodes]);
 % %         adj_matrix = sparse(input_graph(:, 1), input_graph(:, 2), 1, max_nodes,max_nodes);
@@ -2333,8 +2333,11 @@ warning backtrace on
 %         t = minspantree(g,'Type','forest');
 %         nonTreeEdges = setdiff(g.Edges.EndNodes, t.Edges.EndNodes, 'rows');
 %         cycles = cell(size(nonTreeEdges, 1), 1);
-        %%% ------
+%         %%% ------
  
+
+        min(min(input_graph))
+        
         cycles = grCycleBasis(input_graph); %returns loops (including via ground) per column
         %the rigid loops (report without the rows for the extra ground_elems). 
         rigidloops_log = cycles(1:length(el_rigid),:); %as logical indices
