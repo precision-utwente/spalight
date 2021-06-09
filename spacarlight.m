@@ -738,6 +738,17 @@ warning backtrace on
         elseif  (~id_ini && id_add);     pr_add = sprintf('%s\n\nITERSTEP\t10\t%3u\t0.0000005\t1\t3\t0',pr_add,steps);     %if initial loading/displacement
         else                             pr_add = sprintf('%s\n\nITERSTEP\t10\t1\t0.0000005\t1\t1\t0',pr_add);  end  %no loading/displacement
         
+        %CUSTOM DYNAMICS SETTINGS
+        pr_dyn = sprintf('#CUSTOM DYNAMICS COMMANDS\n');
+        try
+            if(isfield(opt,'customdyn') && ~isempty(opt.customdyn))
+                for i=1:size(opt.customdyn,2)
+                    pr_dyn = sprintf('%s\n%s',pr_dyn,opt.customdyn{i});
+                end
+            end
+        catch msg
+            err('opt.customdyn input issue')
+        end
         
         %% VISUALIZATION
         pr_vis = sprintf('VISUALIZATION');
@@ -822,7 +833,7 @@ warning backtrace on
                 end
             end
         catch msg
-            err('Invalid opt.customvis input')
+            err('opt.customvis input issue')
         end
         
         fileID = fopen([opt.filename '.dat'],'w');
@@ -837,6 +848,7 @@ warning backtrace on
         print_dat(fileID,'%s\n\n\n\n',pr_mass);
         print_dat(fileID,'%s\n\n\n\n',pr_nm);
         print_dat(fileID,'%s\n\n\n\n',pr_add);
+        print_dat(fileID,'%s\n\n\n\n',pr_dyn);
         if mode~=9
             print_dat(fileID,'%s\n\n\n\n',pr_force);
             print_dat(fileID,'%s\n\n\n\n',pr_moment);
@@ -1560,7 +1572,7 @@ warning backtrace on
             
             %CHECK OPTIONAL ARGUMENTS
             if (exist('opt','var') && ~isempty(opt))
-                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis','spavisual'};
+                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis','customdyn','spavisual'};
                 supplied_opts = fieldnames(opt);
                 unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
                 if any(unknown_opts_i)
@@ -1911,12 +1923,7 @@ warning backtrace on
             end
             
             %EIGENFREQUENCIES
-            if nddof>10
-                [V,D]   = eigs(K0+N0+G0,M0,10,'sm');
-            else
-                [V,D]   = eig(K0+N0+G0,M0);
-            end
-            
+            [V,D]   = eig(K0+N0+G0,M0);
             D       = diag(D);
             [~,o]   = sort(abs(D(:)));
             d       = D(o);
@@ -1931,19 +1938,11 @@ warning backtrace on
             end
             
             %MAXIMUM STRESS
-            beamw_exist = false;
-            for k=1:size(eprops,2)
-                if eprops(k).warping == true
-                    beamw_exist = true;
-                end
-            end
-            if ~beamw_exist
-                [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
-                opt_stress.exterior = true; %only calculate exterior stresses (not possible for circ cross-section)
-                [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,opt_stress,propcrossect);
-                results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
-                results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
-            end
+            [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
+            opt_stress.exterior = true; %only calculate exterior stresses (not possible for circ cross-section)
+            [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,opt_stress,propcrossect);
+            results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
+            results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
             
             if opt.mode==9
                 sys_ss = getss(filename);
