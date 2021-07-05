@@ -27,9 +27,9 @@ function results = spacarlight(varargin)
 % - examples
 % - installation instructions
 %
-% Version 1.31
-% 10-06-2020
-sl_version = '1.31';
+% Version 1.32
+% 05-07-2020
+sl_version = '1.32';
 
 %% WARNINGS
 warning off backtrace
@@ -320,10 +320,10 @@ warning backtrace on
                     else
                         Orien = [0 1 0];
                     end
-                    if isempty(eprops(j).warping)
-                        warping = false;
+                    if (isfield(eprops(j),'warping') && ~isempty(eprops(j).warping) && eprops(j).warping == true)
+                        warping = true;
                     else
-                        warping = eprops(j).warping;
+                        warping = false;
                     end
                     
                     if warping && isempty(Flex)
@@ -559,10 +559,10 @@ warning backtrace on
                             if any(inertia([1:4 6]) < 15*eps)
                                 warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
                             end
-                            if ~eprops(i).warping
-                                pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
-                            else
+                            if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
                                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5),inertia(6));
+                            else
+                                pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                             end
                         end
                     end
@@ -578,7 +578,7 @@ warning backtrace on
                             L = norm(nodes(elements(eprops(i).elems(j),2),:)...
                                 - nodes(elements(eprops(i).elems(j),1),:));
                             aspect = L/max(eprops(i).dim);
-                            if aspect < 3 && mode ~= 0 && ~eprops(i).warping
+                            if aspect < 3 && mode ~= 0 && ~(isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
                                 warn('Aspect ratio of element %i is smaller than 3; consider (constrained) warping.',eprops(i).elems(j));
                             end
                         end                        
@@ -591,10 +591,11 @@ warning backtrace on
                                 if any(stiffness < 15*eps)
                                     warn('Stiffness coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
                                 end
-                                if ~eprops(i).warping
-                                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
-                                else
+                                
+                                if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
                                     pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6),stiffness(7));
+                                else
+                                    pr_stiff = sprintf('%s\nESTIFF\t\t%3u\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_stiff,El,stiffness(1),stiffness(2),stiffness(3),stiffness(4),stiffness(5),stiffness(6));
                                 end
                             end
                         end
@@ -1458,10 +1459,10 @@ warning backtrace on
                             ensure(mod(eprops(i).nbeams,1)==0,'Property eprops(%i).nbeams should be a positive integer.',i);
                         end
                         
-                        if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping));
+                        if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping))
                             validateattributes(eprops(i).warping,{'logical'},{'scalar'},'',sprintf('warping property in eprops(%u)',i));
-                        else
-                            eprops(i).warping = false;
+%                         else
+%                             eprops(i).warping = false;
                         end
                         
                         if (isfield(eprops(i),'cw') && ~isempty(eprops(i).cw)); warn('Property cw in eprops(%u) is deprecated. Use eprops(%u).warping for modeling warping effects.',i,i); end
