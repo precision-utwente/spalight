@@ -2012,7 +2012,7 @@ warning backtrace on
                 Iy  = (pi/64)*d^4;
                 Iz  = Iy;
                 k   = 6*(1+v)/(7+6*v);
-                Cwv = 1;
+                Cwv = 0;
         end
         stiffness(1,1) = E*A;
         stiffness(1,2) = G*It;
@@ -2061,7 +2061,7 @@ warning backtrace on
                 A   = (pi/4)*d^2;
                 Iy  = (pi/64)*d^4;
                 Iz  = Iy;
-                Iw = 1;
+                Iw = 1; %this is not correct, but we need some value because singular mass matrix if zero
         end
         
         inertia(1,1) = rho*A;
