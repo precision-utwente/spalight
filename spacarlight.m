@@ -1122,7 +1122,9 @@ warning backtrace on
                 ensure(~any(abs(elements(:,1)-elements(:,2))==0),('Both sides of element seem connected to the same node.'))
                 
                 %check if unique pairs node numbers (independent of p/q order)
-                ensure(size(unique(sort(elements,2),'rows'),1)==size(elements,1),'Multiple elements seem connected between the same node pair.')
+                if (size(unique(sort(elements,2),'rows'),1) ~= size(elements,1))
+                    warn('Multiple elements seem connected between the same node pair.');
+                end
                 
                 ensure_idelret(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5,'length seems smaller than 0.00001.')
                 
