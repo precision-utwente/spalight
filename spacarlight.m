@@ -1139,7 +1139,7 @@ warning backtrace on
                 
 
                 allowed_nprops = {'fix','fix_x','fix_y','fix_z','fix_pos','fix_orien','fix_warp','displ_x','displ_y','displ_z','rot','rot_x','rot_y','rot_z','force','moment','mass','mominertia','force_initial','moment_initial', ...
-                    'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
+                    'displ_initial_x','displ_initial_y','displ_initial_z','rot_initial','rot_initial_x','rot_initial_y','rot_initial_z','transfer_in','transfer_out'};
 
                 supplied_nprops = fieldnames(nprops);
                 ensure(size(supplied_nprops,1)>0,'Node properties seem empty.')
