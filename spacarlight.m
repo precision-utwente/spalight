@@ -1121,6 +1121,8 @@ warning backtrace on
                 if max(elements(:))<nno; warn('Node seems not attached to element.'); end
                 ensure(~any(abs(elements(:,1)-elements(:,2))==0),('Both sides of element seem connected to the same node.'))
                 
+                ensure(nnz(setdiff(1:max(elements(:)),unique(elements(:)))) == 0,'Node seems not connected to element.');
+
                 %check if unique pairs node numbers (independent of p/q order)
                 if (size(unique(sort(elements,2),'rows'),1) ~= size(elements,1))
                     warn('Multiple elements seem connected between the same node pair.');
@@ -2170,7 +2172,7 @@ warning backtrace on
             CMloc=zeros(6,6,1);
             return;
         end
-        
+
         % read total number of steps from the file
         tdef     =getfrsbf([filename '.sbd'],'tdef');
         CMglob=zeros(6,6,tdef);
