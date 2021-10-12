@@ -27,9 +27,9 @@ function results = spacarlight(varargin)
 % - examples
 % - installation instructions
 %
-% Version 1.33
-% 20-09-2021
-sl_version = '1.33';
+% Version 1.34
+% 12-10-2021
+sl_version = '1.34';
 
 %% WARNINGS
 warning off backtrace
