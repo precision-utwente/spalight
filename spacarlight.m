@@ -482,7 +482,8 @@ warning backtrace on
             if(isfield(nprops(i),'fix_warp') && ~isempty(nprops(i).fix_warp) && nprops(i).fix_warp);        warping_fix(end+1) = (i-1)*3+3; end %add to warping fixes list, for writing later
             
             %input displacements
-            if (mode~=3 && mode~=9)
+%             if (mode~=3 && mode~=9)
+            if (mode~=3)
                 if((isfield(nprops(i),'displ_x') && ~isempty(nprops(i).displ_x)) ||...
                         (isfield(nprops(i),'displ_initial_x') && ~isempty(nprops(i).displ_initial_x)));   pr_input = sprintf('%s\nINPUTX\t%3u\t\t1',pr_input,(i-1)*3+1);id_inputx = true;    end
                 if((isfield(nprops(i),'displ_y') && ~isempty(nprops(i).displ_y)) ||...
@@ -621,7 +622,8 @@ warning backtrace on
         id_add  = false; %check for aditional loading or displacement
         
         for i=1:size(nprops,2) %loop over all user defined nodes
-            if mode~=9;
+%             if mode~=9;
+if true
                 %forces
                 if(isfield(nprops(i),'force') && ~isempty(nprops(i).force));                    pr_force = sprintf('%s\nDELXF\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*3+1,nprops(i).force(1),nprops(i).force(2),nprops(i).force(3));                           id_add = true;  id_inputf=true; end
                 if(isfield(nprops(i),'force_initial') && ~isempty(nprops(i).force_initial));    pr_force = sprintf('%s\nXF\t\t\t%3u\t\t%6f\t%6f\t%6f',pr_force,(i-1)*3+1,nprops(i).force_initial(1),nprops(i).force_initial(2),nprops(i).force_initial(3));   id_ini = true;  id_inputf=true; end
@@ -667,7 +669,7 @@ warning backtrace on
                     if(isfield(nprops(i),'rot_initial_z') && ~isempty(nprops(i).rot_initial_z));rot = eul2quat([nprops(i).rot_initial_z(1) 0 0]);
                         pr_dispr = sprintf('%s\nINPUTX\t\t%3u\t\t4\t\t%6f',pr_dispr,(i-1)*3+2,rot(4));  id_ini = true; end
                 end
-            else
+%             else
                 if (isfield(nprops(i),'transfer_in') && ~isempty(nprops(i).transfer_in))
                     for j=1:length(nprops(i).transfer_in)
                         switch nprops(i).transfer_in{j}
@@ -850,12 +852,12 @@ warning backtrace on
         print_dat(fileID,'%s\n\n\n\n',pr_nm);
         print_dat(fileID,'%s\n\n\n\n',pr_add);
         print_dat(fileID,'%s\n\n\n\n',pr_dyn);
-        if mode~=9
+%         if mode~=9
             print_dat(fileID,'%s\n\n\n\n',pr_force);
             print_dat(fileID,'%s\n\n\n\n',pr_moment);
             print_dat(fileID,'%s\n\n\n\n',pr_dispr);
             print_dat(fileID,'%s\n\n\n\n',pr_dispx);
-        else
+        if mode==9
             fprintf(fileID,'END\nHALT\n\n\n\n');
             print_dat(fileID,'%s\n\n\n\n',pr_transfer_in);
             print_dat(fileID,'%s\n\n\n\n',pr_transfer_out);
@@ -1653,7 +1655,7 @@ warning backtrace on
                     if any(opt.transfer{1} == true)
                         %check 'clash' with loadstep specification
                         if isfield(opt,'loadsteps') && ~isempty(opt.loadsteps)
-                            warn('Specification of load steps is ignored (default of 1 is used) since state-space equations are calculated (opt.transfer=true)');
+%                             warn('Specification of load steps is ignored (default of 1 is used) since state-space equations are calculated (opt.transfer=true)');
                         end
                         
                         %check clash with buckling calculation
@@ -1677,7 +1679,7 @@ warning backtrace on
                             };
                         for k=1:length(clashinputs)
                             if isfield(nprops,clashinputs(k))
-                                ensure(all(cellfun('isempty',{nprops.(clashinputs{k})})),'Calculation of state-space equations (opt.transfer) requires absence of nprops.%s input.',clashinputs{k});
+%                                 ensure(all(cellfun('isempty',{nprops.(clashinputs{k})})),'Calculation of state-space equations (opt.transfer) requires absence of nprops.%s input.',clashinputs{k});
                             end
                         end
                     end
@@ -1976,14 +1978,16 @@ warning backtrace on
         
         if opt.calccompl
             for j=1:size(nodes,1)
-                [CMglob, CMloc] = complt(filename,(j-1)*3+1,(j-1)*3+2);
+                [CMglob, CMloc, Kglob] = complt(filename,(j-1)*3+1,(j-1)*3+2);
                 for i=t_list
                     results.step(i).node(j).CMglob = CMglob(:,:,i);
                     results.step(i).node(j).CMloc = CMloc(:,:,i);
+                    results.step(i).node(j).Kglob = Kglob(:,:,i);
                 end
                 for i=t_list
                     results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
                     results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+                    results.node(j).Kglob(1:6,1:6,i)     = results.step(i).node(j).Kglob;
                 end
             end
         end
@@ -2153,7 +2157,7 @@ warning backtrace on
         q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
     end
 
-    function [CMglob, CMloc] = complt(filename,ntr,nrot)
+    function [CMglob, CMloc, Kglob] = complt(filename,ntr,nrot)
         % Calculate the compliance matrix in global directions and in body-fixed
         % local directions.
         % Calling syntax: [CMglob CMloc] = complt(filename,ntr,nrot)
@@ -2170,6 +2174,7 @@ warning backtrace on
             disp('complt needs 3 input arguments');
             CMglob=zeros(6,6,1);
             CMloc=zeros(6,6,1);
+            Kglob=zeros(6,6,1);
             return;
         end
 
@@ -2177,6 +2182,7 @@ warning backtrace on
         tdef     =getfrsbf([filename '.sbd'],'tdef');
         CMglob=zeros(6,6,tdef);
         CMloc=zeros(6,6,tdef);
+        Kglob=zeros(6,6,tdef);
         lnp     =getfrsbf([filename '.sbd'],'lnp');
         nx      =getfrsbf([filename '.sbd'],'nx');
         nxp     =getfrsbf([filename '.sbd'],'nxp');
@@ -2236,7 +2242,9 @@ warning backtrace on
             end
             DX = DX(locv,locdof);
             
-            CMlambda=DX*((K0+G0)\(DX'));
+            CMlambda=DX*((K0+G0+N0)\(DX'));
+            Klambda=DX*(K0+G0+N0)*(DX'); %stiffness matrix reduced to desired nodes, still in terms of lambda's
+
             % Reduce CMlambda to the correct matrices by the lambda matrices
             lambda0=X(locv(4));
             lambda1=X(locv(5));
@@ -2254,6 +2262,7 @@ warning backtrace on
                 zeros(3,3) 2*lambdat];
             CMglob(:,:,tstp)=Tglob*CMlambda*(Tglob');
             CMloc(:,:,tstp)=Tloc*CMlambda*(Tloc');
+            Kglob(:,:,tstp)=Tglob*Klambda*(Tglob');
         end
     end
 
