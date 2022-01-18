@@ -1849,7 +1849,9 @@ warning backtrace on
         nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
         t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %list of timesteps
         lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
-        ln      = getfrsbf([filename,'.sbd'],'ln'); %lnp data
+        ln      = getfrsbf([filename,'.sbd'],'ln'); %ln data
+        le      = getfrsbf([filename,'.sbd'],'le'); %ln data
+        rxyz    = getfrsbf([filename,'.sbd'],'rxyz'); %rxyz (initial rotation of element wrt rot-node)
         
         if nddof == 0
             warn('No dynamic degrees of freedom.')
@@ -1873,23 +1875,27 @@ warning backtrace on
         
         %PROCESS RESULTS PER LOADSTEP
         x       = getfrsbf([filename '.sbd'] ,'x');
+        e       = getfrsbf([filename '.sbd'] ,'e');
         fxtot   = getfrsbf([filename '.sbd'] ,'fxt');
         M0_data = getfrsbf([filename '.sbm'] ,'m0');
         G0_data = getfrsbf([filename '.sbm'] ,'g0');
         K0_data = getfrsbf([filename '.sbm'] ,'k0');
         N0_data = getfrsbf([filename '.sbm'] ,'n0');
-        nk = sqrt(size(K0_data,2));%number of elementen in K,M,G,N matrix if t_list > 1
+        nk = sqrt(size(K0_data,2));%number of elements in K,M,G,N matrix if t_list > 1
         
         if length(t_list)==1 %#ok<*BDSCI>
             x = x';
+            e = e';
             fxtot = fxtot';
         end
         
         %K = K0 + getfrsbf([filename '.sbm'] ,'n0', i) + G0;
         %C = getfrsbf([filename '.sbm'] ,'c0', t_list(i)) + getfrsbf([filename '.sbm'] ,'d0', t_list(i));
         
-        %NODE DEPENDENT RESULTS
+
         for i=t_list
+            
+            %NODE DEPENDENT AND LOAD-STEP DEPENDENT RESULTS
             for j=1:size(nodes,1)
                 
                 %RESTRUCT DATA
@@ -1926,7 +1932,20 @@ warning backtrace on
                 results.node(j).Freac(1:3,i)         = results.step(i).node(j).Freac;
                 results.node(j).Mreac(1:3,i)         = results.step(i).node(j).Mreac;
             end
-            
+
+            %ELEMENT DEPENDENT AND LOAD-STEP DEPENDENT RESULTS
+            for j=1:size(elements,1)
+                
+                %spalight element i is represented by spacar beams E_list(i,:)
+                ii = E_list(j,:)>0; %only select elementnrs larger than zero (because of standard padding to largest row size occuring)
+                spa_nrs = E_list(j,ii);
+                
+                for k=1:length(spa_nrs)
+                    results.step(i).element(j).e(k,1:6) = e(i,le(spa_nrs(k),1:6));
+                end
+    
+            end            
+
             %EIGENFREQUENCIES
             [V,D]   = eig(K0+N0+G0,M0);
             D       = diag(D);
@@ -1974,6 +1993,23 @@ warning backtrace on
            warn('Complex-valued eigenfrequencies detected; system may have buckled.'); 
         end
         
+        %NODE DEPENDENT RESULTS
+        for j=1:size(nodes,1)
+            results.node(j).spa_nrs = [(j-1)*3+1 (j-1)*3+2];
+        end
+
+        %ELEMENT DEPENDENT RESULTS
+        for j=1:size(elements,1)
+            
+            %spalight element i is represented by spacar beams E_list(i,:)
+            %E_list;
+            results.element(j).Ri = reshape(rxyz(E_list(j,1),:),3,3);
+            
+            ii = E_list(j,:)>0; %only select elementnrs larger than zero (because of standard padding to largest row size occuring)
+            results.element(j).spa_nrs = E_list(j,ii);
+
+        end
+
         if opt.calccompl
             for j=1:size(nodes,1)
                 [CMglob, CMloc] = complt(filename,(j-1)*3+1,(j-1)*3+2);
