@@ -549,7 +549,7 @@ warning backtrace on
         pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z\t\t\t\t\tEIw');
         pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t\tJzz/L\t\t\t\t\tJyz/L\t\t\t\t\tJw/L');
         for i=1:size(eprops,2) %loop over each element property set
-            if (isfield(eprops(i),'dens') &&  ~isempty(eprops(i).dens))
+            if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens) && eprops(i).dens>0) 
                 inertia = calc_inertia(eprops(i));     %calculate mass properties
                 for j=1:length(eprops(i).elems) %loop over all elements in element property set
                     for k=1:size(E_list,2) %write mass/inertia values
@@ -557,7 +557,7 @@ warning backtrace on
                         if El>0
                             %check magnitude of these mass coefficients
 % %                             warn('eset %i; element %i; El %i',i,eprops(i).elems(j),El) %for debugging
-                            if any(inertia([1:4 6]) < 15*eps)
+                            if any(inertia([1:4 6]) < 150*eps)
                                 warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
                             end
                             if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
