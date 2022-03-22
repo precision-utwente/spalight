@@ -26,8 +26,8 @@ elements = [    1   3;  %element 1
 nprops(1).fix               = true;         %Fix node 1
 
 %node 3
-nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
-nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
+% nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
+% nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
 nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3 (combined with moment_initial, the moment goes from -0.025 to 0.025 Nm)
 nprops(3).mass              = 0.1;          %Mass [kg] of node 3
 
@@ -43,7 +43,7 @@ eprops(1).dens     = 7800;             %Density [kg/m^3]
 eprops(1).cshape   = 'rect';           %Rectangular cross-section
 eprops(1).dim      = [50e-3 0.2e-3];   %Width: 50 mm, thickness: 0.2 mm
 eprops(1).orien    = [0 0 1];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(1).nbeams   = 3;                %Number of beams used to model elements in this set
+eprops(1).nbeams   = 1;                %Number of beams used to model elements in this set
 eprops(1).flex     = 1:6;        	   %Model all deformation modes (1 to 6) as flexible
 eprops(1).color    = 'grey';           %Color (visualization only)
 eprops(1).opacity  = 0.7;              %Opacity (visualization only)
@@ -72,6 +72,9 @@ opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);
 
+fh = out.fighandle;
+ah = fh.Children(1);
+view(ah,-12,46)
 % Some of the available output variables are listed below. For the full syntax list, go to spacar.nl
 
 %out.step(i)                            Results at loadstep i
