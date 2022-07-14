@@ -989,10 +989,10 @@ warning backtrace on
                 n = nover;
                 
                 for dummy = 1:n %solve for n overconstraints, loop counter is not required (dummy)
-                    %redo SVD analyses (has to be redone after each resolved overconstrain)
+                    %redo SVD analyses (has to be redone after each resolved overconstraint)
                     [ U, ~, ~ ] = svd(Dcc);
                     
-                    %part of U matrix coresponding to all overconstraints
+                    %part of U matrix corresponding to all overconstraints
                     overconstraint = U(:,end-nover+1:end);
                     %select part of U matrix corresponding to first overconstraint
                     oc = overconstraint(:,1);
@@ -1029,7 +1029,7 @@ warning backtrace on
                             return
                         end
                         
-                        %Select deformation to be test for release
+                        %Select deformation to be tested for release
                         def_id = sel(j);
                         def = IDlist(def_id);
                         %After each release, Dcc matrix is
@@ -1050,11 +1050,13 @@ warning backtrace on
                                 
                                 %Check if kth spacar light element is flexible
                                 for i=1:size(eprops,2) %loop over all element property sets to check flexibility
-                                    if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex) && any(eprops(i).elems==k)) %if kth element is flexible
+                                    if (isfield(eprops(i),'flex') && ~isempty(eprops(i).flex) && any(eprops(i).elems==k) ... %if kth element is flexible
+                                        && any(ismember(eprops(i).flex,defmode)) ... %and if defmode is allowed to be released (i.e. marked as flexible by user)
+                                       ) 
                                         if rlse(k,defmode) == 0 %if this deformation is not yet released
                                             IDlist(def_id) = []; %update IDlist for deformation tracking
                                             Dcc(def_id,:) = []; %reduce Dcc matrix to remove this overconstrained
-                                            rlse(k,defmode) = 1; %store release informatino in rlse matrix ()
+                                            rlse(k,defmode) = 1; %store release information in rlse matrix ()
                                             nover = nover-1; %reduce number of overconstraints
                                             loop = false; %terminate while loop and redo from line 235
                                         end
