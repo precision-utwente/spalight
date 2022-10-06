@@ -26,8 +26,8 @@ elements = [    1   3;  %element 1
 nprops(1).fix               = true;         %Fix node 1
 
 %node 3
-% nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
-% nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
+nprops(3).force             = [0 1 0];      %Force [N] in y-direction on node 3
+nprops(3).moment_initial    = [0 0 -0.025]; %Initial moment [Nm] around z-axis on node 3 
 nprops(3).moment            = [0 0 0.05];   %Moment [Nm] around z-axis on node 3 (combined with moment_initial, the moment goes from -0.025 to 0.025 Nm)
 nprops(3).mass              = 0.1;          %Mass [kg] of node 3
 
@@ -72,9 +72,6 @@ opt.gravity     = [0 0 -9.81];      %Gravitational acceleration [m/s^2]
 %% CALL SPACAR_LIGHT
 out = spacarlight(nodes, elements, nprops, eprops, opt);
 
-fh = out.fighandle;
-ah = fh.Children(1);
-view(ah,-12,46)
 % Some of the available output variables are listed below. For the full syntax list, go to spacar.nl
 
 %out.step(i)                            Results at loadstep i
@@ -84,12 +81,8 @@ view(ah,-12,46)
 %out.step(i).node(j)                    Results at loadstep i, node number j
 %out.step(i).node(j).p                  Position [m]
 %out.step(i).node(j).r_axang			Rotation in axis-angle representation
-%out.step(i).node(j).r_eulzyx           Euler rotations in order z, y, x
-%out.step(i).node(j).r_quat             Rotations in quaternions
 %out.step(i).node(j).Freac              Reaction forces on the node
 %out.step(i).node(j).Mreac              Reaction moments on the node
 %out.step(i).node(j).CMglob             6x6 compliance matrix of the node in the global frame**
-%out.step(i).node(j).CMloc              6x6 compliance matrix of the node in the local frame**
 
 %   *load multipliers only calculated if opt.calcbuck = true.
-%   **Compliance matrixes only calculated if opt.calccompl = true (if not specified, the default "true" will be used)

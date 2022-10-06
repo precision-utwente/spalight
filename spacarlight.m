@@ -7,14 +7,14 @@ function results = spacarlight(varargin)
 % Contact: m.naves@utwente.nl
 %
 % CONTRIBUTIONS
-% J.P. Meijaard (complt)
 % S.E. Boer, R.G.K.M Aarts (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
+% J.P. Meijaard (complt)
 % D.H. Wiersma (CWvalues)
 %
 % LIMITATIONS (note that the full Spacar version does allow these things)
 % - Type of analysis: only static analyses are supported;
 % - Boundary conditions: the orientation of a node can either be fixed or
-% free. It is not possible to create a pinned boundary condition about a certain axis.
+% free. It is not possible to create e.g. a pinned boundary condition about a certain axis.
 %
 % Output rotations are provided in quaternions, axis-angle representation and Euler angles (ZYX).
 %
@@ -27,9 +27,9 @@ function results = spacarlight(varargin)
 % - examples
 % - installation instructions
 %
-% Version 1.34
-% 12-10-2021
-sl_version = '1.34';
+% Version 1.35
+% 06-10-2022
+sl_version = '1.35';
 
 %% WARNINGS
 warning off backtrace
