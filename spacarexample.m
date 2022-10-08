@@ -35,7 +35,7 @@ nprops(3).mass              = 0.1;          %Mass [kg] of node 3
 nprops(4).fix               = true;         %Fix node 4
 
 %% ELEMENT PROPERTIES
-%Property set 1
+%Property set 1 (for the two flexible leaf springs)
 eprops(1).elems    = [1 3];            %Add this set of properties to elements 1 and 3
 eprops(1).emod     = 210e9;            %E-modulus [Pa]
 eprops(1).smod     = 70e9;             %G-modulus [Pa]
@@ -43,13 +43,13 @@ eprops(1).dens     = 7800;             %Density [kg/m^3]
 eprops(1).cshape   = 'rect';           %Rectangular cross-section
 eprops(1).dim      = [50e-3 0.2e-3];   %Width: 50 mm, thickness: 0.2 mm
 eprops(1).orien    = [0 0 1];          %Orientation of the cross-section as a vector pointing along "width-direction"
-eprops(1).nbeams   = 1;                %Number of beams used to model elements in this set
+eprops(1).nbeams   = 3;                %Number of beams used to model elements in this set
 eprops(1).flex     = 1:6;        	   %Model all deformation modes (1 to 6) as flexible
 eprops(1).color    = 'grey';           %Color (visualization only)
 eprops(1).opacity  = 0.7;              %Opacity (visualization only)
 eprops(1).warping  = true;             %Enable the modeling of warping (including constrained warping effects)
 
-%Property set 2
+%Property set 2 (for the rigid body between the two leaf springs)
 eprops(2).elems    = 2;                %Add this set of properties to element 2
 eprops(2).dens     = 3000;             %Density [kg/m^3]
 eprops(2).cshape   = 'rect';           %Rectangular cross-section
