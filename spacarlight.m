@@ -2014,14 +2014,16 @@ warning backtrace on
 
         if opt.calccompl
             for j=1:size(nodes,1)
-                [CMglob, CMloc] = complt(filename,(j-1)*3+1,(j-1)*3+2);
+                [CMglob, CMloc, Kglob] = complt(filename,(j-1)*3+1,(j-1)*3+2);
                 for i=t_list
                     results.step(i).node(j).CMglob = CMglob(:,:,i);
                     results.step(i).node(j).CMloc = CMloc(:,:,i);
+                    results.step(i).node(j).Kglob = Kglob(:,:,i);
                 end
                 for i=t_list
-                    results.node(j).CMglob(1:6,1:6,i)    = results.step(i).node(j).CMglob;
-                    results.node(j).CMloc(1:6,1:6,i)     = results.step(i).node(j).CMloc;
+                    results.node(j).CMglob(1:6,1:6,i) = results.step(i).node(j).CMglob;
+                    results.node(j).CMloc(1:6,1:6,i) = results.step(i).node(j).CMloc;
+                    results.node(j).Kglob(1:6,1:6,i) = results.step(i).node(j).Kglob;
                 end
             end
         end
@@ -2191,7 +2193,7 @@ warning backtrace on
         q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
     end
 
-    function [CMglob, CMloc] = complt(filename,ntr,nrot)
+    function [CMglob, CMloc, Kglob] = complt(filename,ntr,nrot)
         % Calculate the compliance matrix in global directions and in body-fixed
         % local directions.
         % Calling syntax: [CMglob CMloc] = complt(filename,ntr,nrot)
@@ -2275,6 +2277,8 @@ warning backtrace on
             DX = DX(locv,locdof);
             
             CMlambda=DX*((K0+G0)\(DX'));
+            Klambda=DX*((K0+G0)*(DX'));
+
             % Reduce CMlambda to the correct matrices by the lambda matrices
             lambda0=X(locv(4));
             lambda1=X(locv(5));
@@ -2292,6 +2296,7 @@ warning backtrace on
                 zeros(3,3) 2*lambdat];
             CMglob(:,:,tstp)=Tglob*CMlambda*(Tglob');
             CMloc(:,:,tstp)=Tloc*CMlambda*(Tloc');
+            Kglob(:,:,tstp)=Tglob*Klambda*(Tglob');
         end
     end
 
