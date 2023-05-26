@@ -27,9 +27,9 @@ function results = spacarlight(varargin)
 % - examples
 % - installation instructions
 %
-% Version 1.35
-% 06-10-2022
-sl_version = '1.35';
+% Version 1.36
+% 26-05-2023
+sl_version = '1.36';
 
 %% WARNINGS
 warning off backtrace
@@ -554,14 +554,18 @@ warning backtrace on
                     for k=1:size(E_list,2) %write mass/inertia values
                         El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
                         if El>0
-                            %check magnitude of these mass coefficients
-% %                             warn('eset %i; element %i; El %i',i,eprops(i).elems(j),El) %for debugging
-                            if any(inertia([1:4 6]) < 150*eps)
-                                warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
-                            end
+%                             warn('eset %i; element %i; El %i',i,eprops(i).elems(j),El) %for debugging
                             if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
+                                %check magnitude of these mass coefficients
+                                if any(inertia([1:4 6]) < 150*eps)
+                                    warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
+                                end
                                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5),inertia(6));
                             else
+                                %check magnitude of these mass coefficients
+                                if any(inertia([1:4]) < 150*eps)
+                                    warn('Mass coefficients for element %i turn out to be very small; consider changing units.',eprops(i).elems(j));
+                                end
                                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t%20.15f\t%20.15f\t%20.15f\t%20.15f\t%20.15f',pr_mass,El,inertia(1),inertia(2),inertia(3),inertia(4),inertia(5));
                             end
                         end
@@ -2014,16 +2018,14 @@ warning backtrace on
 
         if opt.calccompl
             for j=1:size(nodes,1)
-                [CMglob, CMloc, Kglob] = complt(filename,(j-1)*3+1,(j-1)*3+2);
+                [CMglob, CMloc] = complt(filename,(j-1)*3+1,(j-1)*3+2);
                 for i=t_list
                     results.step(i).node(j).CMglob = CMglob(:,:,i);
                     results.step(i).node(j).CMloc = CMloc(:,:,i);
-                    results.step(i).node(j).Kglob = Kglob(:,:,i);
                 end
                 for i=t_list
                     results.node(j).CMglob(1:6,1:6,i) = results.step(i).node(j).CMglob;
                     results.node(j).CMloc(1:6,1:6,i) = results.step(i).node(j).CMloc;
-                    results.node(j).Kglob(1:6,1:6,i) = results.step(i).node(j).Kglob;
                 end
             end
         end
@@ -2063,6 +2065,11 @@ warning backtrace on
         stiffness(1,5) = stiffness(1,3)/(G*A*k);
         stiffness(1,6) = stiffness(1,4)/(G*A*k);
         stiffness(1,7) = E*Cwv;
+
+%         stiffness(1,5) = 0;
+%         stiffness(1,6) = 0;
+%         disp('note: shear deformation off');
+
     end
 
     function Ip = calc_torsStiff(t, w)
@@ -2193,7 +2200,7 @@ warning backtrace on
         q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
     end
 
-    function [CMglob, CMloc, Kglob] = complt(filename,ntr,nrot)
+    function [CMglob, CMloc] = complt(filename,ntr,nrot)
         % Calculate the compliance matrix in global directions and in body-fixed
         % local directions.
         % Calling syntax: [CMglob CMloc] = complt(filename,ntr,nrot)
@@ -2277,7 +2284,6 @@ warning backtrace on
             DX = DX(locv,locdof);
             
             CMlambda=DX*((K0+G0)\(DX'));
-            Klambda=DX*((K0+G0)*(DX'));
 
             % Reduce CMlambda to the correct matrices by the lambda matrices
             lambda0=X(locv(4));
@@ -2296,7 +2302,6 @@ warning backtrace on
                 zeros(3,3) 2*lambdat];
             CMglob(:,:,tstp)=Tglob*CMlambda*(Tglob');
             CMloc(:,:,tstp)=Tloc*CMlambda*(Tloc');
-            Kglob(:,:,tstp)=Tglob*Klambda*(Tglob');
         end
     end
 
