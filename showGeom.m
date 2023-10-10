@@ -202,6 +202,7 @@ function showGeom(no,el,nprops,eprops)
     end
     
     %--visual properties--
+    if nargin>2
     for i=1:nno
         if (i <= size(nprops,2) && isfield(nprops,'fix') && ~isempty(nprops(i).fix) && nprops(i).fix == true)
             set(nh(i),'Marker','.','MarkerSize',16,'Color','r')
@@ -209,7 +210,9 @@ function showGeom(no,el,nprops,eprops)
             set(nh(i),'Marker','.','MarkerSize',16,'Color','k')
         end
     end
+    end
     
+    if nargin>3
     for i=1:size(eprops,2)
         if isempty(eprops(i).flex)
             %rigid element
@@ -224,6 +227,7 @@ function showGeom(no,el,nprops,eprops)
     el_all = 1:nel; %all element numbers
     el_no_eprops = setdiff(el_all,el_eprops); %elements without eprops
     set(eh(el_no_eprops),'Color',0.75*[1 0 0]);
+    end
     
     %set(eh,'Color',0.75*[1 1 1],'LineWidth',2.5)
     set(nnh,'BackgroundColor','w','Color','b')

@@ -175,7 +175,7 @@ end
 
 %% RE-BUILD DATFILE
 %appropriate releases should now be in opt.rls
-[id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
+[id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out, elementsetloc] = build_datfile(nodes,elements,nprops,eprops,opt,opt.mode);
 
 %% SIMULATE STATICS
 try 
@@ -236,7 +236,7 @@ end
 try
     %get results
     %note: calc_results needs a results struct as input since it can already contain some fields
-    results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results);
+    results = calc_results(E_list, elementsetloc, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results);
 catch msg
     err(['A problem occurred processing simulation results. See ' opt.filename '.log for more information.'])
 end
@@ -247,7 +247,7 @@ warning backtrace on
 % END OF SPACARLIGHT MAIN 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 
-    function [id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
+    function [id_inputx, id_inputf, E_list, label_transfer_in, label_transfer_out, elementsetloc] = build_datfile(nodes,elements,nprops,eprops,opt,mode)
         %returns E_list (amongst others):
         % spalight element i is represented by spacar beams E_list(i,:)
         
@@ -340,6 +340,9 @@ warning backtrace on
                     end
                 end
             end
+            
+            elementsetloc(i) = i_set;
+
             if i_set == 0 %defaults for if element does not exist in any element set
                 N = 1;
                 Orien = [0 1 0];
@@ -1850,7 +1853,7 @@ warning backtrace on
     end
 
 %% AUXILIARY FUNCTIONS
-    function results = calc_results(E_list, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results)
+    function results = calc_results(E_list, elementsetloc, id_inputf, id_inputx, nodes, eprops, opt, label_transfer_in, label_transfer_out, results)
         filename = opt.filename;
         nddof   = getfrsbf([filename '.sbd'],'nddof'); %number of dynamic DOFs
         t_list  =  1:getfrsbf([filename,'.sbd'],'tdef'); %list of timesteps
@@ -2013,6 +2016,15 @@ warning backtrace on
             
             ii = E_list(j,:)>0; %only select elementnrs larger than zero (because of standard padding to largest row size occuring)
             results.element(j).spa_nrs = E_list(j,ii);
+            
+            xp = nodes(elements(j,1),:);
+            xq = nodes(elements(j,2),:);
+            L0_full = norm(xq-xp);
+            nbeams = eprops(elementsetloc(j)).nbeams;
+            if isempty(nbeams)
+                nbeams = 1;
+            end
+            results.element(j).L0 = L0_full/nbeams*ones(1,nbeams);
 
         end
 
