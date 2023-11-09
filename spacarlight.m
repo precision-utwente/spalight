@@ -457,7 +457,7 @@ warning backtrace on
             end
             
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
-            x_count = x_count+3; %increase node counter by 3 (+1 for rotation node, +1 for warping node)
+            % x_count = x_count+3; %increase node counter by 3 (+1 for rotation node, +1 for warping node)
             
         end
         
@@ -546,6 +546,18 @@ warning backtrace on
             node = warping_fix(i);
             pr_fix= sprintf('%s\nFIX\t\t%3u  #warping',pr_fix,node);
         end
+
+        %CUSTOM KINEMATIC SETTINGS
+        pr_kin = sprintf('#CUSTOM KINEMATICS COMMANDS\n');
+        try
+            if(isfield(opt,'customkin') && ~isempty(opt.customkin))
+                for i=1:size(opt.customkin,2)
+                    pr_kin = sprintf('%s\n%s',pr_kin,opt.customkin{i});
+                end
+            end
+        catch msg
+            err('opt.customkin input issue')
+        end
         
         %% STIFFNESS/INERTIA PROPS
         pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z\t\t\t\t\tEIw');
@@ -580,15 +592,15 @@ warning backtrace on
                     stiffness = calc_stiffness(eprops(i)); %calculate stiffness values
                     for j=1:length(eprops(i).elems) %loop over all elements in element property set
                         
-                        %CHECK CONSTRAINT WARPING PROPERTIES
-                        if strcmp(eprops(i).cshape,'rect')
-                            L = norm(nodes(elements(eprops(i).elems(j),2),:)...
-                                - nodes(elements(eprops(i).elems(j),1),:));
-                            aspect = L/max(eprops(i).dim);
-                            if aspect < 3 && mode ~= 0 && ~(isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
-                                warn('Aspect ratio of element %i is smaller than 3; consider (constrained) warping.',eprops(i).elems(j));
-                            end
-                        end                        
+                        % %CHECK CONSTRAINT WARPING PROPERTIES
+                        % if strcmp(eprops(i).cshape,'rect')
+                        %     L = norm(nodes(elements(eprops(i).elems(j),2),:)...
+                        %         - nodes(elements(eprops(i).elems(j),1),:));
+                        %     aspect = L/max(eprops(i).dim);
+                        %     if aspect < 3 && mode ~= 0 && ~(isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true)
+                        %         warn('Aspect ratio of element %i is smaller than 3; consider (constrained) warping.',eprops(i).elems(j));
+                        %     end
+                        % end                        
                         
                         
                         for k=1:size(E_list,2) %write mass/inertia values
@@ -835,7 +847,7 @@ warning backtrace on
             pr_vis = sprintf('%s\nFACECOLOR\t  %3f %3f %3f',pr_vis,no_set_color(1),no_set_color(2),no_set_color(3));
         end
         try
-            if(isfield(opt,'customvis') && ~isempty(opt.customvis));
+            if(isfield(opt,'customvis') && ~isempty(opt.customvis))
                 for i=1:size(opt.customvis,2)
                     pr_vis = sprintf('%s\n%s',pr_vis,opt.customvis{i});
                 end
@@ -851,6 +863,7 @@ warning backtrace on
         print_dat(fileID,'%s\n\n\n\n',pr_D);
         print_dat(fileID,'%s\n\n\n\n',pr_fix);
         print_dat(fileID,'%s\n\n\n',pr_input);
+        print_dat(fileID,'%s\n\n\n',pr_kin);
         fprintf(fileID,'\nEND\nHALT\n\n\n');
         print_dat(fileID,'%s\n\n\n\n',pr_stiff);
         print_dat(fileID,'%s\n\n\n\n',pr_mass);
@@ -915,6 +928,10 @@ warning backtrace on
             nunder = nsing;
         end
         
+        %%%%%
+        % nunder = 0;
+        %%%%%
+
         if nunder>0 %underconstrained
             warn('System is underconstrained. Check element connectivity, boundary conditions and releases.')
             exactconstr = false;
@@ -1586,7 +1603,7 @@ warning backtrace on
             
             %CHECK OPTIONAL ARGUMENTS
             if (exist('opt','var') && ~isempty(opt))
-                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis','customdyn','spavisual'};
+                allowed_opts = {'filename','gravity','silent','calcbuck','showinputonly','loadsteps','rls','mode','transfer','calccompl','customvis','customdyn','customkin','spavisual','rigidstress','stressperelement'};
                 supplied_opts = fieldnames(opt);
                 unknown_opts_i = ~ismember(supplied_opts,allowed_opts);
                 if any(unknown_opts_i)
@@ -1960,22 +1977,60 @@ warning backtrace on
             D       = diag(D);
             [~,o]   = sort(abs(D(:)));
             d       = D(o);
+            V       = V(:,o);
+            V = V*diag(1./sqrt(diag(V'*V)));
             results.step(i).freq = sqrt(d)*1/(2*pi); %per loadstep
             results.freq(1:length(d),i) = results.step(i).freq; %for all loadsteps
+            results.step(i).freqmodes = V;
             
             %BUCKLING
             if calcbuck
                 [~,loadmult] = eig(-K0,G0);
                 results.step(i).buck = sort(abs(diag(loadmult))); %per loadstep
                 results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
+
+                % [V,D] = eig(-K0,G0);
+                % D = diag(D);
+                % [f,o] = sortrows([abs(D(:)) V']);
+                % V = f(:,2:end)';
+                % results.step(i).buck = D(o); %per loadstep
+                % results.buck(1:nddof,i) = results.step(i).buck; %for all loadsteps
+                % results.step(i).buckmode = V;
+                
             end
             
             %MAXIMUM STRESS
-            [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
+            % [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops);
+            if isfield(opt,'rigidstress') 
+                if opt.rigidstress
+                    skipRigid = false;
+                else
+                    skipRigid = true;
+                end
+            else
+                %default if not specified: hide rigid stress
+                skipRigid = true;
+            end
+            [propcrossect, Sig_nums] = calc_propcrossect(1:size(elements,1),E_list,eprops,skipRigid);
             opt_stress.exterior = true; %only calculate exterior stresses (not possible for circ cross-section)
             [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,opt_stress,propcrossect);
+            
             results.step(i).stressmax = stressextrema.max*1e6; %per loadstep
             results.stressmax(i) = results.step(i).stressmax; %for all loadsteps
+
+            if (isfield(opt,'stressperelement') && opt.stressperelement)
+                
+                opt_stress.exterior = true; %only calculate exterior stresses (not possible for circ cross-section)
+                for j=1:size(elements,1)
+                    [propcrossect, Sig_nums] = calc_propcrossect(j,E_list,eprops,false);
+                    if ~isempty(Sig_nums)
+                        [~,~,~,stressextrema] = stressbeam([filename,'.sbd'],Sig_nums,i,opt_stress,propcrossect);
+                        results.step(i).element(j).stressmax = stressextrema.max*1e6;
+                    end
+                end
+
+            end
+
             
             if opt.mode==9
                 sys_ss = getss(filename);
@@ -2020,7 +2075,12 @@ warning backtrace on
             xp = nodes(elements(j,1),:);
             xq = nodes(elements(j,2),:);
             L0_full = norm(xq-xp);
-            nbeams = eprops(elementsetloc(j)).nbeams;
+            if elementsetloc(j) ~= 0
+                nbeams = eprops(elementsetloc(j)).nbeams;
+            else
+                nbeams = 1;
+            end
+            
             if isempty(nbeams)
                 nbeams = 1;
             end
@@ -2317,13 +2377,16 @@ warning backtrace on
         end
     end
 
-    function [propcrossect, Sig_nums]  = calc_propcrossect(E_list,eprops)
+    function [propcrossect, Sig_nums]  = calc_propcrossect(spalightelements,E_list,eprops,skipRigid)
         %restructure crossectional properties to evaluate stresses throuqh
         %stressbeam.m
+        %spalightelements contains the spacar light elements for which the
+        %properties should be computed.
         
         propcrossect = [];Sig_nums = [];
         
-        for i=1:size(E_list,1)
+        % for i=1:size(E_list,1)
+        for i=spalightelements
             id=[];
             for j=1:size(eprops,2)
                 for k=1:length(eprops(j).elems)
@@ -2333,23 +2396,24 @@ warning backtrace on
                 end
             end
             if ~isempty(id)
-                if (isfield(eprops(id),'flex') && ~isempty(eprops(id).flex))
-                    Elements = E_list(i,:);
-                    Elements(Elements==0) = [];
-                    Sig_nums = [Sig_nums Elements];
-                    
-                    switch eprops(id).cshape
-                        case 'rect'
-                            for j=1:length(Elements)
-                                propcrossect(end+1).CrossSection = 'rect';
-                                propcrossect(end).Dimensions = [eprops(id).dim(1),eprops(id).dim(2)];
-                            end
-                        case 'circ'
-                            for j=1:length(Elements)
-                                propcrossect(end+1).CrossSection = 'circ';
-                                propcrossect(end).Dimensions = eprops(id).dim(1);
-                            end
-                    end
+                if ~(isfield(eprops(id),'flex') && ~isempty(eprops(id).flex)) && skipRigid
+                    continue;
+                end 
+                Elements = E_list(i,:);
+                Elements(Elements==0) = [];
+                Sig_nums = [Sig_nums Elements];
+                
+                switch eprops(id).cshape
+                    case 'rect'
+                        for j=1:length(Elements)
+                            propcrossect(end+1).CrossSection = 'rect';
+                            propcrossect(end).Dimensions = [eprops(id).dim(1),eprops(id).dim(2)];
+                        end
+                    case 'circ'
+                        for j=1:length(Elements)
+                            propcrossect(end+1).CrossSection = 'circ';
+                            propcrossect(end).Dimensions = eprops(id).dim(1);
+                        end
                 end
             end
         end
