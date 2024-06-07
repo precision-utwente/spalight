@@ -47,10 +47,21 @@ switch nargin
         %don't use custom err() function here, because it relies on things not defined at this point
         error('No input was provided.'); 
     case 1
-        warn('Incomplete input; no simulation is run.');
-        % validate only nodes
-        [nodes] = validateInput(varargin{:});
-        return
+        if isnumeric(varargin{1})
+            warn('Incomplete input; no simulation is run.');
+            % validate only nodes
+            [nodes] = validateInput(varargin{:});
+            return
+        elseif isstruct(varargin{1})
+            % validate nodes, elements, nprops and eprops
+            input = varargin{1};
+            if isfield(input,'opt')
+                [nodes,elements,nprops,eprops,opt] = validateInput(input.coordinates, input.connect, input.nprops, input.eprops, input.opt);
+            else
+                [nodes,elements,nprops,eprops] = validateInput(input.coordinates, input.connect, input.nprops, input.eprops);
+            end
+            % attempt simulation
+        end
     case 2
         warn('Incomplete input; no simulation is run.');
         % validate only nodes and elements
@@ -1523,10 +1534,10 @@ warning backtrace on
                             if ~(isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); err('Property smod is not defined in eprops(%u)',i);     end
                             if ~(isfield(eprops(i),'dens') && ~isempty(eprops(i).dens)); err('Property dens is not defined in eprops(%u)',i);     end
                             
-                            if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true && ...
-                                isfield(eprops(i),'nbeams') && (isempty(eprops(i).nbeams) || (~isempty(eprops(i).nbeams) && eprops(i).nbeams < 3)))
-                                warn('When modeling warping, check convergence when eprops(%i).nbeams is small (< 3)',i);
-                            end
+                            % if (isfield(eprops(i),'warping') && ~isempty(eprops(i).warping) && eprops(i).warping == true && ...
+                            %     isfield(eprops(i),'nbeams') && (isempty(eprops(i).nbeams) || (~isempty(eprops(i).nbeams) && eprops(i).nbeams < 3)))
+                            %     warn('When modeling warping, check convergence when eprops(%i).nbeams is small (< 3)',i);
+                            % end
                         else
                             eprops(i).flex = [];
                             if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
@@ -1977,11 +1988,11 @@ warning backtrace on
             D       = diag(D);
             [~,o]   = sort(abs(D(:)));
             d       = D(o);
-            V       = V(:,o);
-            V = V*diag(1./sqrt(diag(V'*V)));
+            V = V*diag(1./sqrt(diag(V.'*M0*V))); %mass normalization - this is used later on for modal damping as well
+            
             results.step(i).freq = sqrt(d)*1/(2*pi); %per loadstep
             results.freq(1:length(d),i) = results.step(i).freq; %for all loadsteps
-            results.step(i).freqmodes = V;
+            results.step(i).freqmodes = V(:,o); %sorting according to ascending eigenval (check this)
             
             %BUCKLING
             if calcbuck
@@ -2037,7 +2048,8 @@ warning backtrace on
                 if length(opt.transfer) == 2 %relative damping has been specified
                     reldamp = opt.transfer{2};
                     nstates = size(sys_ss.a,1);
-                    V = V*diag(1./sqrt(diag(V.'*M0*V))); %modeshapes mass-orthonormal
+                    % not necessary here, already happens before:
+                    % V = V*diag(1./sqrt(diag(V.'*M0*V))); %modeshapes mass-orthonormal
                     %             V*diag(D)*V'*M0 %M\K
                     %             V*2*reldamp*diag(sqrt(D))*V'*M0; %M\D
                     sys_ss.a(nstates/2+1:nstates,nstates/2+1:nstates) = ...
@@ -2076,7 +2088,11 @@ warning backtrace on
             xq = nodes(elements(j,2),:);
             L0_full = norm(xq-xp);
             if elementsetloc(j) ~= 0
-                nbeams = eprops(elementsetloc(j)).nbeams;
+                if isfield(eprops(elementsetloc(j)),'nbeams')
+                    nbeams = eprops(elementsetloc(j)).nbeams;
+                else
+                    nbeams = 1;
+                end
             else
                 nbeams = 1;
             end
@@ -2398,7 +2414,10 @@ warning backtrace on
             if ~isempty(id)
                 if ~(isfield(eprops(id),'flex') && ~isempty(eprops(id).flex)) && skipRigid
                     continue;
-                end 
+                end
+                if ~isfield(eprops(id), 'cshape') || (isfield(eprops(id), 'cshape') && isempty(eprops(id).cshape))
+                    continue
+                end
                 Elements = E_list(i,:);
                 Elements(Elements==0) = [];
                 Sig_nums = [Sig_nums Elements];
