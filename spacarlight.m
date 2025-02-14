@@ -349,6 +349,13 @@ warning backtrace on
                        %Store the p and q-node, in order to fix (if not already specified by user) the warping later on
                        warping_fix(end+(1:2)) = [(N_p-1)*3+3 (N_q-1)*3+3]; 
                     end
+
+                    if isfield(eprops(j),'type') && ~isempty(eprops(j).type) && strcmp(eprops(j).type,'hinge')
+                        hinge = true;
+                    else
+                        hinge = false;
+                    end
+
                 end
             end
             
@@ -360,111 +367,128 @@ warning backtrace on
                 Flex = [];
             end
             
-            if N>1 %if more than 1 beam
-                X_p = nodes(N_p,1:3);   %Location p-node
-                X_q = nodes(N_q,1:3);   %Location q-node
-                V   = X_q - X_p;        %Vector from p to q-node
-                
-                %create additional intermediate nodes
-                for k = 1:N-1
-                    
-                    X = X_p+V/N*k;              %intermediate node position
-                    pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node',pr_N,x_count,X(1),X(2),X(3));
-                    X_list(i,k+1) = x_count;    %add intermediate node to X_list
-                    
-                    if ~warping
-                        if k==1 %if the first beam, connect to p-node and first intermediate node
-                            pr_E = sprintf(beam_multiple,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),i,k);
-                        else    %if not the first beam, connect to two intermediate nodes
-                            pr_E = sprintf(beam_multiple,pr_E,e_count,x_count-3,x_count-2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),i,k);
-                        end
-                    else
-                        if k==1 %if the first beam, connect to p-node and first intermediate node
-                            pr_E = sprintf(beamw_multiple,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),i,k);
-                        else    %if not the first beam, connect to two intermediate nodes
-                            pr_E = sprintf(beamw_multiple,pr_E,e_count,x_count-3,x_count-2,x_count-1,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),i,k);
-                        end
-                    end
-                    
-                    if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
-                        pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                        for m=1:length(Flex) %loop over all flexible deformation modes
-                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                        end
-                    end
-   
-                    if warping && isempty(Flex)
-                       %see earlier note
-                       %also add intermediate nodes now
-                       warping_fix(end+1) = x_count+2;
-                    end
-                    
-                    E_list(i,k) = e_count;      %add beam number to E_list
-                    e_count     = e_count+1;    %increase beam counter by 1
-                    x_count     = x_count+3;    %increase node counter by 2 (+1 for rotation node, +1 for warping node)
-                end
-                
-                %for the last beam in element i, connect to last intermediate node and q-node
-                if ~warping
-                    pr_E = sprintf(beam_multiple,pr_E,e_count,x_count-3,x_count-2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i,k+1);
-                else
-                    pr_E = sprintf(beamw_multiple,pr_E,e_count,x_count-3,x_count-2,x_count-1,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),i,k+1);
-                end
-                
-                X_list(i,k+2) = N_q;        %add q-node to X_list
-                E_list(i,k+1) = e_count;    %add beam number to E_list
-                
-            else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
-                if ~warping
-                    pr_E = sprintf(beam_single,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i);
-                else
-                    pr_E =sprintf(beamw_single,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),i);
-                end
-                
+            if hinge
+                hinge_format = '%s\nHINGE       %4u%4u%4u %6f\t%6f\t%6f\t#element %i hinge';
+                pinbody_format = '%s\nPINBODY       %4u%4u%4u%4u #element %i pinbody';
+                pr_E =sprintf(hinge_format,pr_E,e_count,(N_p-1)*3+2,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i);
+                pr_E =sprintf(pinbody_format,pr_E,e_count+1,(N_p-1)*3+1,(N_p-1)*3+2,(N_q-1)*3+1,i);
                 X_list(i,2) = N_q;          %add q-node to X_list
-                E_list(i,1) = e_count;      %add beam number to E_list
-                
-
-            end
+                E_list(i,1:2) = [e_count e_count+1];      %add hinge and pinbody number to E_list
+                e_count = e_count+1;
+            else
+                %%%
+                %code for beam and beamw
+                %%%
+                if N>1 %if more than 1 beam
+                    X_p = nodes(N_p,1:3);   %Location p-node
+                    X_q = nodes(N_q,1:3);   %Location q-node
+                    V   = X_q - X_p;        %Vector from p to q-node
+                    
+                    %create additional intermediate nodes
+                    for k = 1:N-1
+                        
+                        X = X_p+V/N*k;              %intermediate node position
+                        pr_N = sprintf('%s\nX\t\t%3u\t\t\t%6f\t%6f\t%6f\t\t#intermediate node',pr_N,x_count,X(1),X(2),X(3));
+                        X_list(i,k+1) = x_count;    %add intermediate node to X_list
+                        
+                        if ~warping
+                            if k==1 %if the first beam, connect to p-node and first intermediate node
+                                pr_E = sprintf(beam_multiple,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),i,k);
+                            else    %if not the first beam, connect to two intermediate nodes
+                                pr_E = sprintf(beam_multiple,pr_E,e_count,x_count-3,x_count-2,x_count,x_count+1,Orien(1),Orien(2),Orien(3),i,k);
+                            end
+                        else
+                            if k==1 %if the first beam, connect to p-node and first intermediate node
+                                pr_E = sprintf(beamw_multiple,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),i,k);
+                            else    %if not the first beam, connect to two intermediate nodes
+                                pr_E = sprintf(beamw_multiple,pr_E,e_count,x_count-3,x_count-2,x_count-1,x_count,x_count+1,x_count+2,Orien(1),Orien(2),Orien(3),i,k);
+                            end
+                        end
+                        
+                        if ~isempty(Flex)        %if element has flexibility, add dyne (no rlse, rlse is only added to last beam in element i)
+                            pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                            for m=1:length(Flex) %loop over all flexible deformation modes
+                                pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                            end
+                        end
+       
+                        if warping && isempty(Flex)
+                           %see earlier note
+                           %also add intermediate nodes now
+                           warping_fix(end+1) = x_count+2;
+                        end
+                        
+                        E_list(i,k) = e_count;      %add beam number to E_list
+                        e_count     = e_count+1;    %increase beam counter by 1
+                        x_count     = x_count+3;    %increase node counter by 2 (+1 for rotation node, +1 for warping node)
+                    end
+                    
+                    %for the last beam in element i, connect to last intermediate node and q-node
+                    if ~warping
+                        pr_E = sprintf(beam_multiple,pr_E,e_count,x_count-3,x_count-2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i,k+1);
+                    else
+                        pr_E = sprintf(beamw_multiple,pr_E,e_count,x_count-3,x_count-2,x_count-1,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),i,k+1);
+                    end
+                    
+                    X_list(i,k+2) = N_q;        %add q-node to X_list
+                    E_list(i,k+1) = e_count;    %add beam number to E_list
+                    
+                else %if only a single beam is used, directly connect to p and q-node without intermediate noodes
+                    if ~warping
+                        pr_E = sprintf(beam_single,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_q-1)*3+1,(N_q-1)*3+2,Orien(1),Orien(2),Orien(3),i);
+                    else
+                        pr_E =sprintf(beamw_single,pr_E,e_count,(N_p-1)*3+1,(N_p-1)*3+2,(N_p-1)*3+3,(N_q-1)*3+1,(N_q-1)*3+2,(N_q-1)*3+3,Orien(1),Orien(2),Orien(3),i);
+                    end
+                    
+                    X_list(i,2) = N_q;          %add q-node to X_list
+                    E_list(i,1) = e_count;      %add beam number to E_list
+                    
+    
+                end %end of beam/beamw code
+            end %end of hinge code
+            
             
             %for the last beam only, add dyne and/or rlse
             
-
-            if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
-                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                for m=1:length(Flex)    %loop over all flexible deformation modes
-                    pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
-                end
-            else%if some rls are specified
-                %compensate size of rls if size is smaller than element list
-                if i>size(opt.rls,2)
-                    opt.rls(i).def = [];
-                end
-                
-                % add dyne
-                if ~isempty(Flex)                           %if some flexibility is specified
-                    dyn_added = false;                      %reset identifier to check if string 'dyne' is added
-                    for m=1:length(Flex)                    %loop over all flexible deformation modes
-                        if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
-                            if ~dyn_added                   %only add string 'dyne' if it is not yet added
-                                pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
-                                dyn_added = true;           %set 'dyne' identifier
+            if ~hinge
+                if ((~isfield(opt,'rls') || isempty(opt.rls)) && ~isempty(Flex)) %if no rlse, add all flexible deformation modes as dyne
+                    pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                    for m=1:length(Flex)    %loop over all flexible deformation modes
+                        pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
+                    end
+                else%if some rls are specified
+                    %compensate size of rls if size is smaller than element list
+                    if i>size(opt.rls,2)
+                        opt.rls(i).def = [];
+                    end
+                    
+                    % add dyne
+                    if ~isempty(Flex)                           %if some flexibility is specified
+                        dyn_added = false;                      %reset identifier to check if string 'dyne' is added
+                        for m=1:length(Flex)                    %loop over all flexible deformation modes
+                            if ~(sum(opt.rls(i).def==Flex(m))>0)   %if flexible deformation mode is not a rlse, it is dyne
+                                if ~dyn_added                   %only add string 'dyne' if it is not yet added
+                                    pr_D = sprintf('%s\nDYNE\t\t%3u\t',pr_D,e_count);
+                                    dyn_added = true;           %set 'dyne' identifier
+                                end
+                                pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                             end
-                            pr_D = sprintf('%s\t%3u',pr_D,Flex(m));
                         end
                     end
-                end
-                
-                
-                % add rlse
-                rlse_added = false;                    %reset identifier to check if string 'rlse' is added
-                for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
-                    if ~rlse_added                     %only add string 'rlse' if it is not yet added
-                        pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
-                        rlse_added = true;
+                    
+                    
+                    % add rlse
+                    rlse_added = false;                    %reset identifier to check if string 'rlse' is added
+                    for m=1:length(opt.rls(i).def)             %loop over all released deformation modes
+                        if ~rlse_added                     %only add string 'rlse' if it is not yet added
+                            pr_D = sprintf('%s\nRLSE\t\t%3u\t',pr_D,e_count);
+                            rlse_added = true;
+                        end
+                        pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
                     end
-                    pr_D = sprintf('%s\t%3u',pr_D,opt.rls(i).def(m));
                 end
+            else %hinge code
+                pr_D = sprintf('%s\nDYNE\t\t%3u\t\t%3u',pr_D,e_count-1,1); %at this point e_count-1 is the hinge, e_count is the pinbody
             end
             
             e_count = e_count+1; %increase beam counter by 1 for last beam in the element
@@ -574,6 +598,16 @@ warning backtrace on
         pr_stiff = sprintf('#STIFFNESS\t Ne\tEA\t\t\t\t\t\t\tGJ\t\t\t\t\t\tEIy\t\t\t\t\t\tEIz\t\t\t\t\t\tShear Y\t\t\t\t\tShear Z\t\t\t\t\tEIw');
         pr_mass = sprintf('#MASS\t\t Ne\t\t\tM/L\t\t\t\t\t\tJxx/L\t\t\t\t\tJyy/L\t\t\t\t\tJzz/L\t\t\t\t\tJyz/L\t\t\t\t\tJw/L');
         for i=1:size(eprops,2) %loop over each element property set
+            % if (isfield(eprops(i),'type') && ~isempty(eprops(i).type) && strcmp(eprops(i).type,'hinge')) 
+            %     for j=1:length(eprops(i).elems) %loop over all elements in element property set
+            %         for k=1:size(E_list,2) %write mass/inertia values
+            %             El = E_list(eprops(i).elems(j),k); %loop over all beams in element set
+            %             if El>0
+            %                 pr_mass = sprintf('%s\nEM\t\t\t%3u\t\t0.1\t\t0.1\t\t0.1',pr_mass,El);
+            %             end
+            %         end
+            %     end
+            % end
             if (isfield(eprops(i),'dens') && ~isempty(eprops(i).dens) && eprops(i).dens>0) 
                 inertia = calc_inertia(eprops(i));     %calculate mass properties
                 for j=1:length(eprops(i).elems) %loop over all elements in element property set
@@ -789,6 +823,9 @@ warning backtrace on
         pr_vis = sprintf('%s\n\nINITIAL\nCOLOR\t\t%.2f\t%.2f\t%.2f',pr_vis,ini_color(1),ini_color(2),ini_color(3));
         
         for i=1:size(eprops,2) %loop over all element property sets
+            if (isfield(eprops(i),'type') && ~isempty(eprops(i).type) && strcmp(eprops(i).type,'hinge'))
+                break %stop visualization code
+            end
             %CROSSECTIONAL DIMENSIONS
             if (isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape))
                 pr_vis = sprintf('%s\n\nBEAMPROPS',pr_vis);
@@ -1165,11 +1202,15 @@ warning backtrace on
                     warn('Multiple elements seem connected between the same node pair.');
                 end
                 
-                ensure_idelret(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5,'length seems smaller than 0.00001.')
+                if any(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5)
+                    warn('Length of some element seems smaller than 0.00001.')
+                end
                 
                 maxlength = max(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
                 minlength = min(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
-                ensure(maxlength/minlength<=1000,'Ratio between element lengths seems larger than 1000.');
+                if maxlength/minlength<=1000
+                    warn('Ratio between element lengths seems larger than 1000.')
+                end
                 
             end
             
@@ -1375,7 +1416,7 @@ warning backtrace on
             
             %CHECK EPROPS INPUT VARIABLE
             if exist('eprops','var')
-                allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw','warping'};
+                allowed_eprops = {'elems','emod','smod','dens','cshape','dim','orien','nbeams','flex','color','hide','opacity','cw','warping','type'};
                 supplied_eprops = fieldnames(eprops);
                 unknown_eprops_i = ~ismember(supplied_eprops,allowed_eprops);
                 if any(unknown_eprops_i)
@@ -1416,6 +1457,19 @@ warning backtrace on
                         %%%%%%%%%%%
                         
                         %%%%%%%%%%%%%%%
+
+                        %check for clashes between inputs when hinge type
+                        %is specified
+                        if isfield(eprops(i),'type') && ~isempty(eprops(i).type) && strcmp(eprops(i).type,'hinge')
+                            if isfield(eprops(i),'nbeams') && ~isempty(eprops(i).nbeams); err('Do not use nbeams in eprops with hinge types.'); end
+                            if isfield(eprops(i),'dens') && ~isempty(eprops(i).dens); err('Do not use dens in eprops with hinge types.'); end
+                            if isfield(eprops(i),'flex') && ~isempty(eprops(i).flex); err('Do not use flex in eprops with hinge types.'); end
+                            if isfield(eprops(i),'dim') && ~isempty(eprops(i).dim); err('Do not use dim in eprops with hinge types.'); end
+                            if isfield(eprops(i),'cshape') && ~isempty(eprops(i).cshape); err('Do not use cshape in eprops with hinge types.'); end
+                            if ~(isfield(eprops(i),'orien') && ~isempty(eprops(i).orien)); err('Property orien is not defined in eprops(%u)',i); end
+                        end
+
+
                         %validate other properties that are specified
                         if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod));     validateattributes(eprops(i).emod,{'double'},{'scalar'},'',   sprintf('emod property in eprops(%u)',i)); end
                         if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod));     validateattributes(eprops(i).smod,{'double'},{'scalar'},'',   sprintf('smod property in eprops(%u)',i)); end
@@ -1543,6 +1597,7 @@ warning backtrace on
                             if (isfield(eprops(i),'emod') && ~isempty(eprops(i).emod)); warn('Property eprops(%u).emod is redundant without the flex property.',i);     end
                             if (isfield(eprops(i),'smod') && ~isempty(eprops(i).smod)); warn('Property eprops(%u).smod is redundant without the flex property.',i);     end
                         end
+
                     end
                 end
                 
@@ -1888,6 +1943,7 @@ warning backtrace on
         lnp     = getfrsbf([filename,'.sbd'],'lnp'); %lnp data
         ln      = getfrsbf([filename,'.sbd'],'ln'); %ln data
         le      = getfrsbf([filename,'.sbd'],'le'); %ln data
+        it      = getfrsbf([filename,'.sbd'],'it'); %ln data
         rxyz    = getfrsbf([filename,'.sbd'],'rxyz'); %rxyz (initial rotation of element wrt rot-node)
         
         if nddof == 0
@@ -1978,7 +2034,17 @@ warning backtrace on
                 spa_nrs = E_list(j,ii);
                 
                 for k=1:length(spa_nrs)
-                    results.step(i).element(j).e(k,1:6) = e(i,le(spa_nrs(k),1:6));
+                    switch it(spa_nrs(k))
+                        case 1 %beam
+                            idx = 1:6;
+                        case 3 %hinge
+                            idx = 1:3;
+                        case 9 %pinbody
+                            idx = 1:3;
+                        case 18 %beamw
+                            idx = 1:6;
+                    end
+                    results.step(i).element(j).e(k,idx) = e(i,le(spa_nrs(k),idx));
                 end
     
             end            
