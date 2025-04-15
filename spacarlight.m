@@ -176,12 +176,14 @@ catch msg
     end
 end
 
-
 %% CHECK CONSTRAINTS
 [exactconstr, opt, overconstraints] = check_constraints(opt,E_list,eprops);
 if ~exactconstr
     results.overconstraints = overconstraints;
     return;
+end
+if isfield(opt,'rls')
+    results.rls = opt.rls;
 end
 
 %% RE-BUILD DATFILE
