@@ -1971,6 +1971,7 @@ warning backtrace on
         %PROCESS RESULTS PER LOADSTEP
         x       = getfrsbf([filename '.sbd'] ,'x');
         e       = getfrsbf([filename '.sbd'] ,'e');
+        sig       = getfrsbf([filename '.sbd'] ,'sig');
         fxtot   = getfrsbf([filename '.sbd'] ,'fxt');
         M0_data = getfrsbf([filename '.sbm'] ,'m0');
         G0_data = getfrsbf([filename '.sbm'] ,'g0');
@@ -1981,6 +1982,7 @@ warning backtrace on
         if length(t_list)==1 %#ok<*BDSCI>
             x = x';
             e = e';
+            sig = sig';
             fxtot = fxtot';
         end
         
@@ -2047,6 +2049,7 @@ warning backtrace on
                             idx = 1:6;
                     end
                     results.step(i).element(j).e(k,idx) = e(i,le(spa_nrs(k),idx));
+                    results.step(i).element(j).sig(k,idx) = sig(i,le(spa_nrs(k),idx));
                 end
     
             end            
