@@ -1204,13 +1204,13 @@ warning backtrace on
                     warn('Multiple elements seem connected between the same node pair.');
                 end
                 
-                if any(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))>1e-5)
+                if any(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2))<1e-5)
                     warn('Length of some element seems smaller than 0.00001.')
                 end
                 
                 maxlength = max(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
                 minlength = min(sqrt(sum((nodes(elements(:,1),:) - nodes(elements(:,2),:)).^2,2)));
-                if maxlength/minlength<=1000
+                if maxlength/minlength>1000
                     warn('Ratio between element lengths seems larger than 1000.')
                 end
                 
