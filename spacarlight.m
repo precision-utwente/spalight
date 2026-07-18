@@ -4,7 +4,7 @@ function results = spacarlight(varargin)
 % www.spacar.nl for more information.
 %
 % Created by: M. Nijenhuis and M. Naves
-% Contact: m.naves@utwente.nl
+% Contact: m.nijenhuis@utwente.nl
 %
 % CONTRIBUTIONS
 % S.E. Boer, R.G.K.M Aarts (calc_stiffness, calc_inertia, calcTorsStiff and Spavisual functions)
@@ -27,9 +27,9 @@ function results = spacarlight(varargin)
 % - examples
 % - installation instructions
 %
-% Version 1.38
-% 07-06-2024
-sl_version = '1.38';
+% Version 1.39
+% 18-07-2026
+sl_version = '1.39';
 
 %% WARNINGS
 warning off backtrace
@@ -1959,7 +1959,7 @@ warning backtrace on
                 results.step(i).node(j).r_axang     = quat2axang(x(i,lnp((j-1)*3+2,1:4)));
                 results.step(i).node(j).r_quat      = x(i,lnp((j-1)*3+2,1:4));
                 results.step(i).node(j).Freac       = fxtot(i,lnp((j-1)*3+1,1:3));
-                results.step(i).node(j).Mreac       = fxtot(i,lnp((j-1)*3+2,2:4))/2;
+                results.step(i).node(j).Mreac       = 0.5 * EP_matQ_bar_234(x(i,lnp((j-1)*3+2,1:4))) * fxtot(i,lnp((j-1)*3+2,1:4)).';
                 
                 %also store results for all loadsteps combined
                 results.node(j).p(1:3,i)             = results.step(i).node(j).p;
@@ -2286,6 +2286,24 @@ warning backtrace on
         thetaHalf = axang(:,1)/2;
         sinThetaHalf = sin(thetaHalf);
         q = [cos(thetaHalf), v(1).*sinThetaHalf, v(2).*sinThetaHalf, v(3).*sinThetaHalf];
+    end
+
+    function M = mattilde(q)
+
+        M = zeros(3);
+        M(1,2) = -q(3);
+        M(1,3) = q(2);
+        M(2,3) = -q(1);
+        M(2,1) = q(3);
+        M(3,1) = -q(2);
+        M(3,2) = q(1);
+
+    end
+
+    function Q = EP_matQ_bar_234(EP)
+        q0  = EP(1);
+        q   = EP(2:4).';
+        Q   = [-q.';q0*eye(3)-mattilde(q)].';
     end
 
     function [CMglob, CMloc] = complt(filename,ntr,nrot)
